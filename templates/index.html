@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <title>전체 골프장 잔여 티타임 조회</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <div class="header-with-settings">
+      <h1>최저가 잔여 티타임 일괄조회</h1>
+      <button id="settings-button" title="설정" onclick="openModal()">&#9881;</button>
+    </div>
+
+    <div class="controls" style="display: flex; align-items: center; gap: 30px">
+      <div>
+        시작 날짜: <input type="date" id="start_date" /> 종료 날짜:
+        <input type="date" id="end_date" />
+        <button onclick="getGroupedTeeTime()">조회</button>
+      </div>
+      <div class="price-filter">
+        가격대:
+        <label><input type="checkbox" class="price-checkbox" value="10" /> ~10만</label>
+        <label><input type="checkbox" class="price-checkbox" value="15" /> ~15만</label>
+        <label><input type="checkbox" class="price-checkbox" value="over" /> 15만 이상</label>
+      </div>
+    </div>
+
+    <div class="hour-filter">
+      <strong>시간대 필터:</strong>
+      <label><input type="checkbox" class="hour-checkbox" value="6" />6시</label>
+      <label><input type="checkbox" class="hour-checkbox" value="7" />7시</label>
+      <label><input type="checkbox" class="hour-checkbox" value="8" />8시</label>
+      <label><input type="checkbox" class="hour-checkbox" value="9" />9시</label>
+      <label><input type="checkbox" class="hour-checkbox" value="10" />10시</label>
+      <label><input type="checkbox" class="hour-checkbox" value="11" />11시</label>
+      <label><input type="checkbox" class="hour-checkbox" value="12" />12시</label>
+      <label><input type="checkbox" class="hour-checkbox" value="13" />13시</label>
+      <label><input type="checkbox" class="hour-checkbox" value="14" />14시</label>
+      <label><input type="checkbox" class="hour-checkbox" value="15" />15시</label>
+      <label><input type="checkbox" class="hour-checkbox" value="16" />16시</label>
+      <label><input type="checkbox" class="hour-checkbox" value="17" />17시</label>
+      <label><input type="checkbox" class="hour-checkbox" value="18" />18시</label>
+      <label><input type="checkbox" class="hour-checkbox" value="19" />19시</label>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>날짜/시간대</th>
+          <!-- JS로 골프장 헤더 자동 생성 -->
+        </tr>
+      </thead>
+      <tbody id="result-body">
+        <tr>
+          <td colspan="100%">조회 결과 없음</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- 설정 모달 -->
+    <div id="settings-modal">
+      <div class="modal-content">
+        <h3>선호 골프장 설정</h3>
+        <div class="modal-tabs">
+          <button class="tab-button active" data-region="경기">경기</button>
+          <button class="tab-button" data-region="충청">충청</button>
+          <button class="tab-button" data-region="강원">강원</button>
+        </div>
+        <div id="golfclub-list"></div>
+        <div class="modal-actions button-row">
+          <button onclick="selectAllCurrentRegion(true)">전체선택</button>
+          <button onclick="selectAllCurrentRegion(false)">전체취소</button>
+          <button onclick="saveFavorites()">저장</button>
+          <button onclick="closeModal()">창닫기</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="/static/script.js" defer></script>
+  </body>
+</html>

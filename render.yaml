@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: tee-time-viewer
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10
+    disk:
+      name: data
+      mountPath: /opt/render/project/data
+
+  - type: worker
+    name: tee-time-crawler
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python crawler.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10
+    disk:
+      name: data
+      mountPath: /opt/render/project/data

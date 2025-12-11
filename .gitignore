@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+venv/
+env/
+
+# GCP
+service-account.json
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Temp/Debug
+check_db.py
+test_teescan.py
+debug_golfpang.py
+golfmon_test.py
+golpang_test.py
+extract_paths.py
+extract_urls.py
+search_context.py
+golfpang_list.html
+teescanner_booking.html
+teescanner_bundle.js
+check_mappings.py
+compare_prices.py
+crawler.py
+calculate_history.py
