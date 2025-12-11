@@ -1,81 +1,658 @@
 <!DOCTYPE html>
 <html lang="ko">
-  <head>
-    <meta charset="UTF-8" />
-    <title>전체 골프장 잔여 티타임 조회</title>
-    <link rel="stylesheet" href="/static/style.css" />
-  </head>
-  <body>
-    <div class="header-with-settings">
-      <h1>최저가 잔여 티타임 일괄조회</h1>
-      <button id="settings-button" title="설정" onclick="openModal()">&#9881;</button>
-    </div>
 
-    <div class="controls" style="display: flex; align-items: center; gap: 30px">
-      <div>
-        시작 날짜: <input type="date" id="start_date" /> 종료 날짜:
-        <input type="date" id="end_date" />
-        <button onclick="getGroupedTeeTime()">조회</button>
-      </div>
-      <div class="price-filter">
-        가격대:
-        <label><input type="checkbox" class="price-checkbox" value="10" /> ~10만</label>
-        <label><input type="checkbox" class="price-checkbox" value="15" /> ~15만</label>
-        <label><input type="checkbox" class="price-checkbox" value="over" /> 15만 이상</label>
-      </div>
-    </div>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Golf AI</title>
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #88B04B;
+            /* Pastel Green */
+            --secondary: #92A8D1;
+            /* Pastel Blue */
+            --bg: #F7F9FC;
+            --card-bg: #FFFFFF;
+            --text: #333333;
+            --text-light: #888888;
+            --accent: #FF6F61;
+            /* Pastel Red/Coral */
+        }
 
-    <div class="hour-filter">
-      <strong>시간대 필터:</strong>
-      <label><input type="checkbox" class="hour-checkbox" value="6" />6시</label>
-      <label><input type="checkbox" class="hour-checkbox" value="7" />7시</label>
-      <label><input type="checkbox" class="hour-checkbox" value="8" />8시</label>
-      <label><input type="checkbox" class="hour-checkbox" value="9" />9시</label>
-      <label><input type="checkbox" class="hour-checkbox" value="10" />10시</label>
-      <label><input type="checkbox" class="hour-checkbox" value="11" />11시</label>
-      <label><input type="checkbox" class="hour-checkbox" value="12" />12시</label>
-      <label><input type="checkbox" class="hour-checkbox" value="13" />13시</label>
-      <label><input type="checkbox" class="hour-checkbox" value="14" />14시</label>
-      <label><input type="checkbox" class="hour-checkbox" value="15" />15시</label>
-      <label><input type="checkbox" class="hour-checkbox" value="16" />16시</label>
-      <label><input type="checkbox" class="hour-checkbox" value="17" />17시</label>
-      <label><input type="checkbox" class="hour-checkbox" value="18" />18시</label>
-      <label><input type="checkbox" class="hour-checkbox" value="19" />19시</label>
-    </div>
+        body {
+            font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 0;
+            color: var(--text);
+            -webkit-tap-highlight-color: transparent;
+        }
 
-    <table>
-      <thead>
-        <tr>
-          <th>날짜/시간대</th>
-          <!-- JS로 골프장 헤더 자동 생성 -->
-        </tr>
-      </thead>
-      <tbody id="result-body">
-        <tr>
-          <td colspan="100%">조회 결과 없음</td>
-        </tr>
-      </tbody>
-    </table>
+        /* Header */
+        header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 15px 20px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
 
-    <!-- 설정 모달 -->
-    <div id="settings-modal">
-      <div class="modal-content">
-        <h3>선호 골프장 설정</h3>
-        <div class="modal-tabs">
-          <button class="tab-button active" data-region="경기">경기</button>
-          <button class="tab-button" data-region="충청">충청</button>
-          <button class="tab-button" data-region="강원">강원</button>
+        h1 {
+            margin: 0;
+            font-size: 1.2rem;
+            color: var(--primary);
+            font-weight: 700;
+        }
+
+        .settings-btn {
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            color: var(--text-light);
+            cursor: pointer;
+        }
+
+        /* Filters */
+        .filter-container {
+            padding: 15px 20px;
+            background: white;
+            margin-bottom: 10px;
+        }
+
+        .date-picker-btn {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #eee;
+            border-radius: 12px;
+            background: #f9f9f9;
+            text-align: left;
+            font-size: 0.95rem;
+            color: var(--text);
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .time-chips {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding-bottom: 5px;
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        .time-chips::-webkit-scrollbar {
+            display: none;
+        }
+
+        .chip {
+            padding: 8px 16px;
+            border-radius: 20px;
+            background: #f0f0f0;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .chip.active {
+            background: var(--secondary);
+            color: white;
+            font-weight: 600;
+            box-shadow: 0 2px 5px rgba(146, 168, 209, 0.4);
+        }
+
+        /* Card List */
+        .card-list {
+            padding: 10px 20px 80px 20px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+            transition: transform 0.2s;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+            transition: transform 0.2s;
+            border: 1px solid rgba(0, 0, 0, 0.02);
+            cursor: pointer;
+            /* Clickable */
+        }
+
+        .card.expanded {
+            background: #fdfdfd;
+            border-color: var(--primary);
+        }
+
+        .card-summary {
+            /* Layout for the summary view */
+            width: 100%;
+        }
+
+        .card-details {
+            display: none;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px dashed #eee;
+            animation: slideDown 0.3s ease-out;
+        }
+
+        .card.expanded .card-details {
+            display: block;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .detail-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #f9f9f9;
+        }
+
+        .detail-item:last-child {
+            border-bottom: none;
+        }
+
+        .card:active {
+            transform: scale(0.98);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .club-name {
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .tee-time {
+            font-weight: 600;
+            color: var(--text-light);
+            background: #f5f5f5;
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        .price-row {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .price {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: var(--primary);
+        }
+
+        .diff {
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .diff.up {
+            color: var(--accent);
+        }
+
+        .diff.down {
+            color: var(--primary);
+        }
+
+        .diff.same {
+            color: var(--text-light);
+        }
+
+        .card-footer {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: var(--text-light);
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #f5f5f5;
+        }
+
+        .source-badge {
+            background: #eee;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
+
+        /* Onboarding Modal */
+        #onboarding {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            z-index: 2000;
+            display: none;
+            /* Hidden by default */
+            flex-direction: column;
+        }
+
+        .onboarding-content {
+            padding: 20px;
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .region-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .tab {
+            padding: 10px 15px;
+            font-weight: 600;
+            color: var(--text-light);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+
+        .tab.active {
+            color: var(--primary);
+            border-bottom: 2px solid var(--primary);
+        }
+
+        .club-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .club-check {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px;
+            border: 1px solid #eee;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        .club-check.checked {
+            background: #f0f9f0;
+            border-color: var(--primary);
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        .save-btn {
+            width: 100%;
+            padding: 18px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            font-size: 1.1rem;
+            font-weight: 700;
+            position: sticky;
+            bottom: 0;
+        }
+
+        .search-btn {
+            width: 100%;
+            padding: 15px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-top: 15px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .search-btn:active {
+            transform: scale(0.98);
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-light);
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Onboarding / Settings -->
+    <div id="onboarding">
+        <header>
+            <h1>관심 구장 설정</h1>
+            <button class="settings-btn" onclick="closeSettings()"><i class="fa-solid fa-xmark"></i></button>
+        </header>
+        <div class="onboarding-content">
+            <div class="region-tabs" id="regionTabs">
+                <!-- Tabs injected by JS -->
+            </div>
+            <div class="club-grid" id="clubList">
+                <!-- Clubs injected by JS -->
+            </div>
         </div>
-        <div id="golfclub-list"></div>
-        <div class="modal-actions button-row">
-          <button onclick="selectAllCurrentRegion(true)">전체선택</button>
-          <button onclick="selectAllCurrentRegion(false)">전체취소</button>
-          <button onclick="saveFavorites()">저장</button>
-          <button onclick="closeModal()">창닫기</button>
-        </div>
-      </div>
+        <button class="save-btn" onclick="saveSettings()">저장하고 시작하기</button>
     </div>
 
-    <script src="/static/script.js" defer></script>
-  </body>
+    <!-- Main App -->
+    <header>
+        <h1>Golf AI</h1>
+        <button class="settings-btn" onclick="openSettings()"><i class="fa-solid fa-gear"></i></button>
+    </header>
+
+    <div class="filter-container">
+        <div class="date-picker-btn" id="datePickerBtn">
+            <span><i class="fa-regular fa-calendar"></i> 날짜 선택</span>
+            <i class="fa-solid fa-chevron-down"></i>
+        </div>
+        <div class="time-chips" id="timeChips">
+            <!-- Time chips injected by JS -->
+        </div>
+        <button class="search-btn" onclick="loadData()">
+            <i class="fa-solid fa-magnifying-glass"></i> 조회하기
+        </button>
+    </div>
+
+    <div class="loading" id="loading">
+        <i class="fa-solid fa-spinner fa-spin fa-2x"></i>
+        <p>최저가를 찾고 있습니다...</p>
+    </div>
+
+    <div class="card-list" id="cardList">
+        <!-- Cards injected by JS -->
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ko.js"></script>
+    <script>
+        // --- State ---
+        let allClubs = {}; // { "경기": [...], "충청": [...] }
+        let selectedClubs = new Set();
+        let selectedDates = [];
+        let selectedTimes = new Set();
+        let currentRegion = "경기";
+        let availableDates = []; // [NEW] Dates with data
+
+        // --- Init ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Service Worker
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/static/service-worker.js');
+            }
+
+            // Load Clubs
+            // Render Time Chips
+            renderTimeChips();
+
+            // Load Clubs & Available Dates
+            await Promise.all([fetchClubs(), fetchAvailableDates()]);
+
+            // Date Picker (Init after availableDates are fetched)
+            flatpickr("#datePickerBtn", {
+                mode: "multiple",
+                dateFormat: "Y-m-d",
+                minDate: "today",
+                enable: availableDates, // [NEW] Only enable dates with data
+                locale: "ko",
+                onChange: (dates, dateStr) => {
+                    selectedDates = dateStr.split(', ').filter(d => d);
+                    document.querySelector('#datePickerBtn span').innerHTML =
+                        selectedDates.length > 0 ? `<i class="fa-regular fa-calendar"></i> ${selectedDates[0]} 외 ${selectedDates.length - 1}일` : `<i class="fa-regular fa-calendar"></i> 날짜 선택`;
+                    // Removed auto-load: if (selectedDates.length > 0) loadData();
+                }
+            });
+
+            // Check LocalStorage
+            const saved = localStorage.getItem('favoriteClubs');
+            if (saved) {
+                selectedClubs = new Set(JSON.parse(saved));
+
+                // Default: Select Today if available, or first available date
+                if (availableDates.length > 0) {
+                    // Check if today is in availableDates
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    if (availableDates.includes(todayStr)) {
+                        selectedDates = [todayStr];
+                    } else {
+                        selectedDates = [availableDates[0]];
+                    }
+
+                    // Update UI
+                    document.querySelector('#datePickerBtn span').innerHTML = `<i class="fa-regular fa-calendar"></i> ${selectedDates[0]}`;
+
+                    // Initial Load
+                    loadData();
+                }
+            } else {
+                openSettings();
+            }
+        });
+
+        // --- API ---
+        async function fetchClubs() {
+            const res = await fetch('/api/clubs');
+            allClubs = await res.json();
+            renderSettings();
+        }
+
+        async function fetchAvailableDates() {
+            try {
+                const res = await fetch('/api/available_dates');
+                availableDates = await res.json();
+            } catch (e) {
+                console.error("Failed to fetch dates", e);
+            }
+        }
+
+        async function loadData() {
+            if (selectedDates.length === 0 || selectedClubs.size === 0) return;
+
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('cardList').innerHTML = '';
+
+            try {
+                const res = await fetch('/api/prices', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        dates: selectedDates,
+                        times: Array.from(selectedTimes),
+                        clubs: Array.from(selectedClubs)
+                    })
+                });
+                const data = await res.json();
+                renderCards(data);
+            } catch (e) {
+                console.error(e);
+                alert("데이터를 불러오는데 실패했습니다.");
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        // --- UI Rendering ---
+        function renderSettings() {
+            const tabs = document.getElementById('regionTabs');
+            tabs.innerHTML = '';
+            Object.keys(allClubs).forEach(region => {
+                const t = document.createElement('div');
+                t.className = `tab ${region === currentRegion ? 'active' : ''}`;
+                t.innerText = region;
+                t.onclick = () => {
+                    currentRegion = region;
+                    renderSettings(); // Re-render to update active tab and list
+                };
+                tabs.appendChild(t);
+            });
+
+            const list = document.getElementById('clubList');
+            list.innerHTML = '';
+            const clubs = allClubs[currentRegion] || [];
+            clubs.forEach(c => {
+                const el = document.createElement('div');
+                el.className = `club-check ${selectedClubs.has(c.name) ? 'checked' : ''}`;
+                el.innerHTML = `<i class="fa-solid fa-check"></i> ${c.name}`;
+                el.onclick = () => {
+                    if (selectedClubs.has(c.name)) selectedClubs.delete(c.name);
+                    else selectedClubs.add(c.name);
+                    el.classList.toggle('checked');
+                };
+                list.appendChild(el);
+            });
+        }
+
+        function renderTimeChips() {
+            const container = document.getElementById('timeChips');
+            container.innerHTML = '';
+            for (let i = 5; i <= 19; i++) {
+                const hour = i.toString().padStart(2, '0');
+                const chip = document.createElement('div');
+                chip.className = 'chip';
+                chip.innerText = `${hour}시`;
+                chip.onclick = () => toggleTime(chip, hour);
+                container.appendChild(chip);
+            }
+        }
+
+        function renderCards(items) {
+            const list = document.getElementById('cardList');
+            list.innerHTML = '';
+
+            if (items.length === 0) {
+                list.innerHTML = '<div style="text-align:center; padding:20px; color:#888;">조건에 맞는 티타임이 없습니다.</div>';
+                return;
+            }
+
+            // Group by Club
+            const grouped = {};
+            items.forEach(item => {
+                if (!grouped[item.club_name]) grouped[item.club_name] = [];
+                grouped[item.club_name].push(item);
+            });
+
+            Object.keys(grouped).forEach(clubName => {
+                const groupItems = grouped[clubName];
+                // Sort by price ascending
+                groupItems.sort((a, b) => a.price - b.price);
+                const best = groupItems[0]; // Lowest price item
+
+                const diffVal = best.diff;
+                let diffHtml = '<span class="diff same">-</span>';
+                if (diffVal > 0) diffHtml = `<span class="diff up">▲ ${diffVal.toLocaleString()}</span>`;
+                else if (diffVal < 0) diffHtml = `<span class="diff down">▼ ${Math.abs(diffVal).toLocaleString()}</span>`;
+
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.onclick = (e) => {
+                    // Toggle expansion
+                    card.classList.toggle('expanded');
+                };
+
+                // Summary View (Best Price)
+                let html = `
+                    <div class="card-summary">
+                        <div class="card-header">
+                            <span class="club-name">${best.club_name}</span>
+                            <span class="tee-time" style="background:var(--primary); color:white;">${groupItems.length}개 타임</span>
+                        </div>
+                        <div class="price-row">
+                            <span class="price">₩${best.price.toLocaleString()}~</span>
+                            ${diffHtml}
+                        </div>
+                        <div class="card-footer">
+                            <span>최저가: ${best.time} (${getDayName(best.date)})</span>
+                            <span class="source-badge">${best.source}</span>
+                        </div>
+                    </div>
+                    <div class="card-details">
+                `;
+
+                // Detail View (All Items)
+                groupItems.forEach(item => {
+                    html += `
+                        <div class="detail-item">
+                            <div>
+                                <span class="tee-time">${item.time}</span>
+                                <span style="font-size:0.8rem; color:#888; margin-left:5px;">${item.date}</span>
+                            </div>
+                            <div style="font-weight:bold;">
+                                ₩${item.price.toLocaleString()}
+                            </div>
+                        </div>
+                    `;
+                });
+
+                html += `</div>`; // Close card-details
+                card.innerHTML = html;
+                list.appendChild(card);
+            });
+        }
+
+        // --- Helpers ---
+        function openSettings() {
+            document.getElementById('onboarding').style.display = 'flex';
+            renderSettings();
+        }
+
+        function closeSettings() {
+            document.getElementById('onboarding').style.display = 'none';
+        }
+
+        function saveSettings() {
+            localStorage.setItem('favoriteClubs', JSON.stringify(Array.from(selectedClubs)));
+            closeSettings();
+            loadData();
+        }
+
+        function toggleTime(el, time) {
+            if (selectedTimes.has(time)) selectedTimes.delete(time);
+            else selectedTimes.add(time);
+            el.classList.toggle('active');
+            // Removed auto-load: loadData();
+        }
+
+        function getDayName(dateStr) {
+            const days = ['일', '월', '화', '수', '목', '금', '토'];
+            return days[new Date(dateStr).getDay()];
+        }
+    </script>
+</body>
+
 </html>

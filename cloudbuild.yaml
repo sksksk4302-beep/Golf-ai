@@ -1,11 +1,11 @@
 steps:
   # 1. Build the container image
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/$PROJECT_ID/golf-crawler:latest', '.']
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/golf-crawler:v2', '.']
 
   # 2. Push the container image
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/$PROJECT_ID/golf-crawler:latest']
+    args: ['push', 'gcr.io/$PROJECT_ID/golf-crawler:v2']
 
   # 3. Update Cloud Run Jobs (Ingest)
   # Note: The job must exist first. Run 'gcloud run jobs create ingest-job ...' manually once.
@@ -17,7 +17,7 @@ steps:
       - 'update'
       - 'ingest-job'
       - '--image'
-      - 'gcr.io/$PROJECT_ID/golf-crawler:latest'
+      - 'gcr.io/$PROJECT_ID/golf-crawler:v2'
       - '--region'
       - 'asia-northeast3'
 
@@ -31,9 +31,29 @@ steps:
       - 'update'
       - 'archive-job'
       - '--image'
-      - 'gcr.io/$PROJECT_ID/golf-crawler:latest'
+      - 'gcr.io/$PROJECT_ID/golf-crawler:v2'
       - '--region'
       - 'asia-northeast3'
 
+  # 5. Deploy to Cloud Run Service (Web App)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'golf-ai-web'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/golf-crawler:v2'
+      - '--region'
+      - 'asia-northeast3'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+      - '--port'
+      - '5000'
+
 images:
-  - 'gcr.io/$PROJECT_ID/golf-crawler:latest'
+  - 'gcr.io/$PROJECT_ID/golf-crawler:v2'
+
+options:
+  logging: CLOUD_LOGGING_ONLY

@@ -7,7 +7,7 @@ from crawler_utils import crawl_golfpang, crawl_teescan, GOLF_CLUBS
 # Configuration
 PROJECT_ID = "golf-ai-480805"
 CRED_PATH = "service-account.json"
-DAYS_TO_CRAWL = 7
+DAYS_TO_CRAWL = 14
 
 def init_firestore():
     # Use google.cloud.firestore directly to specify database
