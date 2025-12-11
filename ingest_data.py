@@ -24,19 +24,46 @@ def init_firestore():
         credentials, project = google.auth.default()
         return firestore.Client(project=PROJECT_ID, credentials=credentials, database="teetime")
 
-def save_tee_times(db, tee_times):
+def save_tee_times(db, tee_times, target_date):
+    # 1. Calculate new IDs
+    new_ids = set()
+    data_map = {}
+    
+    for item in tee_times:
+        club_safe = item['golf'].replace(" ", "").replace("/", "_")
+        doc_id = f"{item['date'].replace('-', '')}_{club_safe}_{item['time'].replace(':', '')}"
+        new_ids.add(doc_id)
+        data_map[doc_id] = item
+
+    # 2. Fetch existing IDs for this date
+    print(f"Checking for stale data on {target_date}...")
+    existing_docs = db.collection('tee_times').where('date', '==', target_date).stream()
+    existing_ids = set()
+    for doc in existing_docs:
+        existing_ids.add(doc.id)
+        
+    # 3. Identify IDs to delete
+    to_delete = existing_ids - new_ids
+    print(f"Found {len(to_delete)} stale items to delete.")
+    
+    # 4. Batch Operations
     batch = db.batch()
     count = 0
     
-    for item in tee_times:
-        # Create a unique ID: YYYYMMDD_ClubName_Time
-        # Sanitize club name for ID
-        club_safe = item['golf'].replace(" ", "").replace("/", "_")
-        doc_id = f"{item['date'].replace('-', '')}_{club_safe}_{item['time'].replace(':', '')}"
-        
+    # Delete operations
+    for doc_id in to_delete:
+        doc_ref = db.collection('tee_times').document(doc_id)
+        batch.delete(doc_ref)
+        count += 1
+        if count % 400 == 0:
+            batch.commit()
+            batch = db.batch()
+            print(f"Processed {count} operations (deletes)...")
+
+    # Upsert operations
+    for doc_id, item in data_map.items():
         doc_ref = db.collection('tee_times').document(doc_id)
         
-        # Prepare data
         data = {
             "club_name": item['golf'],
             "date": item['date'],
@@ -50,17 +77,15 @@ def save_tee_times(db, tee_times):
         
         batch.set(doc_ref, data)
         count += 1
-        
-        # Commit in batches of 500
         if count % 400 == 0:
             batch.commit()
             batch = db.batch()
-            print(f"Saved {count} items...")
+            print(f"Processed {count} operations (upserts)...")
             
     if count % 400 != 0:
         batch.commit()
         
-    print(f"Total {count} tee times saved to Firestore.")
+    print(f"Sync complete for {target_date}. Total operations: {count}")
 
 def main():
     db = init_firestore()
@@ -92,10 +117,12 @@ def main():
             
             data = data_gp + data_ts
             if data:
-                print(f"Found {len(data)} tee times. Saving to Firestore...")
-                save_tee_times(db, data)
+                print(f"Found {len(data)} tee times. Syncing with Firestore...")
+                save_tee_times(db, data, target_date)
             else:
-                print("No data found.")
+                # Even if no data found, we should run save_tee_times with empty list to clear old data
+                print("No data found. Clearing any existing data for this date...")
+                save_tee_times(db, [], target_date)
                 
         except Exception as e:
             print(f"Error processing {target_date}: {e}")
