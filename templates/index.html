@@ -60,286 +60,96 @@
             cursor: pointer;
         }
 
-        /* Filters */
+        /* Filter Layout Optimization */
         .filter-container {
             padding: 15px 20px;
             background: white;
             margin-bottom: 10px;
         }
 
+        .filter-top-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
         .date-picker-btn {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #eee;
-            border-radius: 12px;
-            background: #f9f9f9;
-            text-align: left;
-            font-size: 0.95rem;
-            color: var(--text);
-            margin-bottom: 10px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .time-chips {
-            display: flex;
-            gap: 8px;
-            overflow-x: auto;
-            padding-bottom: 5px;
-            -ms-overflow-style: none;
-            scrollbar-width: none;
-        }
-
-        .time-chips::-webkit-scrollbar {
-            display: none;
-        }
-
-        .chip {
-            padding: 8px 16px;
-            border-radius: 20px;
-            background: #f0f0f0;
-            font-size: 0.9rem;
-            white-space: nowrap;
-            cursor: pointer;
-            transition: all 0.2s;
-            border: 1px solid transparent;
-        }
-
-        .chip.active {
-            background: var(--secondary);
-            color: white;
-            font-weight: 600;
-            box-shadow: 0 2px 5px rgba(146, 168, 209, 0.4);
-        }
-
-        /* Card List */
-        .card-list {
-            padding: 10px 20px 80px 20px;
-        }
-
-        .card {
-            background: var(--card-bg);
-            border-radius: 16px;
-            padding: 20px;
-            margin-bottom: 15px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
-            transition: transform 0.2s;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
-            transition: transform 0.2s;
-            border: 1px solid rgba(0, 0, 0, 0.02);
-            cursor: pointer;
-            /* Clickable */
-        }
-
-        .card.expanded {
-            background: #fdfdfd;
-            border-color: var(--primary);
-        }
-
-        .card-summary {
-            /* Layout for the summary view */
-            width: 100%;
-        }
-
-        .card-details {
-            display: none;
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px dashed #eee;
-            animation: slideDown 0.3s ease-out;
-        }
-
-        .card.expanded .card-details {
-            display: block;
-        }
-
-        @keyframes slideDown {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .detail-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 0;
-            border-bottom: 1px solid #f9f9f9;
-        }
-
-        .detail-item:last-child {
-            border-bottom: none;
-        }
-
-        .card:active {
-            transform: scale(0.98);
-        }
-
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 10px;
-        }
-
-        .club-name {
-            font-weight: 700;
-            font-size: 1.1rem;
-        }
-
-        .tee-time {
-            font-weight: 600;
-            color: var(--text-light);
-            background: #f5f5f5;
-            padding: 4px 8px;
-            border-radius: 8px;
-            font-size: 0.9rem;
-        }
-
-        .price-row {
-            display: flex;
-            align-items: baseline;
-            gap: 8px;
-            margin-bottom: 8px;
-        }
-
-        .price {
-            font-size: 1.4rem;
-            font-weight: 800;
-            color: var(--primary);
-        }
-
-        .diff {
-            font-size: 0.85rem;
-            font-weight: 600;
-        }
-
-        .diff.up {
-            color: var(--accent);
-        }
-
-        .diff.down {
-            color: var(--primary);
-        }
-
-        .diff.same {
-            color: var(--text-light);
-        }
-
-        .card-footer {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.8rem;
-            color: var(--text-light);
-            margin-top: 12px;
-            padding-top: 12px;
-            border-top: 1px solid #f5f5f5;
-        }
-
-        .source-badge {
-            background: #eee;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 0.75rem;
-        }
-
-        /* Onboarding Modal */
-        #onboarding {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: white;
-            z-index: 2000;
-            display: none;
-            /* Hidden by default */
-            flex-direction: column;
-        }
-
-        .onboarding-content {
-            padding: 20px;
             flex: 1;
-            overflow-y: auto;
+            margin-bottom: 0;
+            /* Override previous margin */
         }
 
-        .region-tabs {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            border-bottom: 1px solid #eee;
-        }
-
-        .tab {
-            padding: 10px 15px;
-            font-weight: 600;
-            color: var(--text-light);
-            cursor: pointer;
-            border-bottom: 2px solid transparent;
-        }
-
-        .tab.active {
-            color: var(--primary);
-            border-bottom: 2px solid var(--primary);
-        }
-
-        .club-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-        }
-
-        .club-check {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 12px;
-            border: 1px solid #eee;
-            border-radius: 10px;
-            cursor: pointer;
-        }
-
-        .club-check.checked {
-            background: #f0f9f0;
-            border-color: var(--primary);
-            color: var(--primary);
-            font-weight: 600;
-        }
-
-        .save-btn {
-            width: 100%;
-            padding: 18px;
-            background: var(--primary);
-            color: white;
-            border: none;
-            font-size: 1.1rem;
-            font-weight: 700;
-            position: sticky;
-            bottom: 0;
-        }
-
-        .search-btn {
-            width: 100%;
-            padding: 15px;
+        .search-btn-small {
+            width: 50px;
             background: var(--primary);
             color: white;
             border: none;
             border-radius: 12px;
-            font-size: 1.1rem;
-            font-weight: 700;
-            margin-top: 15px;
+            font-size: 1.2rem;
             cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
-        .search-btn:active {
-            transform: scale(0.98);
+        .search-btn-small:active {
+            transform: scale(0.95);
+        }
+
+        /* Date Section Header */
+        .date-section-header {
+            padding: 20px 20px 10px 20px;
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .date-section-header::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #eee;
+        }
+
+        /* Source Colors */
+        .source-teescan {
+            color: #E57373;
+            /* Pastel Red */
+            font-weight: 700;
+        }
+
+        .source-golfpang {
+            color: #64B5F6;
+            /* Pastel Blue */
+            font-weight: 700;
+        }
+
+        /* Detail Item Layout */
+        .detail-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            /* Time | Source | Price */
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #f9f9f9;
+            font-size: 0.9rem;
+        }
+
+        .detail-row div:nth-child(1) {
+            text-align: left;
+        }
+
+        .detail-row div:nth-child(2) {
+            text-align: center;
+        }
+
+        .detail-row div:nth-child(3) {
+            text-align: right;
+            font-weight: bold;
         }
 
         /* Loading */
@@ -378,16 +188,18 @@
     </header>
 
     <div class="filter-container">
-        <div class="date-picker-btn" id="datePickerBtn">
-            <span><i class="fa-regular fa-calendar"></i> 날짜 선택</span>
-            <i class="fa-solid fa-chevron-down"></i>
+        <div class="filter-top-row">
+            <div class="date-picker-btn" id="datePickerBtn">
+                <span><i class="fa-regular fa-calendar"></i> 날짜 선택</span>
+                <i class="fa-solid fa-chevron-down"></i>
+            </div>
+            <button class="search-btn-small" onclick="loadData()">
+                <i class="fa-solid fa-magnifying-glass"></i>
+            </button>
         </div>
         <div class="time-chips" id="timeChips">
             <!-- Time chips injected by JS -->
         </div>
-        <button class="search-btn" onclick="loadData()">
-            <i class="fa-solid fa-magnifying-glass"></i> 조회하기
-        </button>
     </div>
 
     <div class="loading" id="loading">
@@ -429,13 +241,13 @@
                 mode: "multiple",
                 dateFormat: "Y-m-d",
                 minDate: "today",
-                enable: availableDates, // [NEW] Only enable dates with data
+                disableMobile: true, // [NEW] Force JS picker for better multiple date support
+                enable: availableDates,
                 locale: "ko",
                 onChange: (dates, dateStr) => {
                     selectedDates = dateStr.split(', ').filter(d => d);
                     document.querySelector('#datePickerBtn span').innerHTML =
                         selectedDates.length > 0 ? `<i class="fa-regular fa-calendar"></i> ${selectedDates[0]} 외 ${selectedDates.length - 1}일` : `<i class="fa-regular fa-calendar"></i> 날짜 선택`;
-                    // Removed auto-load: if (selectedDates.length > 0) loadData();
                 }
             });
 
@@ -560,68 +372,92 @@
                 return;
             }
 
-            // Group by Club
-            const grouped = {};
+            // 1. Group by Date
+            const byDate = {};
             items.forEach(item => {
-                if (!grouped[item.club_name]) grouped[item.club_name] = [];
-                grouped[item.club_name].push(item);
+                if (!byDate[item.date]) byDate[item.date] = [];
+                byDate[item.date].push(item);
             });
 
-            Object.keys(grouped).forEach(clubName => {
-                const groupItems = grouped[clubName];
-                // Sort by price ascending
-                groupItems.sort((a, b) => a.price - b.price);
-                const best = groupItems[0]; // Lowest price item
+            // 2. Sort Dates
+            const sortedDates = Object.keys(byDate).sort();
 
-                const diffVal = best.diff;
-                let diffHtml = '<span class="diff same">-</span>';
-                if (diffVal > 0) diffHtml = `<span class="diff up">▲ ${diffVal.toLocaleString()}</span>`;
-                else if (diffVal < 0) diffHtml = `<span class="diff down">▼ ${Math.abs(diffVal).toLocaleString()}</span>`;
+            sortedDates.forEach(date => {
+                // Render Date Header
+                const dateHeader = document.createElement('div');
+                dateHeader.className = 'date-section-header';
+                dateHeader.innerText = `${date} (${getDayName(date)})`;
+                list.appendChild(dateHeader);
 
-                const card = document.createElement('div');
-                card.className = 'card';
-                card.onclick = (e) => {
-                    // Toggle expansion
-                    card.classList.toggle('expanded');
-                };
-
-                // Summary View (Best Price)
-                let html = `
-                    <div class="card-summary">
-                        <div class="card-header">
-                            <span class="club-name">${best.club_name}</span>
-                            <span class="tee-time" style="background:var(--primary); color:white;">${groupItems.length}개 타임</span>
-                        </div>
-                        <div class="price-row">
-                            <span class="price">₩${best.price.toLocaleString()}~</span>
-                            ${diffHtml}
-                        </div>
-                        <div class="card-footer">
-                            <span>최저가: ${best.time} (${getDayName(best.date)})</span>
-                            <span class="source-badge">${best.source}</span>
-                        </div>
-                    </div>
-                    <div class="card-details">
-                `;
-
-                // Detail View (All Items)
-                groupItems.forEach(item => {
-                    html += `
-                        <div class="detail-item">
-                            <div>
-                                <span class="tee-time">${item.time}</span>
-                                <span style="font-size:0.8rem; color:#888; margin-left:5px;">${item.date}</span>
-                            </div>
-                            <div style="font-weight:bold;">
-                                ₩${item.price.toLocaleString()}
-                            </div>
-                        </div>
-                    `;
+                // 3. Group by Club within this Date
+                const byClub = {};
+                byDate[date].forEach(item => {
+                    if (!byClub[item.club_name]) byClub[item.club_name] = [];
+                    byClub[item.club_name].push(item);
                 });
 
-                html += `</div>`; // Close card-details
-                card.innerHTML = html;
-                list.appendChild(card);
+                // 4. Render Club Cards
+                Object.keys(byClub).forEach(clubName => {
+                    const groupItems = byClub[clubName];
+                    // Sort by price ascending to find best
+                    groupItems.sort((a, b) => a.price - b.price);
+                    const best = groupItems[0];
+
+                    const diffVal = best.diff;
+                    let diffHtml = '<span class="diff same">-</span>';
+                    if (diffVal > 0) diffHtml = `<span class="diff up">▲ ${diffVal.toLocaleString()}</span>`;
+                    else if (diffVal < 0) diffHtml = `<span class="diff down">▼ ${Math.abs(diffVal).toLocaleString()}</span>`;
+
+                    // Source Color Class
+                    const sourceClass = best.source.toLowerCase().includes('teescan') ? 'source-teescan' : 'source-golfpang';
+
+                    const card = document.createElement('div');
+                    card.className = 'card';
+                    card.onclick = (e) => {
+                        card.classList.toggle('expanded');
+                    };
+
+                    // Summary View
+                    let html = `
+                        <div class="card-summary">
+                            <div class="card-header">
+                                <span class="club-name">${best.club_name}</span>
+                                <span class="tee-time" style="background:var(--primary); color:white;">${groupItems.length}개 타임</span>
+                            </div>
+                            <div class="price-row">
+                                <span class="price">₩${best.price.toLocaleString()}~</span>
+                                ${diffHtml}
+                            </div>
+                            <div class="card-footer">
+                                <span>최저가: ${best.time}</span>
+                                <span class="${sourceClass}">${best.source}</span>
+                            </div>
+                        </div>
+                        <div class="card-details">
+                    `;
+
+                    // Detail View (Time | Source | Price)
+                    // Sort details by time? Or price? User said "Best price time first" for summary.
+                    // For details, usually time order is better for scheduling, or price order.
+                    // Let's sort by Price ascending as per general user preference for "Best Prices".
+                    // Or Time? "상세 타임 볼때는... 시간 / 데이터소스 / 가격"
+                    // Let's stick to Price ascending (already sorted above).
+
+                    groupItems.forEach(item => {
+                        const itemSourceClass = item.source.toLowerCase().includes('teescan') ? 'source-teescan' : 'source-golfpang';
+                        html += `
+                            <div class="detail-row">
+                                <div>${item.time}</div>
+                                <div class="${itemSourceClass}">${item.source}</div>
+                                <div>₩${item.price.toLocaleString()}</div>
+                            </div>
+                        `;
+                    });
+
+                    html += `</div>`; // Close card-details
+                    card.innerHTML = html;
+                    list.appendChild(card);
+                });
             });
         }
 

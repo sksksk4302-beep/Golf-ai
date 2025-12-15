@@ -1,0 +1,259 @@
+body { 
+  font-family: 'Segoe UI', sans-serif;
+  padding: 20px;
+  background: #f7f7f7;
+}
+
+h1 {
+  color: #333;
+}
+
+.controls label {
+  margin-right: 15px;
+}
+
+input[type="date"] {
+  padding: 5px;
+  margin-right: 10px;
+}
+
+button {
+  padding: 8px 15px;
+  background: #007acc;
+  color: white;
+  border: none;
+  border-radius: 4px;
+}
+
+button:hover {
+  background: #005f99;
+  cursor: pointer;
+}
+
+.hour-filter {
+  margin-top: 15px;
+  margin-bottom: 10px;
+}
+
+.price-filter label {
+  margin-right: 10px;
+}
+
+.hour-filter label {
+  margin-right: 10px;
+}
+
+#bonus-tip {
+  margin-top: 10px;
+  font-size: 0.9em;
+  color: #666;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1em;
+  table-layout: fixed;
+}
+
+th, td {
+  border: 1px solid #ccc;
+  padding: 6px;
+  text-align: center;
+  vertical-align: middle;
+  max-width: 80px;
+  height: 50px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+thead th {
+  position: sticky;
+  top: 0;
+  background-color: #0074D9;
+  color: white;
+  font-weight: bold;
+  z-index: 10;
+}
+
+td {
+  background-color: white;
+}
+
+td:first-child, th:first-child {
+  width: 120px;
+  background-color: #f2f2f2;
+  z-index: 11;
+}
+
+.highlight {
+  background-color: #fff3cd;
+  font-weight: bold;
+  color: #d35400;
+}
+
+.benefit-inline {
+  font-size: 0.7em;
+  color: #666;
+  margin-top: 3px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.new-date td {
+  border-top: 3px solid #444;
+  background-color: white;
+  position: relative;
+  z-index: 1;
+}
+
+#settings-button {
+  position: absolute;
+  top: 20px;
+  right: 40px;
+  font-size: 20px;
+  background: none;
+  border: none;
+  color: #333;
+  cursor: pointer;
+}
+
+#settings-modal {
+  display: none;
+  position: fixed;
+  z-index: 9999;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(30, 30, 30, 0.75);
+  backdrop-filter: blur(2px);
+}
+
+.modal-tabs {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.tab-button {
+  padding: 6px 14px;
+  border: none;
+  background: #eee;
+  cursor: pointer;
+  font-weight: bold;
+  border-radius: 5px;
+}
+
+.tab-button.active {
+  background: #007acc;
+  color: white;
+}
+
+.button-row button {
+  flex: 1;
+  margin: 4px 2px;
+  min-width: 0;
+}
+
+.modal-actions.button-row {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.modal-content {
+  background-color: white;
+  padding: 20px;
+  margin: 150px auto;
+  width: 500px;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  max-height: 70vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-content label {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.modal-actions {
+  position: sticky;
+  bottom: 0;
+  background: white;
+  padding-top: 10px;
+  border-top: 1px solid #eee;
+  margin-top: 10px;
+  text-align: right;
+}
+
+.modal-actions button {
+  margin-left: 5px;
+  padding: 6px 12px;
+  background-color: #007acc;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.modal-actions button:hover {
+  background-color: #005f99;
+}
+
+.header-with-settings {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+}
+
+.price-cell {
+  cursor: pointer;
+  font-weight: bold;
+  color: #333;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  text-decoration: none;
+}
+
+.source-icon {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  line-height: 16px;
+  text-align: center;
+  border-radius: 50%;
+  font-size: 9px;
+  font-weight: bold;
+  color: white;
+}
+
+.source-icon.teescan {
+  background-color: #e74c3c;
+}
+
+.source-icon.golfpang {
+  background-color: #3498db;
+}
+#golfclub-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+#golfclub-list label {
+  width: 48%;
+  display: inline-block;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
