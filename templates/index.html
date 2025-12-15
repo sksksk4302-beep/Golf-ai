@@ -421,25 +421,75 @@
                 display: flex !important;
             }
 
-            .card-details-desktop.desktop-only {
-                display: block !important;
+            /* Grid Layout for Desktop */
+            .cards-grid {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 16px;
+                align-items: start;
+                /* Prevent cards from stretching to match height if not needed */
             }
 
             .filter-container {
-                max-width: 760px;
+                max-width: 1200px;
+                /* Wider container for 4 columns */
                 margin: 20px auto;
                 border-radius: 16px;
             }
 
+            .card-list {
+                max-width: 1240px;
+                /* Match filter container width + padding */
+            }
+
             .main-header {
-                max-width: 800px;
+                max-width: 1240px;
                 margin: 0 auto;
                 background: transparent;
                 box-shadow: none;
             }
 
             .card {
-                cursor: default;
+                cursor: pointer;
+                /* Clickable on desktop too */
+                transition: all 0.2s ease;
+                height: fit-content;
+            }
+
+            .card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            }
+
+            /* Hidden details by default on desktop */
+            .card-details-desktop {
+                display: none !important;
+                margin-top: 12px;
+                padding-top: 12px;
+                border-top: 1px solid #eee;
+                max-height: 300px;
+                overflow-y: auto;
+            }
+
+            /* Show details when expanded */
+            .card.expanded .card-details-desktop {
+                display: block !important;
+                animation: fadeIn 0.3s ease;
+            }
+
+            .card.expanded {
+                border-color: var(--primary);
+                box-shadow: 0 0 0 1px var(--primary);
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
             }
         }
     </style>
@@ -700,10 +750,18 @@
             });
 
             Object.keys(byDate).sort().forEach(date => {
+                // Create Date Group Container
+                const dateGroup = document.createElement('div');
+                dateGroup.className = 'date-group';
+
                 const header = document.createElement('div');
                 header.className = 'date-header';
                 header.innerText = `${date} (${getDayName(date)})`;
-                list.appendChild(header);
+                dateGroup.appendChild(header);
+
+                // Grid Container for Cards
+                const grid = document.createElement('div');
+                grid.className = 'cards-grid';
 
                 const byClub = {};
                 byDate[date].forEach(item => {
@@ -723,23 +781,32 @@
                     const card = document.createElement('div');
                     card.className = 'card';
 
-                    // Mobile Click -> Open Modal
+                    // Click Handler
                     card.onclick = (e) => {
                         if (window.innerWidth < 768) {
                             openDetail(clubName, date, groupItems);
+                        } else {
+                            // Toggle expansion on desktop
+                            // Close other cards in the same grid? Optional. Let's keep multiple open allowed.
+                            card.classList.toggle('expanded');
                         }
                     };
 
-                    // Desktop Details HTML (Hidden on Mobile via CSS)
+                    // Desktop Details HTML (Hidden by default via CSS)
                     let desktopDetailsHtml = `<div class="card-details-desktop desktop-only">`;
+                    // Header for details
+                    desktopDetailsHtml += `<div style="font-size:0.8rem; color:#888; margin-bottom:8px;">전체 티타임 (${groupItems.length}개)</div>`;
+
                     groupItems.forEach((item, idx) => {
                         const isBest = idx === 0;
                         const itemSourceClass = item.source.toLowerCase().includes('teescan') ? 'src-red' : 'src-blue';
                         desktopDetailsHtml += `
-                            <div class="detail-row ${isBest ? 'highlight-best' : ''}">
-                                <span class="d-time">${item.time}</span>
-                                <span class="d-source ${itemSourceClass}">${item.source}</span>
-                                <span class="d-price">₩${item.price.toLocaleString()}</span>
+                            <div class="detail-item" style="padding: 6px 0; border-bottom: 1px dashed #eee;">
+                                <span class="d-time" style="font-size:0.9rem;">${item.time}</span>
+                                <div style="display:flex; gap:4px; align-items:center;">
+                                    <span class="d-source ${itemSourceClass}" style="font-size:0.7rem;">${item.source}</span>
+                                    <span class="d-price" style="font-size:0.9rem;">${item.price.toLocaleString()}</span>
+                                </div>
                             </div>
                         `;
                     });
@@ -748,22 +815,27 @@
                     card.innerHTML = `
                         <div class="card-content">
                             <div class="card-top">
-                                <span class="club-name">${best.club_name}</span>
-                                <span class="count-badge">${groupItems.length}개</span>
+                                <span class="club-name" style="font-size:1rem;">${best.club_name}</span>
+                                <span class="count-badge">${groupItems.length}</span>
                             </div>
-                            <div class="card-mid">
-                                <span class="best-price">₩${best.price.toLocaleString()}~</span>
-                                ${diffHtml}
+                            <div class="card-mid" style="margin-bottom:8px;">
+                                <span class="best-price" style="font-size:1.3rem;">₩${best.price.toLocaleString()}~</span>
                             </div>
                             <div class="card-btm">
-                                <span class="best-time">최저가 ${best.time}</span>
+                                <div style="display:flex; align-items:center; gap:6px;">
+                                    <span class="best-time" style="font-weight:bold; color:#333;">${best.time}</span>
+                                    ${diffHtml}
+                                </div>
                                 <span class="source-badge ${best.source.toLowerCase().includes('teescan') ? 'src-red' : 'src-blue'}">${best.source}</span>
                             </div>
                         </div>
                         ${desktopDetailsHtml}
                     `;
-                    list.appendChild(card);
+                    grid.appendChild(card);
                 });
+
+                dateGroup.appendChild(grid);
+                list.appendChild(dateGroup);
             });
         }
 
