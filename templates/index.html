@@ -114,304 +114,454 @@
         }
 
         .club-check.checked {
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            animation: slideUp 0.3s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h1 {
+            margin: 0;
+            font-size: 1.1rem;
+            color: var(--primary);
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            color: #999;
+            cursor: pointer;
+        }
+
+        .modal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .modal-footer {
+            padding: 15px 20px;
+            border-top: 1px solid #eee;
+        }
+
+        .action-btn {
+            width: 100%;
+            padding: 14px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .action-btn.secondary {
+            background: #eee;
+            color: #555;
+        }
+
+        /* --- Specific Modal Content --- */
+        .region-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+            overflow-x: auto;
+            padding-bottom: 5px;
+            scrollbar-width: none;
+        }
+
+        .tab {
+            padding: 8px 14px;
+            background: #f0f0f0;
+            border-radius: 16px;
+            font-size: 0.9rem;
+            color: #666;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .tab.active {
+            background: var(--primary);
+            color: white;
+            font-weight: bold;
+        }
+
+        .club-grid,
+        .time-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+            gap: 10px;
+        }
+
+        .club-check,
+        .time-chip {
+            padding: 12px;
+            background: white;
+            border: 1px solid #eee;
+            border-radius: 10px;
+            text-align: center;
+            cursor: pointer;
+            font-size: 0.9rem;
+            color: #555;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .club-check.checked,
+        .time-chip.active {
             border-color: var(--primary);
             background: #F1F8E9;
             color: var(--primary);
             font-weight: bold;
         }
 
-        .club-check.checked i {
-            color: var(--primary);
-        }
-
-        .save-btn {
-            position: absolute;
-            bottom: 20px;
-            left: 20px;
-            right: 20px;
-            background: var(--primary);
-            color: white;
-            border: none;
-            padding: 15px;
-            border-radius: 12px;
-            font-size: 1.1rem;
-            font-weight: bold;
-            cursor: pointer;
-            box-shadow: 0 4px 10px rgba(136, 176, 75, 0.3);
-            z-index: 10;
-        }
-
-        /* Header */
-        header {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            padding: 15px 20px;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        /* Detail List */
+        .detail-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #f5f5f5;
         }
 
-        h1 {
+        .d-time {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .d-source {
+            font-size: 0.8rem;
+            padding: 4px 8px;
+            border-radius: 4px;
+            background: #f0f0f0;
+        }
+
+        .d-price {
+            font-weight: bold;
+            color: var(--text);
+        }
+
+        .src-red {
+            color: #E57373;
+            background: #FFEBEE;
+        }
+
+        .src-blue {
+            color: #64B5F6;
+            background: #E3F2FD;
+        }
+
+        /* --- Main UI --- */
+        .main-header {
+            background: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+        }
+
+        .header-left h1 {
             margin: 0;
-            font-size: 1.2rem;
+            font-size: 1.3rem;
             color: var(--primary);
-            font-weight: 700;
         }
 
-        .settings-btn {
+        .icon-btn {
             background: none;
             border: none;
             font-size: 1.2rem;
-            color: var(--text-light);
+            color: #888;
             cursor: pointer;
         }
 
-        /* Filter Layout Optimization */
         .filter-container {
             padding: 15px 20px;
             background: white;
             margin-bottom: 10px;
         }
 
-        .filter-top-row {
+        .filter-row {
             display: flex;
             gap: 10px;
-            margin-bottom: 10px;
         }
 
-        .date-picker-btn {
+        .filter-btn {
             flex: 1;
-            margin-bottom: 0;
-            /* Override previous margin */
+            background: #f8f9fa;
+            border: 1px solid #eee;
+            border-radius: 12px;
+            padding: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 0.95rem;
+            color: #555;
+            cursor: pointer;
         }
 
-        .search-btn-small {
+        .search-btn {
             width: 50px;
             background: var(--primary);
             color: white;
             border: none;
             border-radius: 12px;
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
-        .search-btn-small:active {
-            transform: scale(0.95);
+        .card-list {
+            padding: 0 20px 40px 20px;
+            max-width: 800px;
+            margin: 0 auto;
         }
 
-        /* Date Section Header */
-        .date-section-header {
-            padding: 20px 20px 10px 20px;
+        .date-header {
+            margin: 25px 0 10px 0;
             font-size: 1.1rem;
             font-weight: 800;
-            color: var(--text);
+            color: #333;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            border: 1px solid rgba(0, 0, 0, 0.03);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .card:active {
+            transform: scale(0.98);
+        }
+
+        .card-top {
             display: flex;
-            align-items: center;
-            gap: 10px;
+            justify-content: space-between;
+            margin-bottom: 8px;
         }
 
-        .date-section-header::after {
-            content: '';
-            flex: 1;
-            height: 1px;
+        .club-name {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .count-badge {
             background: #eee;
+            font-size: 0.8rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            color: #666;
         }
 
-        /* Source Colors */
-        .source-teescan {
-            color: #E57373;
-            /* Pastel Red */
-            font-weight: 700;
-        }
-
-        .source-golfpang {
-            color: #64B5F6;
-            /* Pastel Blue */
-            font-weight: 700;
-        }
-
-        /* Detail Item Layout */
-        .detail-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            /* Time | Source | Price */
+        .card-mid {
+            display: flex;
+            justify-content: space-between;
             align-items: center;
-            padding: 8px 0;
-            border-bottom: 1px solid #f9f9f9;
+            margin-bottom: 12px;
+        }
+
+        .best-price {
+            font-size: 1.2rem;
+            font-weight: 800;
+            color: var(--text);
+        }
+
+        .diff {
+            font-size: 0.85rem;
+            color: #aaa;
+        }
+
+        .diff.up {
+            color: #E57373;
+        }
+
+        .diff.down {
+            color: #64B5F6;
+        }
+
+        .card-btm {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             font-size: 0.9rem;
+            color: #666;
         }
 
-        .detail-row div:nth-child(1) {
-            text-align: left;
-        }
-
-        .detail-row div:nth-child(2) {
-            text-align: center;
-        }
-
-        .detail-row div:nth-child(3) {
-            text-align: right;
+        .source-badge {
             font-weight: bold;
         }
 
-        /* Loading */
         .loading {
             text-align: center;
             padding: 40px;
-            color: var(--text-light);
+            color: #aaa;
             display: none;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #aaa;
+        }
+
+        /* --- Responsive Utils --- */
+        .mobile-only {
+            display: flex;
+        }
+
+        .desktop-only {
+            display: none;
+        }
+
+        /* --- Desktop Time Filter --- */
+        .desktop-time-filter {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        /* --- Card Details (Desktop) --- */
+        .card-details-desktop {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px dashed #eee;
+        }
+
+        .highlight-best {
+            background-color: #F1F8E9;
+            /* Light Green */
+            border-radius: 8px;
+            font-weight: bold;
         }
 
         /* --- Responsive Design (Desktop) --- */
         @media (min-width: 768px) {
-            body {
-                background-color: #f0f2f5;
-            }
-
-            /* Main Header */
-            body>header {
-                max-width: 1200px;
-                margin: 0 auto;
-                background: white;
-                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-            }
-
-            /* Filter Section */
-            .filter-container {
-                max-width: 1160px;
-                /* 1200 - padding */
-                margin: 20px auto;
-                border-radius: 16px;
-                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
-            }
-
-            /* Card List Grid */
-            .card-list {
-                max-width: 1200px;
-                margin: 0 auto;
-                display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-                gap: 20px;
-                padding-bottom: 40px;
-            }
-
-            .date-section-header {
-                grid-column: 1 / -1;
-                /* Header spans full width */
-                margin-top: 20px;
-            }
-
-            /* Onboarding Modal for Desktop */
-            #onboarding {
-                background: rgba(0, 0, 0, 0.6);
-                /* Dimmed overlay */
-                backdrop-filter: blur(5px);
-                display: none;
-                /* Flex when active via JS */
-                align-items: center;
-                justify-content: center;
-            }
-
-            .onboarding-modal-inner {
-                width: 500px;
-                max-height: 80vh;
-                background: white;
-                border-radius: 20px;
-                display: flex;
-                flex-direction: column;
-                box-shadow: 0 20px 50px rgba(0, 0, 0, 0.2);
-                overflow: hidden;
-                position: relative;
-            }
-
-            .onboarding-header {
-                padding: 20px;
-                border-bottom: 1px solid #eee;
-                background: white;
-            }
-
-            .onboarding-content {
-                overflow-y: auto;
-                padding: 20px;
-            }
-
-            .save-btn {
-                position: static;
-                /* Not sticky inside modal */
-                border-radius: 0;
-            }
+            box-shadow: none;
         }
-
-        /* Mobile Specific Adjustments for Onboarding Header */
-        @media (max-width: 767px) {
-            .onboarding-modal-inner {
-                display: flex;
-                flex-direction: column;
-                height: 100%;
-            }
-
-            .onboarding-header {
-                /* Replicate original header styles for mobile inside the wrapper */
-                background: rgba(255, 255, 255, 0.95);
-                backdrop-filter: blur(10px);
-                padding: 15px 20px;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                border-bottom: 1px solid #eee;
-            }
         }
     </style>
 </head>
 
 <body>
 
-    <!-- Onboarding / Settings -->
-    <!-- Onboarding / Settings -->
-    <div id="onboarding">
-        <div class="onboarding-modal-inner">
-            <header class="onboarding-header">
+    <!-- Onboarding / Settings Modal -->
+    <div id="onboarding" class="modal-overlay">
+        <div class="modal-content">
+            <header class="modal-header">
                 <h1>관심 구장 설정</h1>
-                <button class="settings-btn" onclick="closeSettings()"><i class="fa-solid fa-xmark"></i></button>
+                <button class="close-btn" onclick="closeSettings()"><i class="fa-solid fa-xmark"></i></button>
             </header>
-            <div class="onboarding-content">
-                <div class="region-tabs" id="regionTabs">
-                    <!-- Tabs injected by JS -->
-                </div>
-                <div class="club-grid" id="clubList">
-                    <!-- Clubs injected by JS -->
+            <div class="modal-body">
+                <div class="region-tabs" id="regionTabs"></div>
+                <div class="club-grid" id="clubList"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="action-btn" onclick="saveSettings()">저장하고 시작하기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Time Selection Modal -->
+    <div id="timeModal" class="modal-overlay">
+        <div class="modal-content">
+            <header class="modal-header">
+                <h1>시간대 선택</h1>
+                <button class="close-btn" onclick="closeTimeSettings()"><i class="fa-solid fa-xmark"></i></button>
+            </header>
+            <div class="modal-body">
+                <div class="time-grid" id="timeGrid">
+                    <!-- Time chips injected by JS -->
                 </div>
             </div>
-            <button class="save-btn" onclick="saveSettings()">저장하고 시작하기</button>
+            <div class="modal-footer">
+                <button class="action-btn" onclick="saveTimeSettings()">적용하기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detail View Modal -->
+    <div id="detailModal" class="modal-overlay">
+        <div class="modal-content">
+            <header class="modal-header">
+                <h1 id="detailTitle">티타임 상세</h1>
+                <button class="close-btn" onclick="closeDetail()"><i class="fa-solid fa-xmark"></i></button>
+            </header>
+            <div class="modal-body" id="detailList">
+                <!-- Details injected by JS -->
+            </div>
+            <div class="modal-footer">
+                <button class="action-btn secondary" onclick="closeDetail()">닫기</button>
+            </div>
         </div>
     </div>
 
     <!-- Main App -->
-    <header>
-        <h1>Golf AI</h1>
-        <button class="settings-btn" onclick="openSettings()"><i class="fa-solid fa-gear"></i></button>
+    <header class="main-header">
+        <div class="header-left">
+            <h1>Golf AI</h1>
+        </div>
+        <button class="icon-btn" onclick="openSettings()"><i class="fa-solid fa-gear"></i></button>
     </header>
 
     <div class="filter-container">
-        <div class="filter-top-row">
-            <div class="date-picker-btn" id="datePickerBtn">
-                <span><i class="fa-regular fa-calendar"></i> 날짜 선택</span>
-                <i class="fa-solid fa-chevron-down"></i>
+        <div class="filter-row">
+            <div class="filter-btn" id="datePickerBtn">
+                <i class="fa-regular fa-calendar"></i>
+                <span id="dateBtnText">날짜 선택</span>
             </div>
-            <button class="search-btn-small" onclick="loadData()">
+            <!-- Mobile Time Btn -->
+            <div class="filter-btn mobile-only" onclick="openTimeSettings()">
+                <i class="fa-regular fa-clock"></i>
+                <span id="timeBtnText">전체 시간</span>
+            </div>
+            <button class="search-btn" onclick="loadData()">
                 <i class="fa-solid fa-magnifying-glass"></i>
             </button>
         </div>
-        <div class="time-chips" id="timeChips">
-            <!-- Time chips injected by JS -->
+
+        <!-- Desktop Time Filter (Inline) -->
+        <div class="desktop-time-filter desktop-only" id="desktopTimeGrid">
+            <!-- Injected by JS -->
         </div>
     </div>
 
@@ -428,67 +578,53 @@
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ko.js"></script>
     <script>
         // --- State ---
-        let allClubs = {}; // { "경기": [...], "충청": [...] }
+        let allClubs = {};
         let selectedClubs = new Set();
         let selectedDates = [];
-        let selectedTimes = new Set();
+        let selectedTimes = new Set(); // Empty means ALL
         let currentRegion = "경기";
-        let availableDates = []; // [NEW] Dates with data
+        let availableDates = [];
 
         // --- Init ---
         document.addEventListener('DOMContentLoaded', async () => {
-            // Service Worker
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.register('/static/service-worker.js');
-            }
+            if ('serviceWorker' in navigator) navigator.serviceWorker.register('/static/service-worker.js');
 
-            // Load Clubs
-            // Render Time Chips
-            renderTimeChips();
-
-            // Load Clubs & Available Dates
+            renderTimeGrid(); // Render time chips (Mobile & Desktop)
             await Promise.all([fetchClubs(), fetchAvailableDates()]);
 
-            // Date Picker (Init after availableDates are fetched)
             flatpickr("#datePickerBtn", {
                 mode: "multiple",
                 dateFormat: "Y-m-d",
                 minDate: "today",
-                disableMobile: true, // [NEW] Force JS picker for better multiple date support
+                disableMobile: true,
                 enable: availableDates,
                 locale: "ko",
                 onChange: (dates, dateStr) => {
                     selectedDates = dateStr.split(', ').filter(d => d);
-                    document.querySelector('#datePickerBtn span').innerHTML =
-                        selectedDates.length > 0 ? `<i class="fa-regular fa-calendar"></i> ${selectedDates[0]} 외 ${selectedDates.length - 1}일` : `<i class="fa-regular fa-calendar"></i> 날짜 선택`;
+                    updateDateBtn();
                 }
             });
 
-            // Check LocalStorage
             const saved = localStorage.getItem('favoriteClubs');
             if (saved) {
                 selectedClubs = new Set(JSON.parse(saved));
-
-                // Default: Select Today if available, or first available date
                 if (availableDates.length > 0) {
-                    // Check if today is in availableDates
                     const todayStr = new Date().toISOString().split('T')[0];
-                    if (availableDates.includes(todayStr)) {
-                        selectedDates = [todayStr];
-                    } else {
-                        selectedDates = [availableDates[0]];
-                    }
-
-                    // Update UI
-                    document.querySelector('#datePickerBtn span').innerHTML = `<i class="fa-regular fa-calendar"></i> ${selectedDates[0]}`;
-
-                    // Initial Load
+                    selectedDates = availableDates.includes(todayStr) ? [todayStr] : [availableDates[0]];
+                    updateDateBtn();
                     loadData();
                 }
             } else {
                 openSettings();
             }
         });
+
+        function updateDateBtn() {
+            const text = selectedDates.length > 0
+                ? `${selectedDates[0]} 외 ${selectedDates.length - 1}일`
+                : "날짜 선택";
+            document.getElementById('dateBtnText').innerText = text;
+        }
 
         // --- API ---
         async function fetchClubs() {
@@ -501,14 +637,11 @@
             try {
                 const res = await fetch('/api/available_dates');
                 availableDates = await res.json();
-            } catch (e) {
-                console.error("Failed to fetch dates", e);
-            }
+            } catch (e) { console.error(e); }
         }
 
         async function loadData() {
             if (selectedDates.length === 0 || selectedClubs.size === 0) return;
-
             document.getElementById('loading').style.display = 'block';
             document.getElementById('cardList').innerHTML = '';
 
@@ -525,8 +658,7 @@
                 const data = await res.json();
                 renderCards(data);
             } catch (e) {
-                console.error(e);
-                alert("데이터를 불러오는데 실패했습니다.");
+                alert("데이터 로드 실패");
             } finally {
                 document.getElementById('loading').style.display = 'none';
             }
@@ -540,17 +672,13 @@
                 const t = document.createElement('div');
                 t.className = `tab ${region === currentRegion ? 'active' : ''}`;
                 t.innerText = region;
-                t.onclick = () => {
-                    currentRegion = region;
-                    renderSettings(); // Re-render to update active tab and list
-                };
+                t.onclick = () => { currentRegion = region; renderSettings(); };
                 tabs.appendChild(t);
             });
 
             const list = document.getElementById('clubList');
             list.innerHTML = '';
-            const clubs = allClubs[currentRegion] || [];
-            clubs.forEach(c => {
+            (allClubs[currentRegion] || []).forEach(c => {
                 const el = document.createElement('div');
                 el.className = `club-check ${selectedClubs.has(c.name) ? 'checked' : ''}`;
                 el.innerHTML = `<i class="fa-solid fa-check"></i> ${c.name}`;
@@ -563,15 +691,33 @@
             });
         }
 
-        function renderTimeChips() {
-            const container = document.getElementById('timeChips');
-            container.innerHTML = '';
+        function renderTimeGrid() {
+            // 1. Mobile Modal Grid
+            const mobileContainer = document.getElementById('timeGrid');
+            if (mobileContainer) {
+                mobileContainer.innerHTML = '';
+                fillTimeContainer(mobileContainer);
+            }
+
+            // 2. Desktop Inline Grid
+            const desktopContainer = document.getElementById('desktopTimeGrid');
+            if (desktopContainer) {
+                desktopContainer.innerHTML = '';
+                fillTimeContainer(desktopContainer);
+            }
+        }
+
+        function fillTimeContainer(container) {
             for (let i = 5; i <= 19; i++) {
                 const hour = i.toString().padStart(2, '0');
                 const chip = document.createElement('div');
-                chip.className = 'chip';
+                chip.className = `time-chip ${selectedTimes.has(hour) ? 'active' : ''}`;
                 chip.innerText = `${hour}시`;
-                chip.onclick = () => toggleTime(chip, hour);
+                chip.onclick = () => {
+                    if (selectedTimes.has(hour)) selectedTimes.delete(hour);
+                    else selectedTimes.add(hour);
+                    renderTimeGrid(); // Re-render both to sync
+                };
                 container.appendChild(chip);
             }
         }
@@ -579,128 +725,125 @@
         function renderCards(items) {
             const list = document.getElementById('cardList');
             list.innerHTML = '';
-
             if (items.length === 0) {
-                list.innerHTML = '<div style="text-align:center; padding:20px; color:#888;">조건에 맞는 티타임이 없습니다.</div>';
+                list.innerHTML = '<div class="empty-state">조건에 맞는 티타임이 없습니다.</div>';
                 return;
             }
 
-            // 1. Group by Date
             const byDate = {};
             items.forEach(item => {
                 if (!byDate[item.date]) byDate[item.date] = [];
                 byDate[item.date].push(item);
             });
 
-            // 2. Sort Dates
-            const sortedDates = Object.keys(byDate).sort();
+            Object.keys(byDate).sort().forEach(date => {
+                const header = document.createElement('div');
+                header.className = 'date-header';
+                header.innerText = `${date} (${getDayName(date)})`;
+                list.appendChild(header);
 
-            sortedDates.forEach(date => {
-                // Render Date Header
-                const dateHeader = document.createElement('div');
-                dateHeader.className = 'date-section-header';
-                dateHeader.innerText = `${date} (${getDayName(date)})`;
-                list.appendChild(dateHeader);
-
-                // 3. Group by Club within this Date
                 const byClub = {};
                 byDate[date].forEach(item => {
                     if (!byClub[item.club_name]) byClub[item.club_name] = [];
                     byClub[item.club_name].push(item);
                 });
 
-                // 4. Render Club Cards
                 Object.keys(byClub).forEach(clubName => {
                     const groupItems = byClub[clubName];
-                    // Sort by price ascending to find best
                     groupItems.sort((a, b) => a.price - b.price);
                     const best = groupItems[0];
-
                     const diffVal = best.diff;
-                    let diffHtml = '<span class="diff same">-</span>';
+                    let diffHtml = '<span class="diff">-</span>';
                     if (diffVal > 0) diffHtml = `<span class="diff up">▲ ${diffVal.toLocaleString()}</span>`;
                     else if (diffVal < 0) diffHtml = `<span class="diff down">▼ ${Math.abs(diffVal).toLocaleString()}</span>`;
 
-                    // Source Color Class
-                    const sourceClass = best.source.toLowerCase().includes('teescan') ? 'source-teescan' : 'source-golfpang';
-
                     const card = document.createElement('div');
                     card.className = 'card';
+
+                    // Mobile Click -> Open Modal
                     card.onclick = (e) => {
-                        card.classList.toggle('expanded');
+                        if (window.innerWidth < 768) {
+                            openDetail(clubName, date, groupItems);
+                        }
                     };
 
-                    // Summary View
-                    let html = `
-                        <div class="card-summary">
-                            <div class="card-header">
-                                <span class="club-name">${best.club_name}</span>
-                                <span class="tee-time" style="background:var(--primary); color:white;">${groupItems.length}개 타임</span>
-                            </div>
-                            <div class="price-row">
-                                <span class="price">₩${best.price.toLocaleString()}~</span>
-                                ${diffHtml}
-                            </div>
-                            <div class="card-footer">
-                                <span>최저가: ${best.time}</span>
-                                <span class="${sourceClass}">${best.source}</span>
-                            </div>
-                        </div>
-                        <div class="card-details">
-                    `;
-
-                    // Detail View (Time | Source | Price)
-                    // Sort details by time? Or price? User said "Best price time first" for summary.
-                    // For details, usually time order is better for scheduling, or price order.
-                    // Let's sort by Price ascending as per general user preference for "Best Prices".
-                    // Or Time? "상세 타임 볼때는... 시간 / 데이터소스 / 가격"
-                    // Let's stick to Price ascending (already sorted above).
-
-                    groupItems.forEach(item => {
-                        const itemSourceClass = item.source.toLowerCase().includes('teescan') ? 'source-teescan' : 'source-golfpang';
-                        html += `
-                            <div class="detail-row">
-                                <div>${item.time}</div>
-                                <div class="${itemSourceClass}">${item.source}</div>
-                                <div>₩${item.price.toLocaleString()}</div>
+                    // Desktop Details HTML (Hidden on Mobile via CSS)
+                    let desktopDetailsHtml = `<div class="card-details-desktop desktop-only">`;
+                    groupItems.forEach((item, idx) => {
+                        const isBest = idx === 0;
+                        const itemSourceClass = item.source.toLowerCase().includes('teescan') ? 'src-red' : 'src-blue';
+                        desktopDetailsHtml += `
+                            <div class="detail-row ${isBest ? 'highlight-best' : ''}">
+                                <span class="d-time">${item.time}</span>
+                                <span class="d-source ${itemSourceClass}">${item.source}</span>
+                                <span class="d-price">₩${item.price.toLocaleString()}</span>
                             </div>
                         `;
                     });
+                    desktopDetailsHtml += `</div>`;
 
-                    html += `</div>`; // Close card-details
-                    card.innerHTML = html;
+                    card.innerHTML = `
+                        <div class="card-content">
+                            <div class="card-top">
+                                <span class="club-name">${best.club_name}</span>
+                                <span class="count-badge">${groupItems.length}개</span>
+                            </div>
+                            <div class="card-mid">
+                                <span class="best-price">₩${best.price.toLocaleString()}~</span>
+                                ${diffHtml}
+                            </div>
+                            <div class="card-btm">
+                                <span class="best-time">최저가 ${best.time}</span>
+                                <span class="source-badge ${best.source.toLowerCase().includes('teescan') ? 'src-red' : 'src-blue'}">${best.source}</span>
+                            </div>
+                        </div>
+                        ${desktopDetailsHtml}
+                    `;
                     list.appendChild(card);
                 });
             });
         }
 
-        // --- Helpers ---
-        function openSettings() {
-            document.getElementById('onboarding').style.display = 'flex';
-            renderSettings();
-        }
-
-        function closeSettings() {
-            document.getElementById('onboarding').style.display = 'none';
-        }
-
+        // --- Modals ---
+        function openSettings() { document.getElementById('onboarding').classList.add('open'); renderSettings(); }
+        function closeSettings() { document.getElementById('onboarding').classList.remove('open'); }
         function saveSettings() {
             localStorage.setItem('favoriteClubs', JSON.stringify(Array.from(selectedClubs)));
             closeSettings();
             loadData();
         }
 
-        function toggleTime(el, time) {
-            if (selectedTimes.has(time)) selectedTimes.delete(time);
-            else selectedTimes.add(time);
-            el.classList.toggle('active');
-            // Removed auto-load: loadData();
+        function openTimeSettings() { document.getElementById('timeModal').classList.add('open'); }
+        function closeTimeSettings() { document.getElementById('timeModal').classList.remove('open'); }
+        function saveTimeSettings() {
+            const btnText = selectedTimes.size > 0 ? `${selectedTimes.size}개 시간대` : "전체 시간";
+            document.getElementById('timeBtnText').innerText = btnText;
+            closeTimeSettings();
+            loadData(); // Auto reload? Or wait for search btn? User prefers explicit search usually.
+            // Let's NOT auto reload to match Date Picker behavior.
         }
 
-        function getDayName(dateStr) {
-            const days = ['일', '월', '화', '수', '목', '금', '토'];
-            return days[new Date(dateStr).getDay()];
+        function openDetail(clubName, date, items) {
+            const modal = document.getElementById('detailModal');
+            document.getElementById('detailTitle').innerText = `${clubName} (${date})`;
+            const list = document.getElementById('detailList');
+            list.innerHTML = '';
+
+            items.forEach(item => {
+                const row = document.createElement('div');
+                row.className = 'detail-item';
+                row.innerHTML = `
+                    <span class="d-time">${item.time}</span>
+                    <span class="d-source ${item.source.toLowerCase().includes('teescan') ? 'src-red' : 'src-blue'}">${item.source}</span>
+                    <span class="d-price">₩${item.price.toLocaleString()}</span>
+                `;
+                list.appendChild(row);
+            });
+            modal.classList.add('open');
         }
+        function closeDetail() { document.getElementById('detailModal').classList.remove('open'); }
+
+        function getDayName(d) { return ['일', '월', '화', '수', '목', '금', '토'][new Date(d).getDay()]; }
     </script>
 </body>
 

@@ -135,15 +135,24 @@ def _bootstrap_gp_session(s: requests.Session, date_str: str, sector: Optional[i
 # 이름 매칭 (사이트 표기 ↔ 우리 JSON 표기)
 def _norm_name(n: str) -> str:
     if not n: return ""
-    n = re.sub(r"\(.*?\)", "", n)      # 괄호 제거
+    # n = re.sub(r"\(.*?\)", "", n)      # 괄호 제거 (REMOVED to distinguish Public/Member)
     n = re.sub(r"\s+", "", n)          # 공백 제거
     n = re.sub(r"C\.?C\.?$", "CC", n)  # C.C → CC
     n = n.replace("-", "")
     return n
 
 def _name_match(site_txt: str, gp_code_txt: str) -> bool:
-    a = _norm_name(site_txt); b = _norm_name(gp_code_txt)
-    return (a == b) or (b and b in a)
+    a = _norm_name(site_txt)
+    b = _norm_name(gp_code_txt)
+    if a == b: return True
+    if b and b in a:
+        # If substring match, ensure we aren't matching "Name" to "Name(Public)"
+        # Check if the extra part contains parentheses
+        extra = a.replace(b, "")
+        if "(" in extra or ")" in extra:
+            return False
+        return True
+    return False
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Teescan (원본 유지)
