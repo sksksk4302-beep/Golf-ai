@@ -31,6 +31,116 @@
             -webkit-tap-highlight-color: transparent;
         }
 
+        /* Onboarding Styles */
+        #onboarding {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: white;
+            z-index: 2000;
+            display: flex;
+            /* Mobile default */
+            flex-direction: column;
+        }
+
+        .onboarding-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            padding-bottom: 80px;
+            /* Space for save button */
+        }
+
+        .region-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            overflow-x: auto;
+            padding-bottom: 5px;
+            scrollbar-width: none;
+            /* Hide scrollbar */
+        }
+
+        .region-tabs::-webkit-scrollbar {
+            display: none;
+        }
+
+        .tab {
+            padding: 8px 16px;
+            background: #eee;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            color: #666;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            background: var(--primary);
+            color: white;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(136, 176, 75, 0.3);
+        }
+
+        .club-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 10px;
+        }
+
+        .club-check {
+            padding: 15px;
+            background: white;
+            border: 1px solid #eee;
+            border-radius: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+            color: #555;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .club-check i {
+            font-size: 1.2rem;
+            color: #ddd;
+            margin-bottom: 5px;
+        }
+
+        .club-check.checked {
+            border-color: var(--primary);
+            background: #F1F8E9;
+            color: var(--primary);
+            font-weight: bold;
+        }
+
+        .club-check.checked i {
+            color: var(--primary);
+        }
+
+        .save-btn {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(136, 176, 75, 0.3);
+            z-index: 10;
+        }
+
         /* Header */
         header {
             background: rgba(255, 255, 255, 0.95);
