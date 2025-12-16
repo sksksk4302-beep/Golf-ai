@@ -96,6 +96,75 @@ def archive_history():
         batch.commit()
         
     print("History archiving completed.")
+    
+    # Perform aggregation for yesterday (or past dates)
+    aggregate_daily_stats(db)
+
+def aggregate_daily_stats(db):
+    """
+    Aggregates price_history into daily_stats for Yesterday.
+    This ensures we have a fast lookup table for past dates.
+    """
+    yesterday = (datetime.date.today() - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
+    print(f"Aggregating daily stats for {yesterday}...")
+    
+    # Query price_history for yesterday
+    docs = db.collection('price_history').where('date', '==', yesterday).stream()
+    
+    # Structure: stats[club][hour] = [prices...]
+    stats = defaultdict(lambda: defaultdict(list))
+    
+    count = 0
+    for doc in docs:
+        d = doc.to_dict()
+        club = d.get('club_name')
+        hour = d.get('hour')
+        # price_history stores 'stats': {'min': ...} or just 'price'? 
+        # Looking at archive_history, it stores 'stats': {'min': ..., 'avg': ...}
+        # We should probably use the 'min' from the snapshot as the representative price for that snapshot
+        # Or better, collect all 'min's from snapshots and find the min of mins.
+        
+        snapshot_min = d.get('stats', {}).get('min')
+        if club and hour is not None and snapshot_min is not None:
+            stats[club][hour].append(snapshot_min)
+            count += 1
+            
+    print(f"Found {count} history records for {yesterday}. Calculating daily stats...")
+    
+    batch = db.batch()
+    batch_count = 0
+    
+    for club, hours in stats.items():
+        for hour, prices in hours.items():
+            min_price = min(prices)
+            avg_price = sum(prices) / len(prices)
+            
+            # Doc ID: YYYYMMDD_Club_Hour
+            doc_id = f"{yesterday.replace('-', '')}_{club}_{hour}"
+            doc_ref = db.collection('daily_stats').document(doc_id)
+            
+            data = {
+                "club_name": club,
+                "date": yesterday,
+                "hour": hour,
+                "min_price": min_price,
+                "avg_price": avg_price,
+                "snapshot_count": len(prices),
+                "updated_at": firestore.SERVER_TIMESTAMP
+            }
+            
+            batch.set(doc_ref, data)
+            batch_count += 1
+            
+            if batch_count >= 400:
+                batch.commit()
+                batch = db.batch()
+                batch_count = 0
+                
+    if batch_count > 0:
+        batch.commit()
+        
+    print(f"Daily stats aggregation for {yesterday} completed.")
 
 if __name__ == "__main__":
     archive_history()

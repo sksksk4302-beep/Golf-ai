@@ -126,33 +126,26 @@ def get_prices():
                     if str(int(item_hour)) not in normalized_times:
                         continue
 
-                # 2. Fetch History (7 days ago) for comparison
-                # To avoid N+1 queries, we could batch fetch history or just fetch on demand.
-                # For MVP, let's fetch on demand or maybe just return current price and let frontend fetch history?
-                # Or better: Calculate history date and fetch.
+                # 2. Fetch History (7 days ago) from daily_stats
+                # Doc ID: YYYYMMDD_Club_Hour
+                history_date_obj = datetime.strptime(date, "%Y-%m-%d") - timedelta(days=7)
+                history_date_str = history_date_obj.strftime("%Y-%m-%d")
+                history_doc_id = f"{history_date_str.replace('-', '')}_{item['club_name']}_{item['hour']}"
                 
-                # History Key: YYYYMMDD_Club_Hour_SnapshotTime
-                # We need aggregated history for that hour.
-                # History collection: 'price_history'
-                # Doc ID: YYYYMMDD_Club_Hour_SnapshotTime
-                # We want the latest snapshot for that day? Or average?
-                # Let's try to find a matching history record.
+                # We can do a direct get() which is faster than a query
+                # But doing this in a loop is N+1. 
+                # Optimization: We could batch get all needed history docs?
+                # For now, let's stick to simple get() as it's by ID.
+                # Firestore client libraries usually handle pipelining well, but explicit batching is better.
+                # Given the complexity of batching mixed keys, let's try direct get first.
                 
-                history_date = (datetime.strptime(date, "%Y-%m-%d") - timedelta(days=7)).strftime("%Y-%m-%d")
-                
-                # We can't easily get the exact history doc ID without snapshot time.
-                # Query history by club, date, hour
-                hist_docs = db.collection('price_history')\
-                              .where('club_name', '==', item['club_name'])\
-                              .where('date', '==', history_date)\
-                              .where('hour', '==', item['hour'])\
-                              .limit(1).stream() # Get one snapshot (any is fine, or latest)
+                hist_ref = db.collection('daily_stats').document(history_doc_id)
+                hist_doc = hist_ref.get()
                 
                 hist_price = None
-                for h_doc in hist_docs:
-                    h_data = h_doc.to_dict()
-                    hist_price = h_data.get('stats', {}).get('min') # Compare with min price of last week
-                    break
+                if hist_doc.exists:
+                    hist_data = hist_doc.to_dict()
+                    hist_price = hist_data.get('min_price')
                 
                 diff = 0
                 if hist_price:
