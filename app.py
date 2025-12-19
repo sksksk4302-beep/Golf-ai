@@ -92,14 +92,41 @@ def get_prices():
         if not dates or not clubs:
             return jsonify([])
 
-        # 1. Fetch Current Data
-        # Firestore 'in' query is limited to 10 items. If we have many dates/clubs, we might need multiple queries.
-        # For simplicity, let's query by date (most restrictive usually) and filter in memory.
-        
         results = []
         
         # Optimization: Query by date, then filter by club and time
         for date in dates:
+            # 1. Pre-fetch History (7 days ago) for this date
+            # Instead of N+1 reads, we do 1 read (query) per date.
+            history_date_obj = datetime.strptime(date, "%Y-%m-%d") - timedelta(days=7)
+            history_date_str = history_date_obj.strftime("%Y-%m-%d")
+            
+            history_map = {} # (club_name, hour) -> min_price
+            
+            # Fetch all daily_stats for the history date
+            # This might return ~100-200 docs, which is 1 read op per doc returned + 1 query op.
+            # If we have 50 items to show, N+1 approach is 50 reads.
+            # If we have 200 stats but only show 5 items, this might be more expensive?
+            # However, usually users see many items. And "Entity Reads" are cheap enough that 
+            # reducing latency of N round-trips is also worth it.
+            # Also, we can filter history query by clubs if list is small, but 'in' query limit is 10.
+            # Given the use case (showing many tee times), fetching all stats for the day is safer/simpler.
+            
+            hist_docs = db.collection('daily_stats').where('date', '==', history_date_str).stream()
+            for h_doc in hist_docs:
+                h_data = h_doc.to_dict()
+                # Key: (Club, Hour)
+                # Ensure types match. h_data['hour'] is likely int from archive_history.
+                h_club = h_data.get('club_name')
+                h_hour = h_data.get('hour')
+                h_price = h_data.get('min_price')
+                
+                if h_club and h_hour is not None:
+                    history_map[(h_club, str(h_hour))] = h_price
+                    # Also store as int just in case
+                    history_map[(h_club, int(h_hour))] = h_price
+
+            # 2. Fetch Current Data
             docs = db.collection('tee_times').where('date', '==', date).stream()
             
             for doc in docs:
@@ -110,42 +137,16 @@ def get_prices():
                     continue
                 
                 # Filter by Time (Hour)
-                # item['hour'] is int or str? Ingest saves as item['hour_num'] which comes from crawler.
-                # Let's assume it matches the format in 'times' list or convert.
-                # Ingest saves 'hour': item['hour_num'] (e.g., 6, 7, 13)
-                # Input 'times' might be ["06", "07"] or [6, 7]
+                item_hour = item.get('hour') # int or str
                 
-                item_hour = str(item.get('hour'))
-                # Normalize input times to string without leading zero for comparison if needed, or handle both
-                # Let's assume input times are strings like "6", "14" or "06".
-                
-                # Simple check: if times filter is provided, check if item_hour is in it.
-                # We need to be careful with "06" vs "6".
                 if times:
                     normalized_times = [str(int(t)) for t in times] # "06" -> "6"
                     if str(int(item_hour)) not in normalized_times:
                         continue
 
-                # 2. Fetch History (7 days ago) from daily_stats
-                # Doc ID: YYYYMMDD_Club_Hour
-                history_date_obj = datetime.strptime(date, "%Y-%m-%d") - timedelta(days=7)
-                history_date_str = history_date_obj.strftime("%Y-%m-%d")
-                history_doc_id = f"{history_date_str.replace('-', '')}_{item['club_name']}_{item['hour']}"
-                
-                # We can do a direct get() which is faster than a query
-                # But doing this in a loop is N+1. 
-                # Optimization: We could batch get all needed history docs?
-                # For now, let's stick to simple get() as it's by ID.
-                # Firestore client libraries usually handle pipelining well, but explicit batching is better.
-                # Given the complexity of batching mixed keys, let's try direct get first.
-                
-                hist_ref = db.collection('daily_stats').document(history_doc_id)
-                hist_doc = hist_ref.get()
-                
-                hist_price = None
-                if hist_doc.exists:
-                    hist_data = hist_doc.to_dict()
-                    hist_price = hist_data.get('min_price')
+                # 3. Lookup History from Map
+                # item['hour'] comes from ingest_data, which is int.
+                hist_price = history_map.get((item['club_name'], item_hour))
                 
                 diff = 0
                 if hist_price:

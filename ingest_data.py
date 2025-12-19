@@ -35,12 +35,15 @@ def save_tee_times(db, tee_times, target_date):
         new_ids.add(doc_id)
         data_map[doc_id] = item
 
-    # 2. Fetch existing IDs for this date
+    # 2. Fetch existing IDs and Data for this date
     print(f"Checking for stale data on {target_date}...")
     existing_docs = db.collection('tee_times').where('date', '==', target_date).stream()
     existing_ids = set()
+    existing_data_map = {}
+    
     for doc in existing_docs:
         existing_ids.add(doc.id)
+        existing_data_map[doc.id] = doc.to_dict()
         
     # 3. Identify IDs to delete
     to_delete = existing_ids - new_ids
@@ -49,43 +52,64 @@ def save_tee_times(db, tee_times, target_date):
     # 4. Batch Operations
     batch = db.batch()
     count = 0
+    ops_count = 0 # Track actual DB operations
     
     # Delete operations
     for doc_id in to_delete:
         doc_ref = db.collection('tee_times').document(doc_id)
         batch.delete(doc_ref)
         count += 1
+        ops_count += 1
         if count % 400 == 0:
             batch.commit()
             batch = db.batch()
             print(f"Processed {count} operations (deletes)...")
 
-    # Upsert operations
+    # Upsert operations (Only if changed)
+    skipped_count = 0
+    
     for doc_id, item in data_map.items():
         doc_ref = db.collection('tee_times').document(doc_id)
         
-        data = {
+        new_data = {
             "club_name": item['golf'],
             "date": item['date'],
             "time": item['time'],
             "hour": item['hour_num'],
             "price": item['price'],
             "source": item.get('source', 'Golfpang'),
-            "crawled_at": firestore.SERVER_TIMESTAMP,
+            # "crawled_at": firestore.SERVER_TIMESTAMP, # Don't include in comparison
             "weekday": datetime.datetime.strptime(item['date'], "%Y-%m-%d").weekday()
         }
         
-        batch.set(doc_ref, data)
-        count += 1
-        if count % 400 == 0:
-            batch.commit()
-            batch = db.batch()
-            print(f"Processed {count} operations (upserts)...")
+        # Check if update is needed
+        needs_update = True
+        if doc_id in existing_data_map:
+            existing = existing_data_map[doc_id]
+            # Compare fields (excluding crawled_at)
+            # We assume if these fields match, the record is identical.
+            if (existing.get('price') == new_data['price'] and
+                existing.get('time') == new_data['time'] and
+                existing.get('club_name') == new_data['club_name']):
+                needs_update = False
+        
+        if needs_update:
+            # Add crawled_at only when writing
+            new_data["crawled_at"] = firestore.SERVER_TIMESTAMP
+            batch.set(doc_ref, new_data)
+            count += 1
+            ops_count += 1
+            if count % 400 == 0:
+                batch.commit()
+                batch = db.batch()
+                print(f"Processed {count} operations (upserts)...")
+        else:
+            skipped_count += 1
             
     if count % 400 != 0:
         batch.commit()
         
-    print(f"Sync complete for {target_date}. Total operations: {count}")
+    print(f"Sync complete for {target_date}. Total ops: {ops_count} (Deletes: {len(to_delete)}, Upserts: {ops_count - len(to_delete)}). Skipped: {skipped_count}")
 
 def main():
     db = init_firestore()

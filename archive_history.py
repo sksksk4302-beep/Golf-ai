@@ -108,7 +108,13 @@ def aggregate_daily_stats(db):
     yesterday = (datetime.date.today() - datetime.timedelta(days=1)).strftime("%Y-%m-%d")
     print(f"Aggregating daily stats for {yesterday}...")
     
-    # Query price_history for yesterday
+    # 1. Fetch existing daily_stats to avoid redundant writes
+    existing_docs = db.collection('daily_stats').where('date', '==', yesterday).stream()
+    existing_map = {}
+    for doc in existing_docs:
+        existing_map[doc.id] = doc.to_dict()
+    
+    # 2. Query price_history for yesterday
     docs = db.collection('price_history').where('date', '==', yesterday).stream()
     
     # Structure: stats[club][hour] = [prices...]
@@ -119,10 +125,6 @@ def aggregate_daily_stats(db):
         d = doc.to_dict()
         club = d.get('club_name')
         hour = d.get('hour')
-        # price_history stores 'stats': {'min': ...} or just 'price'? 
-        # Looking at archive_history, it stores 'stats': {'min': ..., 'avg': ...}
-        # We should probably use the 'min' from the snapshot as the representative price for that snapshot
-        # Or better, collect all 'min's from snapshots and find the min of mins.
         
         snapshot_min = d.get('stats', {}).get('min')
         if club and hour is not None and snapshot_min is not None:
@@ -133,38 +135,52 @@ def aggregate_daily_stats(db):
     
     batch = db.batch()
     batch_count = 0
+    skipped_count = 0
     
     for club, hours in stats.items():
         for hour, prices in hours.items():
             min_price = min(prices)
             avg_price = sum(prices) / len(prices)
+            snapshot_count = len(prices)
             
             # Doc ID: YYYYMMDD_Club_Hour
             doc_id = f"{yesterday.replace('-', '')}_{club}_{hour}"
             doc_ref = db.collection('daily_stats').document(doc_id)
             
-            data = {
+            new_data = {
                 "club_name": club,
                 "date": yesterday,
                 "hour": hour,
                 "min_price": min_price,
                 "avg_price": avg_price,
-                "snapshot_count": len(prices),
+                "snapshot_count": snapshot_count,
                 "updated_at": firestore.SERVER_TIMESTAMP
             }
             
-            batch.set(doc_ref, data)
-            batch_count += 1
+            # Check if update is needed
+            needs_update = True
+            if doc_id in existing_map:
+                existing = existing_map[doc_id]
+                if (existing.get('min_price') == min_price and
+                    existing.get('avg_price') == avg_price and
+                    existing.get('snapshot_count') == snapshot_count):
+                    needs_update = False
             
-            if batch_count >= 400:
-                batch.commit()
-                batch = db.batch()
-                batch_count = 0
+            if needs_update:
+                batch.set(doc_ref, new_data)
+                batch_count += 1
+                
+                if batch_count >= 400:
+                    batch.commit()
+                    batch = db.batch()
+                    batch_count = 0
+            else:
+                skipped_count += 1
                 
     if batch_count > 0:
         batch.commit()
         
-    print(f"Daily stats aggregation for {yesterday} completed.")
+    print(f"Daily stats aggregation for {yesterday} completed. Updated: {batch_count}, Skipped: {skipped_count}")
 
 if __name__ == "__main__":
     archive_history()
