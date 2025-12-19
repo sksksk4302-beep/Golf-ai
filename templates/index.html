@@ -892,21 +892,42 @@
         href="https://www.gstatic.com/dialogflow-console/fast/df-messenger/prod/v1/themes/df-messenger-default.css">
     <script src="https://www.gstatic.com/dialogflow-console/fast/df-messenger/prod/v1/df-messenger.js"></script>
     <df-messenger location="us-central1" project-id="golf-ai-480805" agent-id="d303bf27-9b62-457a-9fa8-600571a0833b"
-        language-code="ko" max-query-length="-1">
-        <df-messenger-chat chat-title="Teetime Agent">
+        language-code="ko" max-query-length="-1"
+        chat-icon="https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined/smart_toy/default/48px.svg">
+        <df-messenger-chat chat-title="골프 예약 비서"
+            bot-writing-image="https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined/smart_toy/default/48px.svg">
         </df-messenger-chat>
     </df-messenger>
     <style>
         df-messenger {
             z-index: 999;
             position: fixed;
-            --df-messenger-font-color: #000;
-            --df-messenger-font-family: Google Sans;
-            --df-messenger-chat-background: #f3f6fc;
-            --df-messenger-message-user-background: #d3e3fd;
-            --df-messenger-message-bot-background: #fff;
-            bottom: 16px;
-            right: 16px;
+            bottom: 20px;
+            right: 20px;
+
+            /* Custom Theme */
+            --df-messenger-primary-color: #88B04B;
+            --df-messenger-button-titlebar-color: #88B04B;
+            --df-messenger-titlebar-icon-color: #ffffff;
+            /* Minimize Button Color */
+            --df-messenger-chat-background-color: #F7F9FC;
+            --df-messenger-font-color: #333;
+            --df-messenger-send-icon: #88B04B;
+            --df-messenger-user-message-background: #E3F2FD;
+            --df-messenger-bot-message-background: #fff;
+
+            /* Font & Size Adjustments */
+            --df-messenger-font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+            --df-messenger-titlebar-title-font-size: 16px;
+            --df-messenger-titlebar-title-font-weight: bold;
+            --df-messenger-input-font-size: 14px;
+            --df-messenger-message-font-size: 14px;
+
+            /* Shape */
+            --df-messenger-chat-window-height: 450px;
+            --df-messenger-chat-window-width: 320px;
+            /* Slightly smaller */
+            --df-messenger-chat-border-radius: 16px;
         }
     </style>
 </body>
