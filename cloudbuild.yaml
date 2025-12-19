@@ -58,6 +58,10 @@ steps:
       - '--port'
       - '5000'
 
+  # 6. Deploy to Firebase Hosting
+  - name: 'gcr.io/$PROJECT_ID/firebase'
+    args: ['deploy', '--project', '$PROJECT_ID', '--only', 'hosting']
+
 images:
   - 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/golf-repo/golf-crawler:v4'
 
