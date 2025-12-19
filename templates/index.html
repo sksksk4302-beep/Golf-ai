@@ -891,13 +891,30 @@
     <link rel="stylesheet"
         href="https://www.gstatic.com/dialogflow-console/fast/df-messenger/prod/v1/themes/df-messenger-default.css">
     <script src="https://www.gstatic.com/dialogflow-console/fast/df-messenger/prod/v1/df-messenger.js"></script>
-    <df-messenger location="us-central1" project-id="golf-ai-480805" agent-id="d303bf27-9b62-457a-9fa8-600571a0833b"
-        language-code="ko" max-query-length="-1"
+    <df-messenger id="golf-chatbot" location="us-central1" project-id="golf-ai-480805"
+        agent-id="d303bf27-9b62-457a-9fa8-600571a0833b" language-code="ko" max-query-length="-1"
         chat-icon="https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined/smart_toy/default/48px.svg">
         <df-messenger-chat chat-title="골프 예약 비서"
             bot-writing-image="https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined/smart_toy/default/48px.svg">
         </df-messenger-chat>
     </df-messenger>
+    <script>
+        // Inject today's date for the chatbot
+        document.addEventListener('DOMContentLoaded', () => {
+            const dfMessenger = document.querySelector('df-messenger');
+            const today = new Date();
+            const dateStr = today.toISOString().split('T')[0]; // YYYY-MM-DD
+            const days = ['일', '월', '화', '수', '목', '금', '토'];
+            const dayName = days[today.getDay()];
+
+            // Pass as query parameters
+            // The Agent Playbook instructions should mention: "Use the 'today' parameter to calculate relative dates."
+            dfMessenger.setAttribute('query-parameters', JSON.stringify({
+                "today": dateStr,
+                "day_of_week": dayName
+            }));
+        });
+    </script>
     <style>
         df-messenger {
             z-index: 999;
@@ -909,7 +926,7 @@
             --df-messenger-primary-color: #88B04B;
             --df-messenger-button-titlebar-color: #88B04B;
             --df-messenger-titlebar-icon-color: #ffffff;
-            /* Minimize Button Color */
+            /* Close/Minimize Icon */
             --df-messenger-chat-background-color: #F7F9FC;
             --df-messenger-font-color: #333;
             --df-messenger-send-icon: #88B04B;
@@ -926,7 +943,6 @@
             /* Shape */
             --df-messenger-chat-window-height: 450px;
             --df-messenger-chat-window-width: 320px;
-            /* Slightly smaller */
             --df-messenger-chat-border-radius: 16px;
         }
     </style>
