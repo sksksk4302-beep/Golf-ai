@@ -32,3 +32,8 @@ check_mappings.py
 compare_prices.py
 crawler.py
 calculate_history.py
+reproduce_issue.py
+test_optimization.py
+
+# Shortcuts
+*.lnk

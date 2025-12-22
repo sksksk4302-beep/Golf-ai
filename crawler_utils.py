@@ -64,9 +64,32 @@ def _make_session() -> requests.Session:
 def _fmt_ts() -> str:
     return datetime.now().strftime("%H:%M:%S")
 
-def _parse_price(txt: str) -> int:
-    d = re.sub(r"[^0-9]", "", txt or "")
-    return int(d) if d else 10**12
+def _parse_price(txt: str) -> Optional[int]:
+    """Parse price from text, filtering out non-numeric entries like '가격문의', '상담' etc."""
+    if not txt: return None
+    
+    # Filter out common Korean text patterns that indicate non-numeric prices
+    txt_lower = txt.lower()
+    non_numeric_patterns = ["문의", "상담", "확인", "전화", "call", "tbd", "미정"]
+    if any(pattern in txt_lower for pattern in non_numeric_patterns):
+        return None
+    
+    # Extract only digits
+    d = re.sub(r"[^0-9]", "", txt)
+    
+    # Return None if no digits found or if the number seems invalid
+    if not d:
+        return None
+    
+    try:
+        price = int(d)
+        # Filter out unreasonably large or small prices (sanity check)
+        # Golf prices typically range from 10,000 to 500,000 won
+        if price < 1000 or price > 10000000:
+            return None
+        return price
+    except (ValueError, OverflowError):
+        return None
 
 def _normalize_time_to_hour_num(t: str) -> Tuple[str, int]:
     """'08:12' / '8시' / '8시12분' → ('08시대', 8)"""
@@ -198,7 +221,14 @@ def crawl_teescan(date_str: str, favorite: List[str]):
             
         local_res = []
         for it in items:
-            price = int(it.get("price", 10**12))
+            try:
+                price = int(it.get("price", 0))
+                # Filter out invalid prices (same criteria as Golfpang)
+                if price < 1000 or price > 10000000:
+                    continue
+            except (ValueError, TypeError):
+                continue
+            
             ttxt  = str(it.get("teetime_time", "00:00"))
             h     = int(ttxt.split(":")[0]) if ":" in ttxt else int(ttxt[:2] or 0)
             local_res.append({
@@ -321,7 +351,9 @@ def crawl_golfpang(date_str: str, favorite: List[str], sectors: List[int] = None
                     if not price_txt:
                         m_price = re.search(r"([0-9][0-9,]{3,})\s*원?", tr.get_text(" ", strip=True))
                         price_txt = m_price.group(1) if m_price else ""
-                    price = _parse_price(price_txt) if price_txt else 10**12
+                    price = _parse_price(price_txt)
+                    if price is None:
+                        continue
 
                     hour_label, hour_num = _normalize_time_to_hour_num(time_txt)
                     if hour_num < 0:
