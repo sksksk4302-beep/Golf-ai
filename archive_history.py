@@ -80,7 +80,9 @@ def archive_history():
                         "count": len(prices)
                     },
                     "snapshot_at": snapshot_time,
-                    "weekday": datetime.datetime.strptime(date, "%Y-%m-%d").weekday()
+                    "weekday": datetime.datetime.strptime(date, "%Y-%m-%d").weekday(),
+                    # Add TTL field: Expire after 7 days
+                    "expire_at": snapshot_time + datetime.timedelta(days=7)
                 }
                 
                 batch.set(doc_ref, data)
