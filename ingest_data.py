@@ -111,6 +111,34 @@ def save_tee_times(db, tee_times, target_date):
         
     print(f"Sync complete for {target_date}. Total ops: {ops_count} (Deletes: {len(to_delete)}, Upserts: {ops_count - len(to_delete)}). Skipped: {skipped_count}")
 
+def process_date(target_date, db):
+    """
+    Crawls data for a single date and saves it to Firestore.
+    Returns the count of items saved (or found).
+    """
+    print(f"\n>>> [Start] Crawling for {target_date}...")
+    try:
+        # Crawl Golfpang
+        data_gp = crawl_golfpang(target_date, [])
+        
+        # Crawl Teescan
+        # print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] Starting Teescan crawl for {target_date}...")
+        data_ts = crawl_teescan(target_date, [])
+        
+        data = data_gp + data_ts
+        if data:
+            print(f"[{target_date}] Found {len(data)} tee times. Syncing...")
+            save_tee_times(db, data, target_date)
+            return len(data)
+        else:
+            print(f"[{target_date}] No data found. Clearing...")
+            save_tee_times(db, [], target_date)
+            return 0
+            
+    except Exception as e:
+        print(f"Error processing {target_date}: {e}")
+        return 0
+
 def main():
     db = init_firestore()
     if not db:
@@ -118,38 +146,33 @@ def main():
 
     today = datetime.date.today()
     
-    # We pass an empty list for 'favorite' to crawl ALL clubs
-    # But wait, crawler_utils.py filters by favorite if provided.
-    # If we want ALL clubs, we should pass an empty list?
-    # Let's check crawler_utils.py again. It says:
-    # if not _fav_ok(name, favorite): continue
-    # And _fav_ok returns True if favorite is empty.
-    # So passing [] works.
-    
+    # Prepare list of dates to crawl
+    dates_to_crawl = []
     for i in range(DAYS_TO_CRAWL):
-        target_date = (today + datetime.timedelta(days=i)).strftime("%Y-%m-%d")
-        print(f"\n>>> Crawling for {target_date}...")
+        d = (today + datetime.timedelta(days=i)).strftime("%Y-%m-%d")
+        dates_to_crawl.append(d)
         
-        try:
-            # Crawl Golfpang
-            data_gp = crawl_golfpang(target_date, [])
-            
-            # Crawl Teescan
-            print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] Starting Teescan crawl...")
-            data_ts = crawl_teescan(target_date, [])
-            print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] Teescan crawl finished. Found {len(data_ts)} items.")
-            
-            data = data_gp + data_ts
-            if data:
-                print(f"Found {len(data)} tee times. Syncing with Firestore...")
-                save_tee_times(db, data, target_date)
-            else:
-                # Even if no data found, we should run save_tee_times with empty list to clear old data
-                print("No data found. Clearing any existing data for this date...")
-                save_tee_times(db, [], target_date)
-                
-        except Exception as e:
-            print(f"Error processing {target_date}: {e}")
+    print(f"Starting parallel crawl for {len(dates_to_crawl)} days: {dates_to_crawl}")
+    
+    # Use ThreadPoolExecutor for parallel processing
+    # Adjust max_workers based on Cloud Run resources and target site limits.
+    # 4 workers is a good starting point for 14 days (approx 3-4 batches).
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    
+    total_items = 0
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        future_to_date = {executor.submit(process_date, date, db): date for date in dates_to_crawl}
+        
+        for future in as_completed(future_to_date):
+            date = future_to_date[future]
+            try:
+                count = future.result()
+                total_items += count
+                print(f">>> [Done] {date} finished. Items: {count}")
+            except Exception as e:
+                print(f">>> [Error] {date} failed: {e}")
+
+    print(f"\nAll crawling tasks completed. Total items processed: {total_items}")
 
 if __name__ == "__main__":
     main()
