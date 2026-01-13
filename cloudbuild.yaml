@@ -59,8 +59,14 @@ steps:
       - '5000'
 
   # 6. Deploy to Firebase Hosting
-  - name: 'gcr.io/$PROJECT_ID/firebase'
-    args: ['deploy', '--project', '$PROJECT_ID', '--only', 'hosting']
+  # 6. Deploy to Firebase Hosting
+  - name: 'node:20'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        npm install -g firebase-tools
+        firebase deploy --project $PROJECT_ID --only hosting
 
 images:
   - 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/golf-repo/golf-crawler:v4'
