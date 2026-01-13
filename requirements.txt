@@ -6,6 +6,7 @@ gunicorn==21.2.0  # Render에서는 필수 (생략 시 자동 실행 불가)
 # 크롤링 및 요청
 requests==2.32.4
 beautifulsoup4==4.13.4
+lxml==5.1.0
 soupsieve==2.7
 selenium==4.34.0
 PySocks==1.7.1

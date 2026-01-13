@@ -181,15 +181,15 @@ def _name_match(site_txt: str, gp_code_txt: str) -> bool:
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Teescan (원본 유지)
-def get_teescan_times(seq: str, date_str: str) -> List[Dict]:
+def get_teescan_times(s: requests.Session, seq: str, date_str: str) -> List[Dict]:
     """티스캐너 API에서 특정 구장/날짜의 티타임 리스트 조회"""
     url = (
         "https://foapi.teescanner.com/v1/booking/getTeeTimeListbyGolfclub"
         f"?golfclub_seq={seq}&roundDay={date_str}&orderType="
     )
-    headers = {"User-Agent": "Mozilla/5.0"}
+    # headers = {"User-Agent": "Mozilla/5.0"} # Session handles headers
     try:
-        r = requests.get(url, headers=headers, timeout=3)
+        r = s.get(url, timeout=3)
         return r.json().get("data", {}).get("teeTimeList", [])
     except Exception as e:
         print(f"[Teescan] seq={seq} date={date_str} 오류: {e}", flush=True)
@@ -213,44 +213,34 @@ def crawl_teescan(date_str: str, favorite: List[str]):
         if favorite and name not in favorite: continue
         targets.append((name, seq))
         
-    def _fetch(t_name, t_seq):
-        # print(f"[Teescan] Fetching {t_name}...", flush=True)
-        try:
-            items = get_teescan_times(t_seq, date_str)
-        except Exception as e:
-            print(f"[Teescan] Error fetching {t_name}: {e}", flush=True)
-            return []
-            
-        local_res = []
-        for it in items:
+    # Sequential processing with Session reuse
+    with _make_session() as s:
+        # Set common headers for Teescan if needed
+        s.headers.update({"User-Agent": "Mozilla/5.0"})
+        
+        for t_name, t_seq in targets:
             try:
-                price = int(it.get("price", 0))
-                # Filter out invalid prices (same criteria as Golfpang)
-                if price < 1000 or price > 10000000:
-                    continue
-            except (ValueError, TypeError):
-                continue
-            
-            ttxt  = str(it.get("teetime_time", "00:00"))
-            h     = int(ttxt.split(":")[0]) if ":" in ttxt else int(ttxt[:2] or 0)
-            local_res.append({
-                "golf": t_name, "date": date_str,
-                "hour": f"{h:02d}시대", "hour_num": h,
-                "price": price, "benefit": "",
-                "time": ttxt,
-                "url": "https://www.teescanner.com/", "source": "teescan",
-            })
-        return local_res
-
-    with ThreadPoolExecutor(max_workers=5) as executor:
-        future_to_club = {executor.submit(_fetch, n, s): n for n, s in targets}
-        for future in as_completed(future_to_club):
-            club_name = future_to_club[future]
-            try:
-                data = future.result(timeout=10)
-                res.extend(data)
+                items = get_teescan_times(s, t_seq, date_str)
+                
+                for it in items:
+                    try:
+                        price = int(it.get("price", 0))
+                        if price < 1000 or price > 10000000:
+                            continue
+                    except (ValueError, TypeError):
+                        continue
+                    
+                    ttxt  = str(it.get("teetime_time", "00:00"))
+                    h     = int(ttxt.split(":")[0]) if ":" in ttxt else int(ttxt[:2] or 0)
+                    res.append({
+                        "golf": t_name, "date": date_str,
+                        "hour": f"{h:02d}시대", "hour_num": h,
+                        "price": price, "benefit": "",
+                        "time": ttxt,
+                        "url": "https://www.teescanner.com/", "source": "teescan",
+                    })
             except Exception as e:
-                print(f"[Teescan] Error processing {club_name}: {e}")
+                print(f"[Teescan] Error processing {t_name}: {e}")
                 
     return res
 
@@ -324,7 +314,7 @@ def crawl_golfpang(date_str: str, favorite: List[str], sectors: List[int] = None
                     ctype = r.headers.get("Content-Type", "")
                     print(f"[{_fmt_ts()}] [Golfpang]   sector={sector} page={page} retry status={status} ctype='{ctype}'", flush=True)
 
-                soup = BeautifulSoup(r.text, "html.parser")
+                soup = BeautifulSoup(r.text, "lxml")
                 rows = soup.select('tr[id^="tr_"]')
                 added_this_page = 0
 
@@ -448,7 +438,7 @@ def crawl_golfpang_specific_club(date_str: str, club_id: str, sector: int) -> Li
                 r = s.post(TBLLIST_URL, data=form, headers=AJAX_HEADERS,
                            timeout=(CONNECT_TIMEOUT, READ_TIMEOUT), verify=False)
                 
-                soup = BeautifulSoup(r.text, "html.parser")
+                soup = BeautifulSoup(r.text, "lxml")
                 rows = soup.select('tr[id^="tr_"]')
                 
                 if not rows:
