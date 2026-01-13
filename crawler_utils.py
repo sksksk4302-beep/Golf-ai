@@ -46,6 +46,7 @@ AJAX_HEADERS = {
     "X-Requested-With": "XMLHttpRequest",
     "Origin": GOLFPANG_BASE,
     "Referer": LIST_URL,
+    "x-customer-check": "gp-post-key-2019",
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -136,6 +137,7 @@ def _bootstrap_gp_session(s: requests.Session, date_str: str, sector: Optional[i
         print(f"[{_fmt_ts()}] [Golfpang] bootstrap list.do err={e}", flush=True)
 
     payloads = [
+        {"Depth": "2", "GID": str(sector) if sector else "5", "SUB_GID": ""},
         {"roundDay": date_str},
         {"rd_date": date_str},
         {"rd_date": date_str, "sector": sector if sector is not None else ""},
@@ -297,6 +299,7 @@ def crawl_golfpang(date_str: str, favorite: List[str], sectors: List[int] = None
 
             seen = set()  # (golf, date, hour_num, price)
             page = 1
+            empty_consecutive_pages = 0
             while True:
                 form = {
                     "pageNum": page,
@@ -386,6 +389,16 @@ def crawl_golfpang(date_str: str, favorite: List[str], sectors: List[int] = None
                     print(f"[{_fmt_ts()}] [Golfpang]  ⏹ No more rows. Stop sector={sector}", flush=True)
                     break
                 
+                # Optimization: Stop if we have seen many pages with no matching data
+                if added_this_page == 0:
+                    empty_consecutive_pages += 1
+                else:
+                    empty_consecutive_pages = 0
+                    
+                if empty_consecutive_pages >= 3:
+                    print(f"[{_fmt_ts()}] [Golfpang]  ⏹ 3 consecutive pages with no matches. Stop sector={sector}", flush=True)
+                    break
+
                 if page >= 50:  # 안전장치: 최대 50페이지까지만
                     print(f"[{_fmt_ts()}] [Golfpang]  ⏹ Max page reached. Stop sector={sector}", flush=True)
                     break
@@ -397,4 +410,102 @@ def crawl_golfpang(date_str: str, favorite: List[str], sectors: List[int] = None
             _time.sleep(SLEEP_BETWEEN)
 
     out.sort(key=lambda x: (x.get("date",""), x.get("hour_num", 99), x.get("golf",""), x.get("price", 1<<60)))
+    return out
+
+def crawl_golfpang_specific_club(date_str: str, club_id: str, sector: int) -> List[Dict]:
+    """
+    Crawl a specific club using its ID.
+    Uses 'clubname' and 'sector3' parameters with the club ID.
+    """
+    out: List[Dict] = []
+    
+    # Find club name from ID for logging/result
+    club_name = "Unknown"
+    for c in GOLF_CLUBS:
+        if str(c.get("golfpang_id", "")) == str(club_id):
+            club_name = c.get("name")
+            break
+            
+    with _make_session() as s:
+        _bootstrap_gp_session(s, date_str, sector)
+        print(f"[{_fmt_ts()}] [Golfpang] ▶ START Specific Club={club_name}({club_id}) date={date_str}", flush=True)
+        
+        seen = set()
+        page = 1
+        while True:
+            form = {
+                "pageNum": page,
+                "rd_date": date_str,
+                "sector": sector,
+                "clubname": club_id,  # Club ID
+                "bkOrder": "", "idx": "", "cust_nick": "",
+                "sector2": "", 
+                "sector3": club_id,   # Club ID
+                "cdOrder": "",
+            }
+            
+            try:
+                r = s.post(TBLLIST_URL, data=form, headers=AJAX_HEADERS,
+                           timeout=(CONNECT_TIMEOUT, READ_TIMEOUT), verify=False)
+                
+                soup = BeautifulSoup(r.text, "html.parser")
+                rows = soup.select('tr[id^="tr_"]')
+                
+                if not rows:
+                    break
+                    
+                added_this_page = 0
+                for tr in rows:
+                    tds = tr.find_all("td")
+                    if len(tds) < 5: continue
+
+                    date_txt = tds[1].get_text(" ", strip=True)
+                    time_txt = tds[2].get_text(" ", strip=True)
+                    # club_txt = tds[4].get_text(" ", strip=True) # Should match our club
+                    
+                    price_txt = ""
+                    price_span = tr.select_one("span.price")
+                    if price_span:
+                        price_txt = price_span.get_text(strip=True)
+                    if not price_txt:
+                        m_price = re.search(r"([0-9][0-9,]{3,})\s*원?", tr.get_text(" ", strip=True))
+                        price_txt = m_price.group(1) if m_price else ""
+                    price = _parse_price(price_txt)
+                    if price is None:
+                        continue
+
+                    hour_label, hour_num = _normalize_time_to_hour_num(time_txt)
+                    if hour_num < 0:
+                        continue
+                        
+                    key = (club_name, date_str, hour_num, price)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    
+                    out.append({
+                        "golf": club_name,
+                        "date": date_str,
+                        "hour": hour_label,
+                        "hour_num": hour_num,
+                        "price": price,
+                        "benefit": "",
+                        "time": time_txt,
+                        "url": GOLFPANG_BASE + "/",
+                        "source": "golfpang",
+                    })
+                    added_this_page += 1
+                
+                print(f"[{_fmt_ts()}] [Golfpang]  Club={club_name} page={page} added={added_this_page}", flush=True)
+                
+                if page >= 10: # Safety limit for single club
+                    break
+                    
+                page += 1
+                _time.sleep(0.05)
+                
+            except Exception as e:
+                print(f"Error crawling specific club {club_name}: {e}")
+                break
+                
     return out
