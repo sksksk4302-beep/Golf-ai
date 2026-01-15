@@ -260,13 +260,13 @@ def crawl_golfpang(date_str: str, favorite: List[str], sectors: List[int] = None
     out: List[Dict] = []
     # 섹터 결정: 입력 인자 > 환경변수 > 기본값(5,4,8)
     if sectors is None or len(sectors) == 0:
-        env = os.environ.get("GPANG_SECTORS", "1,4,5,8,16")
+        env = os.environ.get("GPANG_SECTORS", "5,4,8")
         try:
             sectors = [int(x.strip()) for x in env.split(",") if x.strip()]
         except Exception:
-            sectors = [1,4,5,8,16]
+            sectors = [5,4,8]
     else:
-        sectors = [s for s in sectors if s in (1,4,5,8,16)]
+        sectors = [s for s in sectors if s in (5,4,8)]
 
     with _make_session() as s:
         # 수집 대상 구장(즐겨찾기/섹터 필터 적용)
