@@ -7,37 +7,11 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/golf-repo/golf-crawler:v4']
 
-  # 3. Update Cloud Run Jobs (Ingest)
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: gcloud
-    args:
-      - 'run'
-      - 'jobs'
-      - 'update'
-      - 'ingest-job'
-      - '--image'
-      - 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/golf-repo/golf-crawler:v4'
-      - '--command'
-      - 'python'
-      - '--args'
-      - 'ingest_data.py'
+      - '3600s'
       - '--region'
       - 'asia-northeast3'
 
-  # 4. Update Cloud Run Jobs (Archive)
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: gcloud
-    args:
-      - 'run'
-      - 'jobs'
-      - 'update'
-      - 'archive-job'
-      - '--image'
-      - 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/golf-repo/golf-crawler:v4'
-      - '--command'
-      - 'python'
-      - '--args'
-      - 'archive_history.py'
+      - '3600s'
       - '--region'
       - 'asia-northeast3'
 
