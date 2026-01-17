@@ -240,7 +240,7 @@ def crawl_teescan(date_str: str, favorite: List[str]):
                         "url": "https://www.teescanner.com/", "source": "teescan",
                     })
             except Exception as e:
-                print(f"[Teescan] Error processing {t_name}: {e}")
+                print(f"[Teescan] Error processing {t_name}: {e}", flush=True)
                 
     return res
 
@@ -250,15 +250,10 @@ def crawl_golfpang(date_str: str, favorite: List[str], sectors: List[int] = None
     """
     - sector는 기본 [5,4,8]만 순회(환경변수 GPANG_SECTORS='5,4,8'로 변경 가능)
     - clubname='' 로 전체 수신 → <tr id="tr_*">를 행 단위 파싱
-      * td[1]=날짜('10월15일 (수)') → date_str와 MM-DD 비교
-      * td[2]=시간('06:42'/'19시')
-      * td[4]=골프장명(사이트 표기) → GOLF_CLUBS[].Golpang_code와 이름 매칭
-      * span.price=가격
-    - pageNum 1→… 순회 (해당 페이지에서 신규 결과 0 → 그 섹터 종료)
-    - ampm 완전 제거
+    - 병렬 처리: 각 섹터를 별도 스레드/세션으로 처리하여 속도 향상.
     """
     out: List[Dict] = []
-    # 섹터 결정: 입력 인자 > 환경변수 > 기본값(5,4,8)
+    # 섹터 결정
     if sectors is None or len(sectors) == 0:
         env = os.environ.get("GPANG_SECTORS", "5,4,8")
         try:
@@ -268,140 +263,161 @@ def crawl_golfpang(date_str: str, favorite: List[str], sectors: List[int] = None
     else:
         sectors = [s for s in sectors if s in (5,4,8)]
 
-    with _make_session() as s:
-        # 수집 대상 구장(즐겨찾기/섹터 필터 적용)
-        targets_all: List[Dict] = []
-        for club in GOLF_CLUBS:
-            name = club.get("name")
-            gp_name = str(club.get("Golpang_code", "")).strip()
-            if not name or not gp_name: continue
-            if not _fav_ok(name, favorite): continue
-            sector_guess = _sector_from_address(club.get("address"))
-            targets_all.append({"name": name, "gp": gp_name, "sector": sector_guess})
+    # 수집 대상 구장 준비 (공통)
+    targets_all: List[Dict] = []
+    for club in GOLF_CLUBS:
+        name = club.get("name")
+        gp_name = str(club.get("Golpang_code", "")).strip()
+        if not name or not gp_name: continue
+        if not _fav_ok(name, favorite): continue
+        sector_guess = _sector_from_address(club.get("address"))
+        targets_all.append({"name": name, "gp": gp_name, "sector": sector_guess})
 
-        for sector in sectors:
-            # 섹터별 대상(주소에서 추정된 섹터가 동일한 구장만 우선 매칭)
-            targets = [t for t in targets_all if t["sector"] == sector or t["sector"] is None]
+    from concurrent.futures import ThreadPoolExecutor, as_completed
 
-            # 섹터 컨텍스트로 부트스트랩
+    def _process_sector(sector):
+        local_out = []
+        # 섹터별 대상 필터링
+        targets = [t for t in targets_all if t["sector"] == sector or t["sector"] is None]
+        
+        # 각 스레드별 독립 세션 사용 (중요)
+        with _make_session() as s:
             _bootstrap_gp_session(s, date_str, sector)
             print(f"[{_fmt_ts()}] [Golfpang] ▶ START sector={sector} date={date_str}", flush=True)
 
-            seen = set()  # (golf, date, hour_num, price)
+            seen = set()
             page = 1
             empty_consecutive_pages = 0
+            
             while True:
                 form = {
                     "pageNum": page,
                     "rd_date": date_str,
-                    "sector": sector,     # ★ 섹터 지정
-                    "clubname": "",       # ★ 전체
+                    "sector": sector,
+                    "clubname": "",
                     "bkOrder": "", "idx": "", "cust_nick": "",
                     "sector2": "", "sector3": "", "cdOrder": "",
                 }
-                r = s.post(TBLLIST_URL, data=form, headers=AJAX_HEADERS,
-                           timeout=(CONNECT_TIMEOUT, READ_TIMEOUT), verify=False)
-                status = r.status_code
-                ctype = r.headers.get("Content-Type", "")
-                print(f"[{_fmt_ts()}] [Golfpang]  sector={sector} page={page} status={status} ctype='{ctype}'", flush=True)
-
-                if status >= 500 or _is_maintenance_html(r.text):
-                    print(f"[{_fmt_ts()}] [Golfpang]   retry bootstrap (500/maintenance)", flush=True)
-                    _bootstrap_gp_session(s, date_str, sector)
+                
+                try:
                     r = s.post(TBLLIST_URL, data=form, headers=AJAX_HEADERS,
                                timeout=(CONNECT_TIMEOUT, READ_TIMEOUT), verify=False)
                     status = r.status_code
                     ctype = r.headers.get("Content-Type", "")
-                    print(f"[{_fmt_ts()}] [Golfpang]   sector={sector} page={page} retry status={status} ctype='{ctype}'", flush=True)
-
-                soup = BeautifulSoup(r.text, "lxml")
-                rows = soup.select('tr[id^="tr_"]')
-                added_this_page = 0
-
-                for tr in rows:
-                    tds = tr.find_all("td")
-                    if len(tds) < 5: continue
-
-                    date_txt = tds[1].get_text(" ", strip=True)
-                    time_txt = tds[2].get_text(" ", strip=True)
-                    club_txt = tds[4].get_text(" ", strip=True)
-
-                    if not _same_mmdd(date_str, date_txt):
-                        continue
-
-                    # 이름 매칭
-                    matched: Optional[Dict] = None
-                    for t in targets:
-                        if _name_match(club_txt, t["gp"]):
-                            matched = t; break
-                    if not matched:
-                        continue
-
-                    price_txt = ""
-                    price_span = tr.select_one("span.price")
-                    if price_span:
-                        price_txt = price_span.get_text(strip=True)
-                    if not price_txt:
-                        m_price = re.search(r"([0-9][0-9,]{3,})\s*원?", tr.get_text(" ", strip=True))
-                        price_txt = m_price.group(1) if m_price else ""
-                    price = _parse_price(price_txt)
-                    if price is None:
-                        continue
-
-                    hour_label, hour_num = _normalize_time_to_hour_num(time_txt)
-                    if hour_num < 0:
-                        continue
-
-                    key = (matched["name"], date_str, hour_num, price)
-                    if key in seen:
-                        continue
-                    seen.add(key)
-
-                    out.append({
-                        "golf": matched["name"],
-                        "date": date_str,
-                        "hour": hour_label,
-                        "hour_num": hour_num,
-                        "price": price,
-                        "benefit": "",
-                        "time": time_txt,
-                        "url": GOLFPANG_BASE + "/",
-                        "source": "golfpang",
-                    })
-                    added_this_page += 1
-
-                print(f"[{_fmt_ts()}] [Golfpang]  ◀ sector={sector} page={page} added={added_this_page}", flush=True)
-
-                # 수정: 해당 페이지에 매칭된 항목이 없어도(added_this_page == 0),
-                #       실제 데이터 행(rows)이 존재하면 다음 페이지에 우리가 원하는 데이터가 있을 수 있음.
-                #       따라서 rows가 아예 없거나, 페이지가 너무 많아질 때만 종료.
-                if not rows:
-                    print(f"[{_fmt_ts()}] [Golfpang]  ⏹ No more rows. Stop sector={sector}", flush=True)
-                    break
-                
-                # Optimization: Stop if we have seen many pages with no matching data
-                if added_this_page == 0:
-                    empty_consecutive_pages += 1
-                else:
-                    empty_consecutive_pages = 0
                     
-                if empty_consecutive_pages >= 3:
-                    print(f"[{_fmt_ts()}] [Golfpang]  ⏹ 3 consecutive pages with no matches. Stop sector={sector}", flush=True)
+                    if status >= 500 or _is_maintenance_html(r.text):
+                        print(f"[{_fmt_ts()}] [Golfpang]   retry bootstrap (500/maintenance) sec={sector}", flush=True)
+                        _bootstrap_gp_session(s, date_str, sector)
+                        r = s.post(TBLLIST_URL, data=form, headers=AJAX_HEADERS,
+                                   timeout=(CONNECT_TIMEOUT, READ_TIMEOUT), verify=False)
+                        status = r.status_code
+                    
+                    try:
+                        soup = BeautifulSoup(r.text, "lxml")
+                    except Exception:
+                        soup = BeautifulSoup(r.text, "html.parser")
+
+                    rows = soup.select('tr[id^="tr_"]')
+                    added_this_page = 0
+
+                    for tr in rows:
+                        tds = tr.find_all("td")
+                        if len(tds) < 5: continue
+
+                        date_txt = tds[1].get_text(" ", strip=True)
+                        time_txt = tds[2].get_text(" ", strip=True)
+                        club_txt = tds[4].get_text(" ", strip=True)
+
+                        if not _same_mmdd(date_str, date_txt):
+                            continue
+
+                        matched = None
+                        for t in targets:
+                            if _name_match(club_txt, t["gp"]):
+                                matched = t; break
+                        if not matched:
+                            continue
+
+                        price_txt = ""
+                        price_span = tr.select_one("span.price")
+                        if price_span:
+                            price_txt = price_span.get_text(strip=True)
+                        if not price_txt:
+                            m_price = re.search(r"([0-9][0-9,]{3,})\s*원?", tr.get_text(" ", strip=True))
+                            price_txt = m_price.group(1) if m_price else ""
+                        price = _parse_price(price_txt)
+                        if price is None:
+                            continue
+
+                        hour_label, hour_num = _normalize_time_to_hour_num(time_txt)
+                        if hour_num < 0:
+                            continue
+
+                        key = (matched["name"], date_str, hour_num, price)
+                        if key in seen:
+                            continue
+                        seen.add(key)
+
+                        local_out.append({
+                            "golf": matched["name"],
+                            "date": date_str,
+                            "hour": hour_label,
+                            "hour_num": hour_num,
+                            "price": price,
+                            "benefit": "",
+                            "time": time_txt,
+                            "url": GOLFPANG_BASE + "/",
+                            "source": "golfpang",
+                        })
+                        added_this_page += 1
+
+                    # Log/Break conditions
+                    if not rows:
+                        print(f"[{_fmt_ts()}] [Golfpang]  ⏹ No more rows. Stop sector={sector}", flush=True)
+                        break
+                    
+                    if added_this_page == 0:
+                        empty_consecutive_pages += 1
+                    else:
+                        empty_consecutive_pages = 0
+                        
+                    if empty_consecutive_pages >= 3:
+                        print(f"[{_fmt_ts()}] [Golfpang]  ⏹ 3 consecutive pages with no matches. Stop sector={sector}", flush=True)
+                        break
+
+                    if page >= 50:
+                        print(f"[{_fmt_ts()}] [Golfpang]  ⏹ Max page reached. Stop sector={sector}", flush=True)
+                        break
+
+                    page += 1
+                    _time.sleep(0.05)
+                    
+                except Exception as e:
+                    print(f"[{_fmt_ts()}] [Golfpang] Error processing sector={sector} page={page}: {e}", flush=True)
                     break
+                    
+        return local_out
 
-                if page >= 50:  # 안전장치: 최대 50페이지까지만
-                    print(f"[{_fmt_ts()}] [Golfpang]  ⏹ Max page reached. Stop sector={sector}", flush=True)
-                    break
-
-                page += 1
-                _time.sleep(0.05)  # 페이지 간 예의상 짧은 딜레이
-
-            print(f"[{_fmt_ts()}] [Golfpang] ◀ DONE sector={sector} total_added={len([x for x in out if _sector_from_address(next((c['address'] for c in GOLF_CLUBS if c.get('name')==x['golf']), '' )) in (sector,None)])}", flush=True)
-            _time.sleep(SLEEP_BETWEEN)
+    # Execute sectors in parallel
+    workers = min(len(sectors), 3)
+    if workers < 1: workers = 1
+    
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        future_to_sector = {executor.submit(_process_sector, s): s for s in sectors}
+        for future in as_completed(future_to_sector):
+            sec = future_to_sector[future]
+            try:
+                data = future.result()
+                out.extend(data)
+                print(f"[{_fmt_ts()}] [Golfpang] ◀ DONE sector={sec} count={len(data)}", flush=True)
+            except Exception as e:
+                print(f"[{_fmt_ts()}] [Golfpang] ◀ FAILED sector={sec} err={e}", flush=True)
 
     out.sort(key=lambda x: (x.get("date",""), x.get("hour_num", 99), x.get("golf",""), x.get("price", 1<<60)))
     return out
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Golfpang Specific Club (for optimization/repair)
 def crawl_golfpang_specific_club(date_str: str, club_id: str, sector: int) -> List[Dict]:
     """
     Crawl a specific club using its ID.
@@ -438,7 +454,10 @@ def crawl_golfpang_specific_club(date_str: str, club_id: str, sector: int) -> Li
                 r = s.post(TBLLIST_URL, data=form, headers=AJAX_HEADERS,
                            timeout=(CONNECT_TIMEOUT, READ_TIMEOUT), verify=False)
                 
-                soup = BeautifulSoup(r.text, "lxml")
+                try:
+                    soup = BeautifulSoup(r.text, "lxml")
+                except Exception:
+                    soup = BeautifulSoup(r.text, "html.parser")
                 rows = soup.select('tr[id^="tr_"]')
                 
                 if not rows:
