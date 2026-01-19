@@ -1,0 +1,84 @@
+openapi: 3.0.0
+info:
+  title: Golf Tee Time API
+  description: API for retrieving golf tee time prices and availability.
+  version: 1.0.0
+servers:
+  - url: https://golf-ai-web-480805.run.app
+    description: Production Server (Cloud Run)
+paths:
+  /api/clubs:
+    get:
+      summary: Get golf clubs by region
+      description: Returns a list of golf clubs grouped by region (e.g., Gyeonggi, Chungcheong). Use this to find club names when a user asks for a specific region.
+      operationId: getClubs
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      name:
+                        type: string
+                      region:
+                        type: string
+  /api/prices:
+    post:
+      summary: Get tee time prices
+      description: Retrieves tee time prices for specific dates and clubs. Can filter by time.
+      operationId: getPrices
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                dates:
+                  type: array
+                  items:
+                    type: string
+                    format: date
+                  description: List of dates to check (YYYY-MM-DD). e.g. ["2025-12-20"]
+                clubs:
+                  type: array
+                  items:
+                    type: string
+                  description: List of golf club names. e.g. ["Plaza CC"]
+                times:
+                  type: array
+                  items:
+                    type: string
+                  description: List of hour strings to filter. e.g. ["08", "14"]
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    club_name:
+                      type: string
+                    date:
+                      type: string
+                    time:
+                      type: string
+                    price:
+                      type: integer
+                    diff:
+                      type: integer
+                      description: Price difference compared to 7 days ago.
+                    history_price:
+                      type: integer
+                      nullable: true

@@ -1,0 +1,45 @@
+{
+    "mcpServers": {
+        "firebase": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@anthropic/firebase-mcp"
+            ],
+            "env": {
+                "GOOGLE_APPLICATION_CREDENTIALS": "./service-account.json"
+            }
+        },
+        "cloud-run": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@anthropic/gcp-cloud-run-mcp"
+            ],
+            "env": {
+                "GOOGLE_CLOUD_PROJECT": "golf-ai-480805",
+                "GOOGLE_CLOUD_REGION": "asia-northeast3"
+            }
+        },
+        "cloud-logging": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@anthropic/gcp-logging-mcp"
+            ],
+            "env": {
+                "GOOGLE_CLOUD_PROJECT": "golf-ai-480805"
+            }
+        },
+        "github": {
+            "command": "npx",
+            "args": [
+                "-y",
+                "@anthropic/github-mcp"
+            ],
+            "env": {
+                "GITHUB_TOKEN": "${GITHUB_TOKEN}"
+            }
+        }
+    }
+}

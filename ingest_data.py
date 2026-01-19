@@ -152,25 +152,20 @@ def main():
         d = (today + datetime.timedelta(days=i)).strftime("%Y-%m-%d")
         dates_to_crawl.append(d)
         
-    print(f"Starting parallel crawl for {len(dates_to_crawl)} days: {dates_to_crawl}")
+    print(f"Starting sequential crawl for {len(dates_to_crawl)} days: {dates_to_crawl}")
     
-    # Use ThreadPoolExecutor for parallel processing
-    # Adjust max_workers based on Cloud Run resources and target site limits.
-    # 4 workers is a good starting point for 14 days (approx 3-4 batches).
-    from concurrent.futures import ThreadPoolExecutor, as_completed
+    # Process dates sequentially to avoid timeout
+    # Each date will still use sector-level parallelization (3 concurrent ops)
+    # This prevents compounding: 1 date × 3 sectors instead of 3 dates × 3 sectors
     
     total_items = 0
-    with ThreadPoolExecutor(max_workers=3) as executor:
-        future_to_date = {executor.submit(process_date, date, db): date for date in dates_to_crawl}
-        
-        for future in as_completed(future_to_date):
-            date = future_to_date[future]
-            try:
-                count = future.result()
-                total_items += count
-                print(f">>> [Done] {date} finished. Items: {count}")
-            except Exception as e:
-                print(f">>> [Error] {date} failed: {e}")
+    for date in dates_to_crawl:
+        try:
+            count = process_date(date, db)
+            total_items += count
+            print(f">>> [Done] {date} finished. Items: {count}")
+        except Exception as e:
+            print(f">>> [Error] {date} failed: {e}")
 
     print(f"\nAll crawling tasks completed. Total items processed: {total_items}")
 

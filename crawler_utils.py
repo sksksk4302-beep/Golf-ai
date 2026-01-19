@@ -385,7 +385,7 @@ def crawl_golfpang(date_str: str, favorite: List[str], sectors: List[int] = None
                         print(f"[{_fmt_ts()}] [Golfpang]  ⏹ 3 consecutive pages with no matches. Stop sector={sector}", flush=True)
                         break
 
-                    if page >= 50:
+                    if page >= 20:
                         print(f"[{_fmt_ts()}] [Golfpang]  ⏹ Max page reached. Stop sector={sector}", flush=True)
                         break
 
