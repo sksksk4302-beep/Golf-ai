@@ -7,6 +7,21 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/golf-repo/golf-crawler:v4']
 
+  # 3. Deploy Cloud Run Job (ingestjob) with 1 hour timeout
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'jobs'
+      - 'update'
+      - 'ingestjob'
+      - '--image'
+      - 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/golf-repo/golf-crawler:v4'
+      - '--task-timeout'
+      - '3600s'
+      - '--region'
+      - 'asia-northeast3'
+
   # 5. Deploy to Cloud Run Service (Web App)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
