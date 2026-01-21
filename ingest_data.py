@@ -3,6 +3,7 @@ import os
 import firebase_admin
 from firebase_admin import credentials, firestore
 from crawler_utils import crawl_golfpang, crawl_teescan, GOLF_CLUBS
+from weather_utils import get_weather_for_club
 
 # Configuration
 PROJECT_ID = "golf-ai-480805"
@@ -32,6 +33,12 @@ def save_tee_times(db, tee_times, target_date):
     for item in tee_times:
         club_safe = item['golf'].replace(" ", "").replace("/", "_")
         doc_id = f"{item['date'].replace('-', '')}_{club_safe}_{item['time'].replace(':', '')}"
+        
+        # Enrich with weather data
+        weather = get_weather_for_club(item['golf'], item['date'])
+        if weather:
+            item['weather'] = weather
+            
         new_ids.add(doc_id)
         data_map[doc_id] = item
 
@@ -79,7 +86,8 @@ def save_tee_times(db, tee_times, target_date):
             "price": item['price'],
             "source": item.get('source', 'Golfpang'),
             # "crawled_at": firestore.SERVER_TIMESTAMP, # Don't include in comparison
-            "weekday": datetime.datetime.strptime(item['date'], "%Y-%m-%d").weekday()
+            "weekday": datetime.datetime.strptime(item['date'], "%Y-%m-%d").weekday(),
+            "weather": item.get('weather')
         }
         
         # Check if update is needed

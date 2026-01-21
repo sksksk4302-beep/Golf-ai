@@ -171,6 +171,63 @@ def get_prices():
         print(f"Error: {e}")
         return jsonify({"error": str(e)}), 500
 
+@app.route("/get_weather", methods=["POST"])
+def get_weather():
+    """
+    Fetch weather data for specified clubs and dates.
+    Request: { "clubs": ["태광", ...], "dates": ["01/22", ...] }
+    """
+    try:
+        data = request.get_json()
+        clubs = data.get("clubs", [])
+        dates = data.get("dates", [])
+        
+        if not clubs or not dates:
+            return jsonify([])
+        
+        results = []
+        
+        # Convert date format (01/22 -> 2025-01-22 or similar)
+        # Note: The frontend sends "01/22" format from the tee time table
+        current_year = datetime.now().year
+        normalized_dates = []
+        for d in dates:
+            try:
+                # Handle MM/DD format
+                parts = d.split("/")
+                if len(parts) == 2:
+                    month, day = parts
+                    normalized_dates.append(f"{current_year}-{month.zfill(2)}-{day.zfill(2)}")
+                else:
+                    # Already in YYYY-MM-DD format
+                    normalized_dates.append(d)
+            except:
+                pass
+        
+        # Query weather_forecast for each club-date pair
+        for club in clubs:
+            for date in normalized_dates:
+                doc_id = f"{date.replace('-', '')}_{club}"
+                doc = db.collection('weather_forecast').document(doc_id).get()
+                if doc.exists:
+                    weather_data = doc.to_dict()
+                    # Return simplified data
+                    results.append({
+                        "club_name": club,
+                        "date": d,  # Original format
+                        "temp_min": weather_data.get("temp_min"),
+                        "temp_max": weather_data.get("temp_max"),
+                        "precip_prob_max": weather_data.get("precip_prob_max"),
+                        "weather_code_daily": weather_data.get("weather_code_daily"),
+                        "hourly": weather_data.get("hourly", [])
+                    })
+        
+        return jsonify(results)
+        
+    except Exception as e:
+        print(f"Weather Error: {e}")
+        return jsonify([])
+
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)

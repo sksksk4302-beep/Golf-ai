@@ -11,6 +11,7 @@ let currentRegion = "경기";
 let golfclubData = [];
 let golfclubMeta = [];
 let currentFavorites = {}; // region별 선택 상태 유지
+let weatherCache = {}; // 날씨 데이터 캐시
 
 window.onload = () => {
   const tomorrow = new Date();
@@ -60,6 +61,39 @@ function formatToManWon(price) {
   return `${(price / 10000).toFixed(1)}`;
 }
 
+// Weather icon based on WMO weather code
+function getWeatherIcon(code) {
+  if (code === undefined || code === null) return '';
+  if (code === 0) return '☀️'; // Clear
+  if (code <= 3) return '⛅'; // Partly cloudy
+  if (code <= 49) return '🌫️'; // Fog
+  if (code <= 69) return '🌧️'; // Rain
+  if (code <= 79) return '🌨️'; // Snow
+  if (code <= 99) return '⛈️'; // Thunderstorm
+  return '☁️';
+}
+
+// Fetch weather data for clubs
+async function fetchWeatherData(clubNames, dates) {
+  try {
+    const response = await fetch("/get_weather", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clubs: clubNames, dates: dates })
+    });
+    if (response.ok) {
+      const data = await response.json();
+      // Build cache: weatherCache[club][date] = {...}
+      data.forEach(item => {
+        if (!weatherCache[item.club_name]) weatherCache[item.club_name] = {};
+        weatherCache[item.club_name][item.date] = item;
+      });
+    }
+  } catch (err) {
+    console.warn("날씨 데이터 조회 실패:", err);
+  }
+}
+
 function getPriceFilterRange() {
   const checked = Array.from(priceCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
   return function (price) {
@@ -89,6 +123,14 @@ async function getGroupedTeeTime() {
 
     const data = (await response.json()).filter(item => priceFilter(item.price));
     console.log("✅ 티타임 응답 도착", data);
+
+    // Extract unique clubs and dates for weather fetch
+    const clubs = [...new Set(data.map(d => d.golf))];
+    const dates = [...new Set(data.map(d => d.date.split(" ")[0]))]; // e.g., "01/22" -> "01/22"
+
+    // Fetch weather data (don't block rendering if it fails)
+    await fetchWeatherData(clubs, dates);
+
     renderTeeTimeTable(data);
   } catch (err) {
     console.error("❌ 요청 실패 또는 서버 오류:", err);
@@ -112,8 +154,22 @@ function renderTeeTimeTable(data) {
   const sortedGolfNames = Array.from(golfNames).sort();
   const sortedKeys = getSortedKeys(grouped);
 
+  // Extract unique dates for weather lookup
+  const uniqueDates = [...new Set(sortedKeys.map(k => k.split(" ")[0]))];
+
+  // Build header with weather icons
   const thead = document.querySelector("thead tr");
-  thead.innerHTML = `<th>날짜/시간대</th>` + sortedGolfNames.map(name => `<th title="${name}">${name}</th>`).join("");
+  thead.innerHTML = `<th>날짜/시간대</th>` + sortedGolfNames.map(name => {
+    // Get weather for each club (use first date for header summary)
+    let weatherInfo = '';
+    const firstDate = uniqueDates[0];
+    if (firstDate && weatherCache[name] && weatherCache[name][firstDate]) {
+      const w = weatherCache[name][firstDate];
+      const icon = getWeatherIcon(w.weather_code_daily);
+      weatherInfo = `<div class="weather-badge">${icon} ${w.temp_min}°/${w.temp_max}°</div>`;
+    }
+    return `<th title="${name}"><div>${name}</div>${weatherInfo}</th>`;
+  }).join("");
   resultBody.innerHTML = "";
 
   let lastDate = null;
