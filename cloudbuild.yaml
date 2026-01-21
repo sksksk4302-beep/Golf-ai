@@ -1,13 +1,13 @@
 steps:
   # 1. Build the container image
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/golf-repo/golf-crawler:v4', '.']
+    args: ['build', '-t', 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/golf-repo/golf-app', '.']
 
   # 2. Push the container image
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/golf-repo/golf-crawler:v4']
+    args: ['push', 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/golf-repo/golf-app']
 
-  # 3. Deploy Cloud Run Job (ingest-job) with 1 hour timeout
+  # 3. Deploy Cloud Run Job (Ingest) - Main Crawler
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
@@ -16,13 +16,67 @@ steps:
       - 'deploy'
       - 'ingest-job'
       - '--image'
-      - 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/golf-repo/golf-crawler:v4'
-      - '--task-timeout'
-      - '3600s'
+      - 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/golf-repo/golf-app'
       - '--region'
       - 'asia-northeast3'
+      - '--tasks'
+      - '1'
+      - '--max-retries'
+      - '0'
+      - '--task-timeout'
+      - '60m'
+      - '--command'
+      - 'python'
+      - '--args'
+      - 'ingest_data.py'
 
-  # 5. Deploy to Cloud Run Service (Web App)
+  # 4. Deploy Cloud Run Job (Weather) - Weather Ingestion
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'jobs'
+      - 'deploy'
+      - 'weather-job'
+      - '--image'
+      - 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/golf-repo/golf-app'
+      - '--region'
+      - 'asia-northeast3'
+      - '--tasks'
+      - '1'
+      - '--max-retries'
+      - '0'
+      - '--task-timeout'
+      - '10m'
+      - '--command'
+      - 'python'
+      - '--args'
+      - 'ingest_weather.py'
+
+  # 5. Deploy Cloud Run Job (Archive) - History Archive
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'jobs'
+      - 'deploy'
+      - 'archive-job'
+      - '--image'
+      - 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/golf-repo/golf-app'
+      - '--region'
+      - 'asia-northeast3'
+      - '--tasks'
+      - '1'
+      - '--max-retries'
+      - '0'
+      - '--task-timeout'
+      - '30m'
+      - '--command'
+      - 'python'
+      - '--args'
+      - 'archive_history.py'
+
+  # 6. Deploy to Cloud Run Service (Web App)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
@@ -30,7 +84,7 @@ steps:
       - 'deploy'
       - 'golf-ai-web'
       - '--image'
-      - 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/golf-repo/golf-crawler:v4'
+      - 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/golf-repo/golf-app'
       - '--region'
       - 'asia-northeast3'
       - '--platform'
@@ -39,8 +93,7 @@ steps:
       - '--port'
       - '5000'
 
-  # 6. Deploy to Firebase Hosting
-  # 6. Deploy to Firebase Hosting
+  # 7. Deploy to Firebase Hosting
   - name: 'node:20'
     entrypoint: 'bash'
     args:
@@ -50,7 +103,7 @@ steps:
         firebase deploy --project $PROJECT_ID --only hosting
 
 images:
-  - 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/golf-repo/golf-crawler:v4'
+  - 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/golf-repo/golf-app'
 
 options:
   logging: CLOUD_LOGGING_ONLY
