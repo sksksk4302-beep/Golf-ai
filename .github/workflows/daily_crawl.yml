@@ -2,8 +2,8 @@ name: Daily Golf Crawl
 
 on:
   schedule:
-    # Run at 00:00 KST (15:00 UTC previous day)
-    - cron: '0 15 * * *'
+    # Run every 30 minutes
+    - cron: '*/30 * * * *'
   workflow_dispatch: # Allow manual trigger
 
 jobs:
@@ -24,10 +24,13 @@ jobs:
         pip install -r requirements.txt
 
     - name: Create Service Account Key
-      run: |
-        echo "${{ secrets.GCP_SA_KEY }}" > service-account.json
+      shell: python
       env:
         GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+      run: |
+        import os
+        with open("service-account.json", "w") as f:
+            f.write(os.environ["GCP_SA_KEY"])
 
     - name: Run Crawler
       env:
