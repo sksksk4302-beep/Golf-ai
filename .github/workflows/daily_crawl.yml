@@ -5,6 +5,9 @@ on:
     # Run every 30 minutes
     - cron: '*/30 * * * *'
   workflow_dispatch: # Allow manual trigger
+  push:
+    branches:
+      - main
 
 jobs:
   crawl:
