@@ -25,6 +25,7 @@ TBLLIST_URL  = f"{GOLFPANG_BASE}/web/round/booking_tblList.do"
 CONNECT_TIMEOUT = int(os.environ.get("GPANG_CONNECT_TIMEOUT", 5))
 READ_TIMEOUT    = int(os.environ.get("GPANG_READ_TIMEOUT", 20))
 SLEEP_BETWEEN   = float(os.environ.get("GPANG_SLEEP", 0.25))
+PROXY_WORKER_URL = os.environ.get("GPANG_PROXY_WORKER", "") # e.g., https://my-worker.workers.dev
 
 COMMON_HEADERS = {
     # User-Agent is handled by curl_cffi impersonate="chrome"
@@ -51,6 +52,14 @@ def _make_session() -> requests.Session:
     # impersonate="chrome124" mimics a real Chrome browser's TLS fingerprint and headers
     s = requests.Session(impersonate="chrome124")
     return s
+
+def _get_url(url: str) -> str:
+    """If PROXY_WORKER_URL is set, rewrite the URL to go through the proxy."""
+    if PROXY_WORKER_URL:
+        # Check if it already has query params
+        sep = "&" if "?" in PROXY_WORKER_URL else "?"
+        return f"{PROXY_WORKER_URL}{sep}url={url}"
+    return url
 
 def _fmt_ts() -> str:
     return datetime.now().strftime("%H:%M:%S")
@@ -119,7 +128,8 @@ def _bootstrap_gp_session(s: requests.Session, date_str: str, sector: Optional[i
     """골팡 세션/쿠키 준비: list.do GET → node.do POST(여러 페이로드). 실패해도 관용 모드."""
     ok_list = ok_node = False
     try:
-        r1 = s.get(LIST_URL, headers=HTML_HEADERS,
+        target_url = _get_url(LIST_URL)
+        r1 = s.get(target_url, headers=HTML_HEADERS,
                    timeout=(CONNECT_TIMEOUT, READ_TIMEOUT), verify=False)
         print(f"[{_fmt_ts()}] [Golfpang] bootstrap list.do status={r1.status_code}", flush=True)
         ok_list = (r1.status_code == 200)
@@ -134,7 +144,8 @@ def _bootstrap_gp_session(s: requests.Session, date_str: str, sector: Optional[i
     ]
     for p in payloads:
         try:
-            r2 = s.post(NODE_URL, headers=AJAX_HEADERS, data=p,
+            target_url = _get_url(NODE_URL)
+            r2 = s.post(target_url, headers=AJAX_HEADERS, data=p,
                         timeout=(CONNECT_TIMEOUT, READ_TIMEOUT), verify=False)
             print(f"[{_fmt_ts()}] [Golfpang] bootstrap node.do status={r2.status_code} payload={p}", flush=True)
             if r2.status_code == 200 and "점검" not in r2.text:
@@ -290,7 +301,8 @@ def crawl_golfpang(date_str: str, favorite: List[str], sectors: List[int] = None
                 }
                 
                 try:
-                    r = s.post(TBLLIST_URL, data=form, headers=AJAX_HEADERS,
+                    target_url = _get_url(TBLLIST_URL)
+                    r = s.post(target_url, data=form, headers=AJAX_HEADERS,
                                timeout=(CONNECT_TIMEOUT, READ_TIMEOUT), verify=False)
                     status = r.status_code
                     ctype = r.headers.get("Content-Type", "")
@@ -298,7 +310,8 @@ def crawl_golfpang(date_str: str, favorite: List[str], sectors: List[int] = None
                     if status >= 500 or _is_maintenance_html(r.text):
                         print(f"[{_fmt_ts()}] [Golfpang]   retry bootstrap (500/maintenance) sec={sector}", flush=True)
                         _bootstrap_gp_session(s, date_str, sector)
-                        r = s.post(TBLLIST_URL, data=form, headers=AJAX_HEADERS,
+                        target_url = _get_url(TBLLIST_URL)
+                        r = s.post(target_url, data=form, headers=AJAX_HEADERS,
                                    timeout=(CONNECT_TIMEOUT, READ_TIMEOUT), verify=False)
                         status = r.status_code
                     
@@ -441,7 +454,8 @@ def crawl_golfpang_specific_club(date_str: str, club_id: str, sector: int) -> Li
             }
             
             try:
-                r = s.post(TBLLIST_URL, data=form, headers=AJAX_HEADERS,
+                target_url = _get_url(TBLLIST_URL)
+                r = s.post(target_url, data=form, headers=AJAX_HEADERS,
                            timeout=(CONNECT_TIMEOUT, READ_TIMEOUT), verify=False)
                 
                 try:
