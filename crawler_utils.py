@@ -1,13 +1,12 @@
 # crawler_utils.py
-import requests, json, os, re, time as _time
+import json, os, re, time as _time
+from curl_cffi import requests
 from bs4 import BeautifulSoup
 from typing import List, Dict, Optional, Tuple
-import urllib3
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 from datetime import datetime
 
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+# urllib3 warnings are not relevant for curl_cffi
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 구장 정보 로딩 (static/golf_clubs.json, Golpang_code: 골팡 표기 문자열)
@@ -28,10 +27,7 @@ READ_TIMEOUT    = int(os.environ.get("GPANG_READ_TIMEOUT", 20))
 SLEEP_BETWEEN   = float(os.environ.get("GPANG_SLEEP", 0.25))
 
 COMMON_HEADERS = {
-    "User-Agent": os.environ.get(
-        "GPANG_UA",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
-    ),
+    # User-Agent is handled by curl_cffi impersonate="chrome"
     "Accept-Language": "ko,en;q=0.9",
 }
 HTML_HEADERS = {
@@ -52,14 +48,8 @@ AJAX_HEADERS = {
 # ─────────────────────────────────────────────────────────────────────────────
 # 유틸
 def _make_session() -> requests.Session:
-    s = requests.Session()
-    retry = Retry(
-        total=6, connect=6, read=6, backoff_factor=0.4,
-        status_forcelist=[429, 500, 502, 503, 504],
-        allowed_methods=["GET", "POST"], raise_on_status=False,
-    )
-    adapter = HTTPAdapter(max_retries=retry, pool_connections=20, pool_maxsize=40)
-    s.mount("https://", adapter); s.mount("http://", adapter)
+    # impersonate="chrome124" mimics a real Chrome browser's TLS fingerprint and headers
+    s = requests.Session(impersonate="chrome124")
     return s
 
 def _fmt_ts() -> str:
