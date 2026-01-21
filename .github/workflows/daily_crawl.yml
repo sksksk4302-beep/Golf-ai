@@ -48,13 +48,26 @@ jobs:
             print(f"DEBUG: Base64 decode failed ({e}), using raw content")
             content = secret_val
 
+        # Verify file content is valid JSON
+        import json
+        try:
+            json.loads(content)
+            print("DEBUG: Content is valid JSON")
+        except Exception as e:
+            print(f"ERROR: Content is NOT valid JSON: {e}")
+            print(f"DEBUG: Content (first 100 chars): {content[:100]}")
+            # If content is empty, print that explicitly
+            if not content:
+                print("DEBUG: Content is EMPTY string")
+            exit(1)
+
         with open("service-account.json", "w") as f:
             f.write(content)
             
         # Verify file
         with open("service-account.json", "r") as f:
             first_line = f.readline()
-            print(f"DEBUG: First line of file: {first_line[:20]}...")
+            print(f"DEBUG: First line of file: {first_line[:50]}...")
 
     - name: Run Crawler
       env:
