@@ -31,15 +31,30 @@ jobs:
         import os
         import base64
         
+        secret_val = os.environ.get("GCP_SA_KEY", "")
+        print(f"DEBUG: Secret length: {len(secret_val)}")
+        
+        if not secret_val:
+            print("ERROR: Secret is empty!")
+            exit(1)
+            
         try:
             # Try to decode as base64
-            decoded = base64.b64decode(os.environ["GCP_SA_KEY"]).decode('utf-8')
-            with open("service-account.json", "w") as f:
-                f.write(decoded)
-        except Exception:
-            # Fallback: write as is (if user didn't update secret yet)
-            with open("service-account.json", "w") as f:
-                f.write(os.environ["GCP_SA_KEY"])
+            # Strip whitespace just in case
+            decoded = base64.b64decode(secret_val.strip()).decode('utf-8')
+            print("DEBUG: Successfully decoded base64")
+            content = decoded
+        except Exception as e:
+            print(f"DEBUG: Base64 decode failed ({e}), using raw content")
+            content = secret_val
+
+        with open("service-account.json", "w") as f:
+            f.write(content)
+            
+        # Verify file
+        with open("service-account.json", "r") as f:
+            first_line = f.readline()
+            print(f"DEBUG: First line of file: {first_line[:20]}...")
 
     - name: Run Crawler
       env:
