@@ -29,8 +29,17 @@ jobs:
         GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
       run: |
         import os
-        with open("service-account.json", "w") as f:
-            f.write(os.environ["GCP_SA_KEY"])
+        import base64
+        
+        try:
+            # Try to decode as base64
+            decoded = base64.b64decode(os.environ["GCP_SA_KEY"]).decode('utf-8')
+            with open("service-account.json", "w") as f:
+                f.write(decoded)
+        except Exception:
+            # Fallback: write as is (if user didn't update secret yet)
+            with open("service-account.json", "w") as f:
+                f.write(os.environ["GCP_SA_KEY"])
 
     - name: Run Crawler
       env:
