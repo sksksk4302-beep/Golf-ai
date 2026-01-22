@@ -596,6 +596,7 @@
         let selectedDates = [];
         let selectedTimes = new Set(); // Empty means ALL
         let currentRegion = "경기";
+        let weatherCache = {}; // {clubName: {date: weatherData}}
         let availableDates = [];
 
         // --- Init ---
@@ -653,6 +654,40 @@
             } catch (e) { console.error(e); }
         }
 
+        // Weather icon based on WMO weather code
+        function getWeatherIcon(code) {
+            if (code === undefined || code === null) return '';
+            if (code === 0) return '☀️';
+            if (code <= 3) return '⛅';
+            if (code <= 49) return '🌫️';
+            if (code <= 69) return '🌧️';
+            if (code <= 79) return '🌨️';
+            if (code <= 99) return '⛈️';
+            return '☁️';
+        }
+
+        // Fetch weather data for clubs and dates
+        async function fetchWeatherData(clubs, dates) {
+            console.log("🌦️ 날씨 데이터 요청:", { clubs, dates });
+            try {
+                const res = await fetch('/get_weather', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ clubs: clubs, dates: dates })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    console.log("✅ 날씨 데이터 수신:", data);
+                    data.forEach(item => {
+                        if (!weatherCache[item.club_name]) weatherCache[item.club_name] = {};
+                        weatherCache[item.club_name][item.date] = item;
+                    });
+                } else {
+                    console.warn("❌ 날씨 API 응답 오류:", res.status);
+                }
+            } catch (e) { console.warn('❌ 날씨 데이터 조회 실패:', e); }
+        }
+
         async function loadData() {
             if (selectedDates.length === 0 || selectedClubs.size === 0) return;
             document.getElementById('loading').style.display = 'block';
@@ -669,6 +704,10 @@
                     })
                 });
                 const data = await res.json();
+
+                // Fetch weather data for all clubs/dates
+                await fetchWeatherData(Array.from(selectedClubs), selectedDates);
+
                 renderCards(data);
             } catch (e) {
                 alert("데이터 로드 실패");
@@ -812,10 +851,21 @@
                     });
                     desktopDetailsHtml += `</div>`;
 
+                    // Get weather for this club and date
+                    let weatherHtml = '';
+                    if (weatherCache[clubName] && weatherCache[clubName][date]) {
+                        const w = weatherCache[clubName][date];
+                        const icon = getWeatherIcon(w.weather_code_daily);
+                        weatherHtml = `<span style="font-size:0.85rem; color:#666;">${icon} ${w.temp_min}°/${w.temp_max}°</span>`;
+                    }
+
                     card.innerHTML = `
                         <div class="card-content">
                             <div class="card-top">
-                                <span class="club-name" style="font-size:1rem;">${best.club_name}</span>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <span class="club-name" style="font-size:1rem;">${best.club_name}</span>
+                                    ${weatherHtml}
+                                </div>
                                 <span class="count-badge">${groupItems.length}</span>
                             </div>
                             <div class="card-mid" style="margin-bottom:8px;">

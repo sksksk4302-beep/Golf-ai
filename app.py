@@ -205,23 +205,35 @@ def get_weather():
             except:
                 pass
         
-        # Query weather_forecast for each club-date pair
+        # Prepare document references
+        doc_refs = []
+        doc_info = [] # Keep track of which doc corresponds to which club/date
         for club in clubs:
             for original_date, normalized_date in date_pairs:
                 doc_id = f"{normalized_date.replace('-', '')}_{club}"
-                doc = db.collection('weather_forecast').document(doc_id).get()
-                if doc.exists:
-                    weather_data = doc.to_dict()
-                    # Return simplified data
-                    results.append({
-                        "club_name": club,
-                        "date": original_date,  # Original format for frontend cache key
-                        "temp_min": weather_data.get("temp_min"),
-                        "temp_max": weather_data.get("temp_max"),
-                        "precip_prob_max": weather_data.get("precip_prob_max"),
-                        "weather_code_daily": weather_data.get("weather_code_daily"),
-                        "hourly": weather_data.get("hourly", [])
-                    })
+                doc_ref = db.collection('weather_forecast').document(doc_id)
+                doc_refs.append(doc_ref)
+                doc_info.append((club, original_date))
+        
+        # Batch fetch all documents
+        if not doc_refs:
+            return jsonify([])
+            
+        docs = db.get_all(doc_refs)
+        
+        for i, doc in enumerate(docs):
+            if doc.exists:
+                weather_data = doc.to_dict()
+                club, original_date = doc_info[i]
+                results.append({
+                    "club_name": club,
+                    "date": original_date,
+                    "temp_min": weather_data.get("temp_min"),
+                    "temp_max": weather_data.get("temp_max"),
+                    "precip_prob_max": weather_data.get("precip_prob_max"),
+                    "weather_code_daily": weather_data.get("weather_code_daily"),
+                    "hourly": weather_data.get("hourly", [])
+                })
         
         return jsonify(results)
         
