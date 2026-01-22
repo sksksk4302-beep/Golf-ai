@@ -190,31 +190,32 @@ def get_weather():
         # Convert date format (01/22 -> 2025-01-22 or similar)
         # Note: The frontend sends "01/22" format from the tee time table
         current_year = datetime.now().year
-        normalized_dates = []
+        date_pairs = []  # List of (original_format, normalized_format)
         for d in dates:
             try:
                 # Handle MM/DD format
                 parts = d.split("/")
                 if len(parts) == 2:
                     month, day = parts
-                    normalized_dates.append(f"{current_year}-{month.zfill(2)}-{day.zfill(2)}")
+                    normalized = f"{current_year}-{month.zfill(2)}-{day.zfill(2)}"
+                    date_pairs.append((d, normalized))
                 else:
                     # Already in YYYY-MM-DD format
-                    normalized_dates.append(d)
+                    date_pairs.append((d, d))
             except:
                 pass
         
         # Query weather_forecast for each club-date pair
         for club in clubs:
-            for date in normalized_dates:
-                doc_id = f"{date.replace('-', '')}_{club}"
+            for original_date, normalized_date in date_pairs:
+                doc_id = f"{normalized_date.replace('-', '')}_{club}"
                 doc = db.collection('weather_forecast').document(doc_id).get()
                 if doc.exists:
                     weather_data = doc.to_dict()
                     # Return simplified data
                     results.append({
                         "club_name": club,
-                        "date": d,  # Original format
+                        "date": original_date,  # Original format for frontend cache key
                         "temp_min": weather_data.get("temp_min"),
                         "temp_max": weather_data.get("temp_max"),
                         "precip_prob_max": weather_data.get("precip_prob_max"),
