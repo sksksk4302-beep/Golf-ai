@@ -1,6 +1,11 @@
 # crawler_utils.py
 import json, os, re, time as _time
-from curl_cffi import requests
+try:
+    from curl_cffi import requests
+    HAS_CURL_CFFI = True
+except ImportError:
+    import requests
+    HAS_CURL_CFFI = False
 from bs4 import BeautifulSoup
 from typing import List, Dict, Optional, Tuple
 from datetime import datetime
@@ -50,7 +55,13 @@ AJAX_HEADERS = {
 # 유틸
 def _make_session() -> requests.Session:
     # impersonate="chrome124" mimics a real Chrome browser's TLS fingerprint and headers
-    s = requests.Session(impersonate="chrome124")
+    if HAS_CURL_CFFI:
+        s = requests.Session(impersonate="chrome124")
+    else:
+        s = requests.Session()
+        s.headers.update({
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+        })
     return s
 
 def _get_url(url: str) -> str:

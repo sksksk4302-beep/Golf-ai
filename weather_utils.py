@@ -108,3 +108,30 @@ def parse_weather_data(raw_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         parsed_days.append(day_record)
         
     return parsed_days
+
+# Cache to store weather data: {club_name: [parsed_daily_records]}
+WEATHER_CACHE = {}
+
+def get_weather_for_club(club_name: str, target_date: str) -> Optional[Dict[str, Any]]:
+    """
+    Returns the weather forecast for a specific club and date.
+    Uses caching to avoid repeated API calls.
+    """
+    if club_name not in CLUB_COORDS:
+        return None
+
+    # Check cache first
+    if club_name not in WEATHER_CACHE:
+        print(f"Fetching weather for {club_name}...")
+        raw_data = fetch_weather_forecast(club_name)
+        if raw_data:
+            WEATHER_CACHE[club_name] = parse_weather_data(raw_data)
+        else:
+            WEATHER_CACHE[club_name] = [] # Mark as failed/empty to avoid retrying
+
+    # Look for the specific date
+    for day_record in WEATHER_CACHE[club_name]:
+        if day_record["date"] == target_date:
+            return day_record
+            
+    return None
