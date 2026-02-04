@@ -26,98 +26,80 @@ def init_firestore():
         return firestore.Client(project=PROJECT_ID, credentials=credentials, database="teetime")
 
 def save_tee_times(db, tee_times, target_date):
-    # 1. Calculate new IDs
-    new_ids = set()
-    data_map = {}
+    # 이번 업데이트의 고유 ID (예: 202602031950)
+    sync_id = datetime.datetime.now().strftime("%Y%m%d%H%M")
+    
+    print(f"Starting sync for {target_date} with sync_id={sync_id}")
+
+    # 1. Upsert new data (Write all current data with new sync_id)
+    # This avoids reading all documents first.
+    batch = db.batch()
+    count = 0
+    ops_count = 0
     
     for item in tee_times:
         club_safe = item['golf'].replace(" ", "").replace("/", "_")
         doc_id = f"{item['date'].replace('-', '')}_{club_safe}_{item['time'].replace(':', '')}"
+        doc_ref = db.collection('tee_times').document(doc_id)
         
         # Enrich with weather data
         weather = get_weather_for_club(item['golf'], item['date'])
-        if weather:
-            item['weather'] = weather
-            
-        new_ids.add(doc_id)
-        data_map[doc_id] = item
-
-    # 2. Fetch existing IDs and Data for this date
-    print(f"Checking for stale data on {target_date}...")
-    existing_docs = db.collection('tee_times').where('date', '==', target_date).stream()
-    existing_ids = set()
-    existing_data_map = {}
-    
-    for doc in existing_docs:
-        existing_ids.add(doc.id)
-        existing_data_map[doc.id] = doc.to_dict()
         
-    # 3. Identify IDs to delete
-    to_delete = existing_ids - new_ids
-    print(f"Found {len(to_delete)} stale items to delete.")
-    
-    # 4. Batch Operations
-    batch = db.batch()
-    count = 0
-    ops_count = 0 # Track actual DB operations
-    
-    # Delete operations
-    for doc_id in to_delete:
-        doc_ref = db.collection('tee_times').document(doc_id)
-        batch.delete(doc_ref)
-        count += 1
-        ops_count += 1
-        if count % 400 == 0:
-            batch.commit()
-            batch = db.batch()
-            print(f"Processed {count} operations (deletes)...")
-
-    # Upsert operations (Only if changed)
-    skipped_count = 0
-    
-    for doc_id, item in data_map.items():
-        doc_ref = db.collection('tee_times').document(doc_id)
-        
-        new_data = {
+        item_data = {
             "club_name": item['golf'],
             "date": item['date'],
             "time": item['time'],
             "hour": item['hour_num'],
             "price": item['price'],
             "source": item.get('source', 'Golfpang'),
-            # "crawled_at": firestore.SERVER_TIMESTAMP, # Don't include in comparison
             "weekday": datetime.datetime.strptime(item['date'], "%Y-%m-%d").weekday(),
-            "weather": item.get('weather')
+            "sync_id": sync_id,  # Save current session ID
+            "updated_at": firestore.SERVER_TIMESTAMP
         }
         
-        # Check if update is needed
-        needs_update = True
-        if doc_id in existing_data_map:
-            existing = existing_data_map[doc_id]
-            # Compare fields (excluding crawled_at)
-            # We assume if these fields match, the record is identical.
-            if (existing.get('price') == new_data['price'] and
-                existing.get('time') == new_data['time'] and
-                existing.get('club_name') == new_data['club_name']):
-                needs_update = False
+        if weather:
+             item_data['weather'] = weather
+        elif item.get('weather'):
+             item_data['weather'] = item.get('weather')
+
+        batch.set(doc_ref, item_data, merge=True)
+        count += 1
+        ops_count += 1
         
-        if needs_update:
-            # Add crawled_at only when writing
-            new_data["crawled_at"] = firestore.SERVER_TIMESTAMP
-            batch.set(doc_ref, new_data)
-            count += 1
-            ops_count += 1
-            if count % 400 == 0:
-                batch.commit()
-                batch = db.batch()
-                print(f"Processed {count} operations (upserts)...")
-        else:
-            skipped_count += 1
+        if count % 400 == 0:
+            batch.commit()
+            batch = db.batch()
+            print(f"Processed {count} valid items (upserts)...")
             
     if count % 400 != 0:
         batch.commit()
         
-    print(f"Sync complete for {target_date}. Total ops: {ops_count} (Deletes: {len(to_delete)}, Upserts: {ops_count - len(to_delete)}). Skipped: {skipped_count}")
+    print(f"Upsert complete. Now clearing stale data for {target_date}...")
+
+    # 2. Delete stale data (Read only what needs to be deleted)
+    # Find documents for this date that do NOT have the current sync_id
+    stale_docs = db.collection('tee_times') \
+        .where('date', '==', target_date) \
+        .where('sync_id', '!=', sync_id) \
+        .stream()
+        
+    delete_batch = db.batch()
+    delete_count = 0
+    
+    for doc in stale_docs:
+        delete_batch.delete(doc.reference)
+        delete_count += 1
+        ops_count += 1
+        
+        if delete_count % 400 == 0:
+            delete_batch.commit()
+            delete_batch = db.batch()
+            print(f"Processed {delete_count} stale items (deletes)...")
+            
+    if delete_count % 400 != 0:
+        delete_batch.commit()
+
+    print(f"Sync complete for {target_date}. Total ops: {ops_count} (Upserts: {count}, Deletes: {delete_count}).")
 
 def process_date(target_date, db):
     """

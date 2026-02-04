@@ -25,12 +25,17 @@ def init_firestore():
 def ingest_weather():
     db = init_firestore()
     clubs = get_club_list()
-    print(f"Starting weather ingestion for {len(clubs)} clubs...")
+    # 이번 업데이트의 고유 ID
+    sync_id = datetime.datetime.now().strftime("%Y%m%d%H%M")
+    
+    print(f"Starting weather ingestion for {len(clubs)} clubs with sync_id={sync_id}...")
     
     batch = db.batch()
     batch_count = 0
-    total_updates = 0
+    total_upserts = 0
+    total_ops = 0
     
+    # 1. Upsert weather data
     for club in clubs:
         print(f"Fetching weather for {club}...")
         raw_data = fetch_weather_forecast(club)
@@ -53,23 +58,49 @@ def ingest_weather():
                 "precip_prob_max": day["precip_prob_max"],
                 "weather_code_daily": day["weather_code_daily"],
                 "hourly": day["hourly"], # List of 24 dicts
+                "sync_id": sync_id,
                 "updated_at": firestore.SERVER_TIMESTAMP
             }
             
-            batch.set(doc_ref, data)
+            batch.set(doc_ref, data, merge=True)
             batch_count += 1
-            total_updates += 1
+            total_upserts += 1
+            total_ops += 1
             
             if batch_count >= 400:
                 batch.commit()
                 batch = db.batch()
                 batch_count = 0
-                print("Committed batch...")
+                print(f"Committed upsert batch ({total_upserts} total)...")
                 
     if batch_count > 0:
         batch.commit()
         
-    print(f"Weather ingestion completed. Total records updated: {total_updates}")
+    print(f"Upsert complete. Cleaning up stale weather data...")
+
+    # 2. Delete stale weather data
+    stale_docs = db.collection('weather_forecast') \
+        .where('sync_id', '!=', sync_id) \
+        .stream()
+        
+    delete_batch = db.batch()
+    delete_count = 0
+    
+    for doc in stale_docs:
+        delete_batch.delete(doc.reference)
+        delete_count += 1
+        total_ops += 1
+        
+        if delete_count >= 400:
+            delete_batch.commit()
+            delete_batch = db.batch()
+            delete_count = 0
+            print(f"Committed delete batch ({total_ops} total ops)...")
+            
+    if delete_count > 0:
+        delete_batch.commit()
+        
+    print(f"Weather ingestion completed. Total ops: {total_ops} (Upserts: {total_upserts}, Deletes: {total_ops - total_upserts})")
 
 if __name__ == "__main__":
     ingest_weather()
