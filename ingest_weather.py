@@ -80,7 +80,7 @@ def ingest_weather():
 
     # 2. Delete stale weather data
     stale_docs = db.collection('weather_forecast') \
-        .where('sync_id', '!=', sync_id) \
+        .where('sync_id', '<', sync_id) \
         .stream()
         
     delete_batch = db.batch()

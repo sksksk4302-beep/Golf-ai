@@ -94,73 +94,69 @@ def get_prices():
 
         results = []
         
-        # Optimization: Query by date, then filter by club and time
+        # Optimization: Query by date AND club (using 'in' operator)
         for date in dates:
-            # 1. Pre-fetch History (7 days ago) for this date
-            # Instead of N+1 reads, we do 1 read (query) per date.
-            history_date_obj = datetime.strptime(date, "%Y-%m-%d") - timedelta(days=7)
-            history_date_str = history_date_obj.strftime("%Y-%m-%d")
+            # Firestore 'in' limit is 30. Split clubs into chunks of 30.
+            CHUNKS_SIZE = 30
+            club_chunks = [clubs[i:i + CHUNKS_SIZE] for i in range(0, len(clubs), CHUNKS_SIZE)]
             
             history_map = {} # (club_name, hour) -> min_price
             
-            # Fetch all daily_stats for the history date
-            # This might return ~100-200 docs, which is 1 read op per doc returned + 1 query op.
-            # If we have 50 items to show, N+1 approach is 50 reads.
-            # If we have 200 stats but only show 5 items, this might be more expensive?
-            # However, usually users see many items. And "Entity Reads" are cheap enough that 
-            # reducing latency of N round-trips is also worth it.
-            # Also, we can filter history query by clubs if list is small, but 'in' query limit is 10.
-            # Given the use case (showing many tee times), fetching all stats for the day is safer/simpler.
+            # 1. Fetch History (7 days ago) for this date
+            history_date_obj = datetime.strptime(date, "%Y-%m-%d") - timedelta(days=7)
+            history_date_str = history_date_obj.strftime("%Y-%m-%d")
             
-            hist_docs = db.collection('daily_stats').where('date', '==', history_date_str).stream()
-            for h_doc in hist_docs:
-                h_data = h_doc.to_dict()
-                # Key: (Club, Hour)
-                # Ensure types match. h_data['hour'] is likely int from archive_history.
-                h_club = h_data.get('club_name')
-                h_hour = h_data.get('hour')
-                h_price = h_data.get('min_price')
+            for chunk in club_chunks:
+                # Query only specified clubs for history
+                hist_docs = db.collection('daily_stats') \
+                    .where('date', '==', history_date_str) \
+                    .where('club_name', 'in', chunk) \
+                    .stream()
                 
-                if h_club and h_hour is not None:
-                    history_map[(h_club, str(h_hour))] = h_price
-                    # Also store as int just in case
-                    history_map[(h_club, int(h_hour))] = h_price
+                for h_doc in hist_docs:
+                    h_data = h_doc.to_dict()
+                    h_club = h_data.get('club_name')
+                    h_hour = h_data.get('hour')
+                    h_price = h_data.get('min_price')
+                    
+                    if h_club and h_hour is not None:
+                        history_map[(h_club, str(h_hour))] = h_price
+                        history_map[(h_club, int(h_hour))] = h_price
 
-            # 2. Fetch Current Data
-            docs = db.collection('tee_times').where('date', '==', date).stream()
-            
-            for doc in docs:
-                item = doc.to_dict()
+            # 2. Fetch Current Data (Filtered by clubs)
+            for chunk in club_chunks:
+                docs = db.collection('tee_times') \
+                    .where('date', '==', date) \
+                    .where('club_name', 'in', chunk) \
+                    .stream()
                 
-                # Filter by Club
-                if item['club_name'] not in clubs:
-                    continue
-                
-                # Filter by Time (Hour)
-                item_hour = item.get('hour') # int or str
-                
-                if times:
-                    normalized_times = [str(int(t)) for t in times] # "06" -> "6"
-                    if str(int(item_hour)) not in normalized_times:
-                        continue
+                for doc in docs:
+                    item = doc.to_dict()
+                    
+                    # Filter by Time (Hour) if specified
+                    item_hour = item.get('hour') # int or str
+                    
+                    if times:
+                        normalized_times = [str(int(t)) for t in times] # "06" -> "6"
+                        if str(int(item_hour)) not in normalized_times:
+                            continue
 
-                # 3. Lookup History from Map
-                # item['hour'] comes from ingest_data, which is int.
-                hist_price = history_map.get((item['club_name'], item_hour))
-                
-                diff = 0
-                if hist_price:
-                    diff = item['price'] - hist_price
-                
-                results.append({
-                    "club_name": item['club_name'],
-                    "date": item['date'],
-                    "time": item['time'], # "06:12"
-                    "price": item['price'],
-                    "diff": diff,
-                    "source": item.get('source', 'Unknown'),
-                    "history_price": hist_price
-                })
+                    # 3. Lookup History from Map
+                    hist_price = history_map.get((item['club_name'], item_hour))
+                    
+                    diff = 0
+                    if hist_price:
+                        diff = item['price'] - hist_price
+                    
+                    results.append({
+                        "club_name": item['club_name'],
+                        "date": item['date'],
+                        "time": item['time'], # "06:12"
+                        "price": item['price'],
+                        "diff": diff,
+                        "source": item.get('source', 'Unknown'),
+                        "history_price": hist_price
+                    })
 
         # Sort by Price
         results.sort(key=lambda x: x['price'])

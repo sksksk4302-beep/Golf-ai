@@ -80,7 +80,7 @@ def save_tee_times(db, tee_times, target_date):
     # Find documents for this date that do NOT have the current sync_id
     stale_docs = db.collection('tee_times') \
         .where('date', '==', target_date) \
-        .where('sync_id', '!=', sync_id) \
+        .where('sync_id', '<', sync_id) \
         .stream()
         
     delete_batch = db.batch()
