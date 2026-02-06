@@ -859,6 +859,11 @@
                         weatherHtml = `<span style="font-size:0.85rem; color:#666;">${icon} ${w.temp_min}°/${w.temp_max}°</span>`;
                     }
 
+                    // 티스캐너 최저가일 때 benefit 표시
+                    const isTeescanBest = best.source.toLowerCase().includes('teescan');
+                    const benefitText = (isTeescanBest && best.benefit) ? best.benefit : '';
+                    const benefitHtml = benefitText ? `<span style="font-size:0.65rem; color:#e74c3c; margin-left:4px; font-weight:normal;">${benefitText}</span>` : '';
+
                     card.innerHTML = `
                         <div class="card-content">
                             <div class="card-top">
@@ -869,7 +874,7 @@
                                 <span class="count-badge">${groupItems.length}</span>
                             </div>
                             <div class="card-mid" style="margin-bottom:8px;">
-                                <span class="best-price" style="font-size:1.3rem;">₩${best.price.toLocaleString()}~</span>
+                                <span class="best-price" style="font-size:1.3rem;">₩${best.price.toLocaleString()}~</span>${benefitHtml}
                             </div>
                             <div class="card-btm">
                                 <div style="display:flex; align-items:center; gap:6px;">

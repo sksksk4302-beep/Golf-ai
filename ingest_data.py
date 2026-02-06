@@ -51,6 +51,7 @@ def save_tee_times(db, tee_times, target_date):
             "time": item['time'],
             "hour": item['hour_num'],
             "price": item['price'],
+            "benefit": item.get('benefit', ''),  # 티스캐너 benefit 필드
             "source": item.get('source', 'Golfpang'),
             "weekday": datetime.datetime.strptime(item['date'], "%Y-%m-%d").weekday(),
             "sync_id": sync_id,  # Save current session ID

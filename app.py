@@ -155,6 +155,7 @@ def get_prices():
                         "price": item['price'],
                         "diff": diff,
                         "source": item.get('source', 'Unknown'),
+                        "benefit": item.get('benefit', ''),  # 티스캐너 benefit 필드
                         "history_price": hist_price
                     })
 

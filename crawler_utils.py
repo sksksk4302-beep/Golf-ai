@@ -244,10 +244,12 @@ def crawl_teescan(date_str: str, favorite: List[str]):
                     
                     ttxt  = str(it.get("teetime_time", "00:00"))
                     h     = int(ttxt.split(":")[0]) if ":" in ttxt else int(ttxt[:2] or 0)
+                    # 티스캐너 API에서 benefit 필드 추출
+                    benefit_text = str(it.get("benefit", "") or "").strip()
                     res.append({
                         "golf": t_name, "date": date_str,
                         "hour": f"{h:02d}시대", "hour_num": h,
-                        "price": price, "benefit": "",
+                        "price": price, "benefit": benefit_text,
                         "time": ttxt,
                         "url": "https://www.teescanner.com/", "source": "teescan",
                     })

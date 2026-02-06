@@ -5,6 +5,13 @@ __pycache__/
 .env
 venv/
 env/
+.venv/
+
+# Firebase
+.firebase/
+
+# MCP
+.mcp/
 
 # GCP
 service-account.json
