@@ -137,9 +137,13 @@ def main():
 
     today = datetime.date.today()
     
+    # Support tiered crawling via environment variables
+    start_day = int(os.environ.get("CRAWL_START_DAY", 0))
+    end_day = int(os.environ.get("CRAWL_END_DAY", DAYS_TO_CRAWL - 1))
+    
     # Prepare list of dates to crawl
     dates_to_crawl = []
-    for i in range(DAYS_TO_CRAWL):
+    for i in range(start_day, end_day + 1):
         d = (today + datetime.timedelta(days=i)).strftime("%Y-%m-%d")
         dates_to_crawl.append(d)
         

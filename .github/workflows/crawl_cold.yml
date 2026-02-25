@@ -1,0 +1,62 @@
+name: Crawl Cold (D+8~14)
+
+on:
+  schedule:
+    # Every 12 hours (06, 18 KST)
+    # KST = UTC+9: 06 KST = 21 UTC (prev day), 18 KST = 09 UTC
+    - cron: '0 21,9 * * *'
+  workflow_dispatch:
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+
+    - name: Create Service Account Key
+      shell: python
+      env:
+        GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+      run: |
+        import os
+        import base64
+        
+        secret_val = os.environ.get("GCP_SA_KEY", "")
+        if not secret_val:
+            print("ERROR: Secret is empty!")
+            exit(1)
+            
+        try:
+            decoded = base64.b64decode(secret_val.strip()).decode('utf-8')
+            content = decoded
+        except Exception:
+            content = secret_val
+
+        import json
+        try:
+            json.loads(content)
+        except Exception as e:
+            print(f"ERROR: Content is NOT valid JSON: {e}")
+            exit(1)
+
+        with open("service-account.json", "w") as f:
+            f.write(content)
+
+    - name: Run Crawler (D+8 to D+14)
+      env:
+        PROJECT_ID: "golf-ai-480805"
+        CRAWL_START_DAY: "8"
+        CRAWL_END_DAY: "14"
+      run: |
+        python ingest_data.py
