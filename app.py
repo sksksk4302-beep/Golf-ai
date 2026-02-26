@@ -67,17 +67,33 @@ def get_clubs():
 
 @app.route("/api/available_dates", methods=["GET"])
 def get_available_dates():
-    """Check next 14 days and return dates that have tee times."""
+    """Check next 14 days and return dates that have tee times.
+    For today, only include if there are tee times AFTER the current time.
+    """
     available = []
-    today = datetime.now().date()
+    now = datetime.now()  # Local time (KST in production)
+    today = now.date()
+    current_time_str = now.strftime("%H:%M")  # "HH:MM" format for comparison
     
     # Check next 14 days
     for i in range(14):
         check_date = (today + timedelta(days=i)).strftime("%Y-%m-%d")
-        # Limit 1 is enough to know if data exists
-        docs = db.collection('tee_times').where('date', '==', check_date).limit(1).stream()
-        if any(docs):
-            available.append(check_date)
+        if i == 0:
+            # For today: only count tee times strictly after current time
+            docs = list(
+                db.collection('tee_times')
+                  .where('date', '==', check_date)
+                  .stream()
+            )
+            # Filter to times after now
+            future_docs = [d for d in docs if (d.to_dict().get('time', '') or '') > current_time_str]
+            if future_docs:
+                available.append(check_date)
+        else:
+            # For future dates: any tee time is fine
+            docs = db.collection('tee_times').where('date', '==', check_date).limit(1).stream()
+            if any(docs):
+                available.append(check_date)
             
     return jsonify(available)
 
@@ -88,6 +104,8 @@ def get_prices():
         dates = data.get("dates", []) # List of "YYYY-MM-DD"
         times = data.get("times", []) # List of hour strings "06", "07"
         clubs = data.get("clubs", []) # List of club names
+        today_str = data.get("today", "")  # "YYYY-MM-DD" of client's today
+        min_time = data.get("min_time", "")  # "HH:MM" - filter for today's date only
         
         if not dates or not clubs:
             return jsonify([])
@@ -135,6 +153,12 @@ def get_prices():
                     
                     # Filter by Time (Hour) if specified
                     item_hour = item.get('hour') # int or str
+                    item_time = item.get('time', '')  # "HH:MM" string
+
+                    # For today's date: skip tee times at or before current time
+                    if today_str and min_time and date == today_str:
+                        if item_time <= min_time:
+                            continue
                     
                     if times:
                         normalized_times = [str(int(t)) for t in times] # "06" -> "6"

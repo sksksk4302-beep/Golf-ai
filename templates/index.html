@@ -623,8 +623,9 @@
             if (saved) {
                 selectedClubs = new Set(JSON.parse(saved));
                 if (availableDates.length > 0) {
-                    const todayStr = new Date().toISOString().split('T')[0];
-                    selectedDates = availableDates.includes(todayStr) ? [todayStr] : [availableDates[0]];
+                    // availableDates already excludes today if no future tee times exist
+                    // Just pick the first available date (today with future tee times, or next day)
+                    selectedDates = [availableDates[0]];
                     updateDateBtn();
                     loadData();
                 }
@@ -694,13 +695,20 @@
             document.getElementById('cardList').innerHTML = '';
 
             try {
+                // For today's date, pass current time so server can filter past tee times
+                const todayStr = new Date().toISOString().split('T')[0];
+                const now = new Date();
+                const minTime = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
                 const res = await fetch('/api/prices', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         dates: selectedDates,
                         times: Array.from(selectedTimes),
-                        clubs: Array.from(selectedClubs)
+                        clubs: Array.from(selectedClubs),
+                        today: todayStr,
+                        min_time: minTime  // Only applied to today's date
                     })
                 });
                 const data = await res.json();
@@ -902,8 +910,8 @@
 
             // Auto-select date if none selected
             if (selectedDates.length === 0 && availableDates.length > 0) {
-                const todayStr = new Date().toISOString().split('T')[0];
-                selectedDates = availableDates.includes(todayStr) ? [todayStr] : [availableDates[0]];
+                // availableDates[0] is already smart: today only if future tee times exist, else tomorrow
+                selectedDates = [availableDates[0]];
                 updateDateBtn();
             }
 
