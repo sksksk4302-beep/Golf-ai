@@ -3,6 +3,7 @@ from firebase_admin import credentials, firestore
 import datetime
 import os
 from collections import defaultdict
+from cleanup_old_history import cleanup_old_data
 
 # Configuration
 PROJECT_ID = "golf-ai-480805"
@@ -98,6 +99,12 @@ def archive_history():
         batch.commit()
         
     print("History archiving completed.")
+
+    # Cleanup old history (older than 7 days)
+    try:
+        cleanup_old_data()
+    except Exception as e:
+        print(f"Error during history cleanup: {e}")
     
     # Perform aggregation for yesterday (or past dates)
     aggregate_daily_stats(db)

@@ -102,6 +102,39 @@ def save_tee_times(db, tee_times, target_date):
 
     print(f"Sync complete for {target_date}. Total ops: {ops_count} (Upserts: {count}, Deletes: {delete_count}).")
 
+def cleanup_past_teetimes(db):
+    """
+    Deletes tee_times documents with dates older than today.
+    This prevents stale data from accumulating and increasing Firestore I/O costs.
+    """
+    today_str = datetime.date.today().strftime("%Y-%m-%d")
+    print(f"Cleaning up tee_times older than {today_str}...")
+
+    # Find documents for dates before Today
+    stale_docs = db.collection('tee_times') \
+        .where('date', '<', today_str) \
+        .stream()
+        
+    delete_batch = db.batch()
+    delete_count = 0
+    total_deleted = 0
+    
+    for doc in stale_docs:
+        delete_batch.delete(doc.reference)
+        delete_count += 1
+        total_deleted += 1
+        
+        if delete_count % 400 == 0:
+            delete_batch.commit()
+            delete_batch = db.batch()
+            delete_count = 0
+            print(f"Deleted {total_deleted} stale records...")
+            
+    if delete_count % 400 != 0:
+        delete_batch.commit()
+
+    print(f"Tee times cleanup complete. Total deleted: {total_deleted}")
+
 def process_date(target_date, db):
     """
     Crawls data for a single date and saves it to Firestore.
@@ -134,6 +167,12 @@ def main():
     db = init_firestore()
     if not db:
         return
+
+    # 0. Cleanup past data (only in Hot workflow: D+0)
+    # This ensures we don't leak Action minutes in Warm/Cold workflows
+    start_day_env = os.environ.get("CRAWL_START_DAY", "0")
+    if start_day_env == "0":
+        cleanup_past_teetimes(db)
 
     today = datetime.date.today()
     
