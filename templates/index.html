@@ -782,6 +782,30 @@
             }
         }
 
+        // 동일 시간+동일 가격이면 티스캐너만 남기고 중복 제거
+        function deduplicateItems(items) {
+            const byTime = {};
+            items.forEach(item => {
+                if (!byTime[item.time]) byTime[item.time] = [];
+                byTime[item.time].push(item);
+            });
+
+            const result = [];
+            Object.values(byTime).forEach(group => {
+                if (group.length <= 1) {
+                    result.push(...group);
+                    return;
+                }
+                const teescan = group.filter(i => i.source.toLowerCase().includes('teescan'));
+                const others = group.filter(i => !i.source.toLowerCase().includes('teescan'));
+                const teescanPrices = new Set(teescan.map(i => i.price));
+                // 동일 가격의 non-teescan 제거
+                const filteredOthers = others.filter(i => !teescanPrices.has(i.price));
+                result.push(...teescan, ...filteredOthers);
+            });
+            return result;
+        }
+
         function renderCards(items) {
             const list = document.getElementById('cardList');
             list.innerHTML = '';
@@ -817,7 +841,7 @@
                 });
 
                 Object.keys(byClub).forEach(clubName => {
-                    const groupItems = byClub[clubName];
+                    const groupItems = deduplicateItems(byClub[clubName]);
                     groupItems.sort((a, b) => a.price - b.price);
                     const best = groupItems[0];
                     const diffVal = best.diff;
@@ -839,13 +863,13 @@
                         }
                     };
 
-                    // Desktop Details HTML (Hidden by default via CSS)
+                    // Desktop Details HTML (Hidden by default via CSS) - 시간순 정렬
+                    const timeSorted = [...groupItems].sort((a, b) => a.time.localeCompare(b.time));
                     let desktopDetailsHtml = `<div class="card-details-desktop desktop-only">`;
                     // Header for details
                     desktopDetailsHtml += `<div style="font-size:0.8rem; color:#888; margin-bottom:8px;">전체 티타임 (${groupItems.length}개)</div>`;
 
-                    groupItems.forEach((item, idx) => {
-                        const isBest = idx === 0;
+                    timeSorted.forEach((item, idx) => {
                         const itemSourceClass = item.source.toLowerCase().includes('teescan') ? 'src-red' : 'src-blue';
                         desktopDetailsHtml += `
                             <div class="detail-item" style="padding: 6px 0; border-bottom: 1px dashed #eee;">
@@ -935,7 +959,9 @@
             const list = document.getElementById('detailList');
             list.innerHTML = '';
 
-            items.forEach(item => {
+            // 시간순 정렬
+            const sorted = [...items].sort((a, b) => a.time.localeCompare(b.time));
+            sorted.forEach(item => {
                 const row = document.createElement('div');
                 row.className = 'detail-item';
                 row.innerHTML = `
