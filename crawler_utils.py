@@ -5,6 +5,8 @@ try:
     HAS_CURL_CFFI = True
 except ImportError:
     import requests
+    import urllib3
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     HAS_CURL_CFFI = False
 from bs4 import BeautifulSoup
 from typing import List, Dict, Optional, Tuple
@@ -201,7 +203,7 @@ def get_teescan_times(s: requests.Session, seq: str, date_str: str) -> List[Dict
     )
     # headers = {"User-Agent": "Mozilla/5.0"} # Session handles headers
     try:
-        r = s.get(url, timeout=3)
+        r = s.get(url, timeout=3, verify=False)
         return r.json().get("data", {}).get("teeTimeList", [])
     except Exception as e:
         print(f"[Teescan] seq={seq} date={date_str} 오류: {e}", flush=True)

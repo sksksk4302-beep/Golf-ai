@@ -151,17 +151,17 @@ def process_date(target_date, db):
         
         data = data_gp + data_ts
         if data:
-            print(f"[{target_date}] Found {len(data)} tee times. Syncing...")
+            print(f"[{target_date}] Found {len(data)} tee times (GP:{len(data_gp)}, TS:{len(data_ts)}). Syncing...")
             save_tee_times(db, data, target_date)
-            return len(data)
+            return len(data_gp), len(data_ts)
         else:
             print(f"[{target_date}] No data found. Clearing...")
             save_tee_times(db, [], target_date)
-            return 0
+            return 0, 0
             
     except Exception as e:
         print(f"Error processing {target_date}: {e}")
-        return 0
+        return 0, 0
 
 def main():
     db = init_firestore()
@@ -192,16 +192,32 @@ def main():
     # Each date will still use sector-level parallelization (3 concurrent ops)
     # This prevents compounding: 1 date × 3 sectors instead of 3 dates × 3 sectors
     
-    total_items = 0
+    total_gp_items = 0
+    total_ts_items = 0
     for date in dates_to_crawl:
         try:
-            count = process_date(date, db)
-            total_items += count
-            print(f">>> [Done] {date} finished. Items: {count}")
+            gp_count, ts_count = process_date(date, db)
+            total_gp_items += gp_count
+            total_ts_items += ts_count
+            print(f">>> [Done] {date} finished. Items: GP={gp_count}, TS={ts_count}")
         except Exception as e:
             print(f">>> [Error] {date} failed: {e}")
 
-    print(f"\nAll crawling tasks completed. Total items processed: {total_items}")
+    print(f"\nAll crawling tasks completed. Total GP: {total_gp_items}, Total TS: {total_ts_items}")
+
+    # 9AM KST (UTC 00:xx ~ 01:xx) Verification Logic for GitHub Actions Alerting
+    current_utc_hour = datetime.datetime.utcnow().hour
+    # Only verify on Crawl Hot (start_day == "0")
+    if os.environ.get("CRAWL_START_DAY", "0") == "0" and current_utc_hour in [0, 1]:
+        if total_gp_items == 0 or total_ts_items == 0:
+            print("\n=====================================================")
+            print(f"🚨 ALERT! Critical Crawler Failure at 9 AM KST 🚨")
+            print(f"One of the data sources returned 0 results.")
+            print(f"Golfpang: {total_gp_items}, TeeScanner: {total_ts_items}")
+            print("Failing the Action to trigger GitHub notifications.")
+            print("=====================================================")
+            import sys
+            sys.exit(1)
 
 if __name__ == "__main__":
     main()
