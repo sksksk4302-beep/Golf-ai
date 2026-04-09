@@ -199,18 +199,33 @@ def _name_match(site_txt: str, gp_code_txt: str) -> bool:
 def get_teescan_times(s: std_requests.Session, seq: str, date_str: str) -> List[Dict]:
     """티스캐너 API에서 특정 구장/날짜의 티타임 리스트 조회 (with retry)
     Uses standard requests (NOT curl_cffi) to ensure verify=False works for self-signed cert."""
-    url = (
+    raw_url = (
         "https://foapi.teescanner.com/v1/booking/getTeeTimeListbyGolfclub"
         f"?golfclub_seq={seq}&roundDay={date_str}&orderType="
     )
+    url = _get_url(raw_url)
+    
     max_retries = 2
     for attempt in range(max_retries + 1):
         try:
-            r = s.get(url, timeout=8, verify=False)
-            return r.json().get("data", {}).get("teeTimeList", [])
+            # Increase timeout to 20s for international latency
+            r = s.get(url, timeout=20, verify=False)
+            if r.status_code != 200:
+                print(f"[Teescan] seq={seq} status={r.status_code} text={r.text[:100]}", flush=True)
+                if attempt < max_retries:
+                    _time.sleep(1.0)
+                    continue
+                return []
+            
+            try:
+                return r.json().get("data", {}).get("teeTimeList", [])
+            except Exception as json_e:
+                print(f"[Teescan] JSON parsing failed (seq={seq}): {json_e}. Response snippet: {r.text[:200]}", flush=True)
+                raise json_e
+                
         except Exception as e:
             if attempt < max_retries:
-                _time.sleep(0.5)
+                _time.sleep(1.0)
                 continue
             print(f"[Teescan] seq={seq} date={date_str} 오류 (after {max_retries+1} attempts): {e}", flush=True)
             return []
@@ -236,7 +251,13 @@ def crawl_teescan(date_str: str, favorite: List[str]):
     # Use standard requests.Session (NOT curl_cffi) for Teescan
     # curl_cffi ignores verify=False, causing SSL failures with teescan's self-signed cert
     s = std_requests.Session()
-    s.headers.update({"User-Agent": "Mozilla/5.0"})
+    s.headers.update({
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+        "Referer": "https://www.teescanner.com/",
+        "Origin": "https://www.teescanner.com"
+    })
     
     for t_name, t_seq in targets:
         try:
