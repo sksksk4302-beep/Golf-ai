@@ -1,0 +1,558 @@
+﻿crawl	Set up job	癤?026-04-09T05:05:41.3620441Z Current runner version: '2.333.1'
+crawl	Set up job	2026-04-09T05:05:41.3656016Z ##[group]Runner Image Provisioner
+crawl	Set up job	2026-04-09T05:05:41.3657472Z Hosted Compute Agent
+crawl	Set up job	2026-04-09T05:05:41.3658431Z Version: 20260213.493
+crawl	Set up job	2026-04-09T05:05:41.3659797Z Commit: 5c115507f6dd24b8de37d8bbe0bb4509d0cc0fa3
+crawl	Set up job	2026-04-09T05:05:41.3661217Z Build Date: 2026-02-13T00:28:41Z
+crawl	Set up job	2026-04-09T05:05:41.3662478Z Worker ID: {2b2f7379-18ce-4e2a-92ca-b0613bfa1230}
+crawl	Set up job	2026-04-09T05:05:41.3663898Z Azure Region: eastus2
+crawl	Set up job	2026-04-09T05:05:41.3664956Z ##[endgroup]
+crawl	Set up job	2026-04-09T05:05:41.3667355Z ##[group]Operating System
+crawl	Set up job	2026-04-09T05:05:41.3668540Z Ubuntu
+crawl	Set up job	2026-04-09T05:05:41.3669632Z 24.04.4
+crawl	Set up job	2026-04-09T05:05:41.3670551Z LTS
+crawl	Set up job	2026-04-09T05:05:41.3671554Z ##[endgroup]
+crawl	Set up job	2026-04-09T05:05:41.3672445Z ##[group]Runner Image
+crawl	Set up job	2026-04-09T05:05:41.3673411Z Image: ubuntu-24.04
+crawl	Set up job	2026-04-09T05:05:41.3674466Z Version: 20260406.80.1
+crawl	Set up job	2026-04-09T05:05:41.3676261Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260406.80/images/ubuntu/Ubuntu2404-Readme.md
+crawl	Set up job	2026-04-09T05:05:41.3679564Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260406.80
+crawl	Set up job	2026-04-09T05:05:41.3681230Z ##[endgroup]
+crawl	Set up job	2026-04-09T05:05:41.3683344Z ##[group]GITHUB_TOKEN Permissions
+crawl	Set up job	2026-04-09T05:05:41.3685974Z Contents: read
+crawl	Set up job	2026-04-09T05:05:41.3687057Z Metadata: read
+crawl	Set up job	2026-04-09T05:05:41.3687859Z Packages: read
+crawl	Set up job	2026-04-09T05:05:41.3688678Z ##[endgroup]
+crawl	Set up job	2026-04-09T05:05:41.3691714Z Secret source: Actions
+crawl	Set up job	2026-04-09T05:05:41.3692775Z Prepare workflow directory
+crawl	Set up job	2026-04-09T05:05:41.4172994Z Prepare all required actions
+crawl	Set up job	2026-04-09T05:05:41.4230678Z Getting action download info
+crawl	Set up job	2026-04-09T05:05:41.6686603Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+crawl	Set up job	2026-04-09T05:05:41.8045796Z Download action repository 'actions/setup-python@v5' (SHA:a26af69be951a213d495a4c3e4e4022e16d87065)
+crawl	Set up job	2026-04-09T05:05:41.9864954Z Complete job name: crawl
+crawl	Checkout code	癤?026-04-09T05:05:42.0559586Z ##[group]Run actions/checkout@v4
+crawl	Checkout code	2026-04-09T05:05:42.0560466Z with:
+crawl	Checkout code	2026-04-09T05:05:42.0560903Z   repository: sksksk4302-beep/Golf-ai
+crawl	Checkout code	2026-04-09T05:05:42.0561589Z   token: ***
+crawl	Checkout code	2026-04-09T05:05:42.0561974Z   ssh-strict: true
+crawl	Checkout code	2026-04-09T05:05:42.0562447Z   ssh-user: git
+crawl	Checkout code	2026-04-09T05:05:42.0563049Z   persist-credentials: true
+crawl	Checkout code	2026-04-09T05:05:42.0563498Z   clean: true
+crawl	Checkout code	2026-04-09T05:05:42.0563886Z   sparse-checkout-cone-mode: true
+crawl	Checkout code	2026-04-09T05:05:42.0564349Z   fetch-depth: 1
+crawl	Checkout code	2026-04-09T05:05:42.0564727Z   fetch-tags: false
+crawl	Checkout code	2026-04-09T05:05:42.0565130Z   show-progress: true
+crawl	Checkout code	2026-04-09T05:05:42.0565519Z   lfs: false
+crawl	Checkout code	2026-04-09T05:05:42.0565877Z   submodules: false
+crawl	Checkout code	2026-04-09T05:05:42.0566263Z   set-safe-directory: true
+crawl	Checkout code	2026-04-09T05:05:42.0566998Z ##[endgroup]
+crawl	Checkout code	2026-04-09T05:05:42.1674428Z Syncing repository: sksksk4302-beep/Golf-ai
+crawl	Checkout code	2026-04-09T05:05:42.1676325Z ##[group]Getting Git version info
+crawl	Checkout code	2026-04-09T05:05:42.1677007Z Working directory is '/home/runner/work/Golf-ai/Golf-ai'
+crawl	Checkout code	2026-04-09T05:05:42.1677916Z [command]/usr/bin/git version
+crawl	Checkout code	2026-04-09T05:05:42.1717670Z git version 2.53.0
+crawl	Checkout code	2026-04-09T05:05:42.1745332Z ##[endgroup]
+crawl	Checkout code	2026-04-09T05:05:42.1761684Z Temporarily overriding HOME='/home/runner/work/_temp/3d1f3e60-483e-4926-a4de-a5a7663279a0' before making global git config changes
+crawl	Checkout code	2026-04-09T05:05:42.1764092Z Adding repository directory to the temporary git global config as a safe directory
+crawl	Checkout code	2026-04-09T05:05:42.1775654Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Golf-ai/Golf-ai
+crawl	Checkout code	2026-04-09T05:05:42.1807804Z Deleting the contents of '/home/runner/work/Golf-ai/Golf-ai'
+crawl	Checkout code	2026-04-09T05:05:42.1812116Z ##[group]Initializing the repository
+crawl	Checkout code	2026-04-09T05:05:42.1816772Z [command]/usr/bin/git init /home/runner/work/Golf-ai/Golf-ai
+crawl	Checkout code	2026-04-09T05:05:42.1920330Z hint: Using 'master' as the name for the initial branch. This default branch name
+crawl	Checkout code	2026-04-09T05:05:42.1922150Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+crawl	Checkout code	2026-04-09T05:05:42.1923841Z hint: to use in all of your new repositories, which will suppress this warning,
+crawl	Checkout code	2026-04-09T05:05:42.1925549Z hint: call:
+crawl	Checkout code	2026-04-09T05:05:42.1926218Z hint:
+crawl	Checkout code	2026-04-09T05:05:42.1927071Z hint: 	git config --global init.defaultBranch <name>
+crawl	Checkout code	2026-04-09T05:05:42.1928151Z hint:
+crawl	Checkout code	2026-04-09T05:05:42.1929428Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+crawl	Checkout code	2026-04-09T05:05:42.1931007Z hint: 'development'. The just-created branch can be renamed via this command:
+crawl	Checkout code	2026-04-09T05:05:42.1932287Z hint:
+crawl	Checkout code	2026-04-09T05:05:42.1932981Z hint: 	git branch -m <name>
+crawl	Checkout code	2026-04-09T05:05:42.1933810Z hint:
+crawl	Checkout code	2026-04-09T05:05:42.1934982Z hint: Disable this message with "git config set advice.defaultBranchName false"
+crawl	Checkout code	2026-04-09T05:05:42.1936715Z Initialized empty Git repository in /home/runner/work/Golf-ai/Golf-ai/.git/
+crawl	Checkout code	2026-04-09T05:05:42.1939535Z [command]/usr/bin/git remote add origin https://github.com/sksksk4302-beep/Golf-ai
+crawl	Checkout code	2026-04-09T05:05:42.1964853Z ##[endgroup]
+crawl	Checkout code	2026-04-09T05:05:42.1966075Z ##[group]Disabling automatic garbage collection
+crawl	Checkout code	2026-04-09T05:05:42.1969702Z [command]/usr/bin/git config --local gc.auto 0
+crawl	Checkout code	2026-04-09T05:05:42.2000473Z ##[endgroup]
+crawl	Checkout code	2026-04-09T05:05:42.2001695Z ##[group]Setting up auth
+crawl	Checkout code	2026-04-09T05:05:42.2007969Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+crawl	Checkout code	2026-04-09T05:05:42.2038144Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+crawl	Checkout code	2026-04-09T05:05:42.2329555Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+crawl	Checkout code	2026-04-09T05:05:42.2359878Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+crawl	Checkout code	2026-04-09T05:05:42.2570629Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+crawl	Checkout code	2026-04-09T05:05:42.2598174Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+crawl	Checkout code	2026-04-09T05:05:42.2823910Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+crawl	Checkout code	2026-04-09T05:05:42.2856664Z ##[endgroup]
+crawl	Checkout code	2026-04-09T05:05:42.2857942Z ##[group]Fetching the repository
+crawl	Checkout code	2026-04-09T05:05:42.2866695Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +78fa9050746de5638dfff878c9a86af814beec5d:refs/remotes/origin/main
+crawl	Checkout code	2026-04-09T05:05:42.4652579Z From https://github.com/sksksk4302-beep/Golf-ai
+crawl	Checkout code	2026-04-09T05:05:42.4654041Z  * [new ref]         78fa9050746de5638dfff878c9a86af814beec5d -> origin/main
+crawl	Checkout code	2026-04-09T05:05:42.4681395Z ##[endgroup]
+crawl	Checkout code	2026-04-09T05:05:42.4682803Z ##[group]Determining the checkout info
+crawl	Checkout code	2026-04-09T05:05:42.4684412Z ##[endgroup]
+crawl	Checkout code	2026-04-09T05:05:42.4689945Z [command]/usr/bin/git sparse-checkout disable
+crawl	Checkout code	2026-04-09T05:05:42.4725716Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+crawl	Checkout code	2026-04-09T05:05:42.4750799Z ##[group]Checking out the ref
+crawl	Checkout code	2026-04-09T05:05:42.4755193Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+crawl	Checkout code	2026-04-09T05:05:42.4817940Z Switched to a new branch 'main'
+crawl	Checkout code	2026-04-09T05:05:42.4820750Z branch 'main' set up to track 'origin/main'.
+crawl	Checkout code	2026-04-09T05:05:42.4827122Z ##[endgroup]
+crawl	Checkout code	2026-04-09T05:05:42.4860218Z [command]/usr/bin/git log -1 --format=%H
+crawl	Checkout code	2026-04-09T05:05:42.4881405Z 78fa9050746de5638dfff878c9a86af814beec5d
+crawl	Set up Python	癤?026-04-09T05:05:42.5121998Z ##[group]Run actions/setup-python@v5
+crawl	Set up Python	2026-04-09T05:05:42.5122538Z with:
+crawl	Set up Python	2026-04-09T05:05:42.5122885Z   python-version: 3.11
+crawl	Set up Python	2026-04-09T05:05:42.5123302Z   check-latest: false
+crawl	Set up Python	2026-04-09T05:05:42.5123843Z   token: ***
+crawl	Set up Python	2026-04-09T05:05:42.5124212Z   update-environment: true
+crawl	Set up Python	2026-04-09T05:05:42.5124655Z   allow-prereleases: false
+crawl	Set up Python	2026-04-09T05:05:42.5125083Z   freethreaded: false
+crawl	Set up Python	2026-04-09T05:05:42.5125462Z ##[endgroup]
+crawl	Set up Python	2026-04-09T05:05:42.6766177Z ##[group]Installed versions
+crawl	Set up Python	2026-04-09T05:05:42.6871207Z Successfully set up CPython (3.11.15)
+crawl	Set up Python	2026-04-09T05:05:42.6872882Z ##[endgroup]
+crawl	Install dependencies	癤?026-04-09T05:05:42.6985007Z ##[group]Run pip install -r requirements.txt
+crawl	Install dependencies	2026-04-09T05:05:42.6985692Z [36;1mpip install -r requirements.txt[0m
+crawl	Install dependencies	2026-04-09T05:05:42.7082859Z shell: /usr/bin/bash -e {0}
+crawl	Install dependencies	2026-04-09T05:05:42.7083361Z env:
+crawl	Install dependencies	2026-04-09T05:05:42.7083836Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.15/x64
+crawl	Install dependencies	2026-04-09T05:05:42.7084628Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib/pkgconfig
+crawl	Install dependencies	2026-04-09T05:05:42.7085404Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+crawl	Install dependencies	2026-04-09T05:05:42.7086104Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+crawl	Install dependencies	2026-04-09T05:05:42.7086817Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+crawl	Install dependencies	2026-04-09T05:05:42.7087524Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib
+crawl	Install dependencies	2026-04-09T05:05:42.7088113Z ##[endgroup]
+crawl	Install dependencies	2026-04-09T05:05:44.8792947Z Collecting Flask==3.1.1 (from -r requirements.txt (line 2))
+crawl	Install dependencies	2026-04-09T05:05:44.9459273Z   Downloading flask-3.1.1-py3-none-any.whl.metadata (3.0 kB)
+crawl	Install dependencies	2026-04-09T05:05:44.9685874Z Collecting flask-cors==6.0.1 (from -r requirements.txt (line 3))
+crawl	Install dependencies	2026-04-09T05:05:44.9774666Z   Downloading flask_cors-6.0.1-py3-none-any.whl.metadata (5.3 kB)
+crawl	Install dependencies	2026-04-09T05:05:44.9978452Z Collecting gunicorn==21.2.0 (from -r requirements.txt (line 4))
+crawl	Install dependencies	2026-04-09T05:05:45.0050248Z   Downloading gunicorn-21.2.0-py3-none-any.whl.metadata (4.1 kB)
+crawl	Install dependencies	2026-04-09T05:05:45.0757881Z Collecting curl_cffi==0.7.4 (from -r requirements.txt (line 7))
+crawl	Install dependencies	2026-04-09T05:05:45.0875957Z   Downloading curl_cffi-0.7.4-cp38-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (12 kB)
+crawl	Install dependencies	2026-04-09T05:05:45.1207795Z Collecting requests==2.32.4 (from -r requirements.txt (line 8))
+crawl	Install dependencies	2026-04-09T05:05:45.1281054Z   Downloading requests-2.32.4-py3-none-any.whl.metadata (4.9 kB)
+crawl	Install dependencies	2026-04-09T05:05:45.1469318Z Collecting beautifulsoup4==4.13.4 (from -r requirements.txt (line 9))
+crawl	Install dependencies	2026-04-09T05:05:45.1539177Z   Downloading beautifulsoup4-4.13.4-py3-none-any.whl.metadata (3.8 kB)
+crawl	Install dependencies	2026-04-09T05:05:45.3267994Z Collecting lxml==5.1.0 (from -r requirements.txt (line 10))
+crawl	Install dependencies	2026-04-09T05:05:45.3353676Z   Downloading lxml-5.1.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (3.5 kB)
+crawl	Install dependencies	2026-04-09T05:05:45.3544296Z Collecting soupsieve==2.7 (from -r requirements.txt (line 11))
+crawl	Install dependencies	2026-04-09T05:05:45.3619686Z   Downloading soupsieve-2.7-py3-none-any.whl.metadata (4.6 kB)
+crawl	Install dependencies	2026-04-09T05:05:45.3884975Z Collecting selenium==4.34.0 (from -r requirements.txt (line 12))
+crawl	Install dependencies	2026-04-09T05:05:45.3957897Z   Downloading selenium-4.34.0-py3-none-any.whl.metadata (7.5 kB)
+crawl	Install dependencies	2026-04-09T05:05:45.4127310Z Collecting PySocks==1.7.1 (from -r requirements.txt (line 13))
+crawl	Install dependencies	2026-04-09T05:05:45.4199747Z   Downloading PySocks-1.7.1-py3-none-any.whl.metadata (13 kB)
+crawl	Install dependencies	2026-04-09T05:05:45.4435474Z Collecting urllib3==2.4.0 (from -r requirements.txt (line 14))
+crawl	Install dependencies	2026-04-09T05:05:45.4510467Z   Downloading urllib3-2.4.0-py3-none-any.whl.metadata (6.5 kB)
+crawl	Install dependencies	2026-04-09T05:05:45.4670959Z Collecting idna==3.10 (from -r requirements.txt (line 15))
+crawl	Install dependencies	2026-04-09T05:05:45.4743914Z   Downloading idna-3.10-py3-none-any.whl.metadata (10 kB)
+crawl	Install dependencies	2026-04-09T05:05:45.5629512Z Collecting charset-normalizer==3.4.2 (from -r requirements.txt (line 16))
+crawl	Install dependencies	2026-04-09T05:05:45.5707302Z   Downloading charset_normalizer-3.4.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (35 kB)
+crawl	Install dependencies	2026-04-09T05:05:45.5944679Z Collecting certifi==2025.6.15 (from -r requirements.txt (line 17))
+crawl	Install dependencies	2026-04-09T05:05:45.6016474Z   Downloading certifi-2025.6.15-py3-none-any.whl.metadata (2.4 kB)
+crawl	Install dependencies	2026-04-09T05:05:45.6184337Z Collecting Jinja2==3.1.6 (from -r requirements.txt (line 20))
+crawl	Install dependencies	2026-04-09T05:05:45.6255685Z   Downloading jinja2-3.1.6-py3-none-any.whl.metadata (2.9 kB)
+crawl	Install dependencies	2026-04-09T05:05:45.6752813Z Collecting MarkupSafe==3.0.2 (from -r requirements.txt (line 21))
+crawl	Install dependencies	2026-04-09T05:05:45.6824599Z   Downloading MarkupSafe-3.0.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (4.0 kB)
+crawl	Install dependencies	2026-04-09T05:05:45.7033144Z Collecting Werkzeug==3.1.3 (from -r requirements.txt (line 24))
+crawl	Install dependencies	2026-04-09T05:05:45.7104001Z   Downloading werkzeug-3.1.3-py3-none-any.whl.metadata (3.7 kB)
+crawl	Install dependencies	2026-04-09T05:05:45.7245687Z Collecting itsdangerous==2.2.0 (from -r requirements.txt (line 25))
+crawl	Install dependencies	2026-04-09T05:05:45.7315532Z   Downloading itsdangerous-2.2.0-py3-none-any.whl.metadata (1.9 kB)
+crawl	Install dependencies	2026-04-09T05:05:45.7495583Z Collecting click==8.2.1 (from -r requirements.txt (line 26))
+crawl	Install dependencies	2026-04-09T05:05:45.7739187Z   Downloading click-8.2.1-py3-none-any.whl.metadata (2.5 kB)
+crawl	Install dependencies	2026-04-09T05:05:45.7905834Z Collecting colorama==0.4.6 (from -r requirements.txt (line 27))
+crawl	Install dependencies	2026-04-09T05:05:45.7981186Z   Downloading colorama-0.4.6-py2.py3-none-any.whl.metadata (17 kB)
+crawl	Install dependencies	2026-04-09T05:05:45.8131806Z Collecting blinker==1.9.0 (from -r requirements.txt (line 28))
+crawl	Install dependencies	2026-04-09T05:05:45.8203512Z   Downloading blinker-1.9.0-py3-none-any.whl.metadata (1.6 kB)
+crawl	Install dependencies	2026-04-09T05:05:45.8374850Z Collecting trio==0.30.0 (from -r requirements.txt (line 31))
+crawl	Install dependencies	2026-04-09T05:05:45.8480921Z   Downloading trio-0.30.0-py3-none-any.whl.metadata (8.5 kB)
+crawl	Install dependencies	2026-04-09T05:05:45.8633179Z Collecting trio-websocket==0.12.2 (from -r requirements.txt (line 32))
+crawl	Install dependencies	2026-04-09T05:05:45.8705943Z   Downloading trio_websocket-0.12.2-py3-none-any.whl.metadata (5.1 kB)
+crawl	Install dependencies	2026-04-09T05:05:45.8843934Z Collecting sniffio==1.3.1 (from -r requirements.txt (line 33))
+crawl	Install dependencies	2026-04-09T05:05:45.8916927Z   Downloading sniffio-1.3.1-py3-none-any.whl.metadata (3.9 kB)
+crawl	Install dependencies	2026-04-09T05:05:45.9052009Z Collecting outcome==1.3.0.post0 (from -r requirements.txt (line 34))
+crawl	Install dependencies	2026-04-09T05:05:45.9124879Z   Downloading outcome-1.3.0.post0-py2.py3-none-any.whl.metadata (2.6 kB)
+crawl	Install dependencies	2026-04-09T05:05:45.9266613Z Collecting wsproto==1.2.0 (from -r requirements.txt (line 35))
+crawl	Install dependencies	2026-04-09T05:05:45.9338651Z   Downloading wsproto-1.2.0-py3-none-any.whl.metadata (5.6 kB)
+crawl	Install dependencies	2026-04-09T05:05:45.9479110Z Collecting h11==0.16.0 (from -r requirements.txt (line 36))
+crawl	Install dependencies	2026-04-09T05:05:45.9551695Z   Downloading h11-0.16.0-py3-none-any.whl.metadata (8.3 kB)
+crawl	Install dependencies	2026-04-09T05:05:45.9718649Z Collecting attrs==25.3.0 (from -r requirements.txt (line 39))
+crawl	Install dependencies	2026-04-09T05:05:45.9791849Z   Downloading attrs-25.3.0-py3-none-any.whl.metadata (10 kB)
+crawl	Install dependencies	2026-04-09T05:05:46.0773221Z Collecting cffi==1.17.1 (from -r requirements.txt (line 40))
+crawl	Install dependencies	2026-04-09T05:05:46.0851840Z   Downloading cffi-1.17.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (1.5 kB)
+crawl	Install dependencies	2026-04-09T05:05:46.1000934Z Collecting pycparser==2.22 (from -r requirements.txt (line 41))
+crawl	Install dependencies	2026-04-09T05:05:46.1072175Z   Downloading pycparser-2.22-py3-none-any.whl.metadata (943 bytes)
+crawl	Install dependencies	2026-04-09T05:05:46.1271845Z Collecting sortedcontainers==2.4.0 (from -r requirements.txt (line 42))
+crawl	Install dependencies	2026-04-09T05:05:46.1350734Z   Downloading sortedcontainers-2.4.0-py2.py3-none-any.whl.metadata (10 kB)
+crawl	Install dependencies	2026-04-09T05:05:46.1576794Z Collecting typing_extensions==4.14.0 (from -r requirements.txt (line 43))
+crawl	Install dependencies	2026-04-09T05:05:46.1670826Z   Downloading typing_extensions-4.14.0-py3-none-any.whl.metadata (3.0 kB)
+crawl	Install dependencies	2026-04-09T05:05:46.2990867Z Collecting firebase-admin (from -r requirements.txt (line 44))
+crawl	Install dependencies	2026-04-09T05:05:46.3063150Z   Downloading firebase_admin-7.3.0-py3-none-any.whl.metadata (1.7 kB)
+crawl	Install dependencies	2026-04-09T05:05:46.3306951Z Collecting google-cloud-firestore (from -r requirements.txt (line 45))
+crawl	Install dependencies	2026-04-09T05:05:46.3394616Z   Downloading google_cloud_firestore-2.26.0-py3-none-any.whl.metadata (10 kB)
+crawl	Install dependencies	2026-04-09T05:05:46.3667544Z Collecting packaging (from gunicorn==21.2.0->-r requirements.txt (line 4))
+crawl	Install dependencies	2026-04-09T05:05:46.3739662Z   Downloading packaging-26.0-py3-none-any.whl.metadata (3.3 kB)
+crawl	Install dependencies	2026-04-09T05:05:46.4065262Z Collecting websocket-client~=1.8.0 (from selenium==4.34.0->-r requirements.txt (line 12))
+crawl	Install dependencies	2026-04-09T05:05:46.4139375Z   Downloading websocket_client-1.8.0-py3-none-any.whl.metadata (8.0 kB)
+crawl	Install dependencies	2026-04-09T05:05:46.5296747Z Collecting cachecontrol>=0.14.3 (from firebase-admin->-r requirements.txt (line 44))
+crawl	Install dependencies	2026-04-09T05:05:46.5366753Z   Downloading cachecontrol-0.14.4-py3-none-any.whl.metadata (3.1 kB)
+crawl	Install dependencies	2026-04-09T05:05:46.5663756Z Collecting google-api-core<3.0.0dev,>=2.25.1 (from google-api-core[grpc]<3.0.0dev,>=2.25.1; platform_python_implementation != "PyPy"->firebase-admin->-r requirements.txt (line 44))
+crawl	Install dependencies	2026-04-09T05:05:46.5738467Z   Downloading google_api_core-2.30.2-py3-none-any.whl.metadata (3.1 kB)
+crawl	Install dependencies	2026-04-09T05:05:46.6003605Z Collecting google-cloud-storage>=3.1.1 (from firebase-admin->-r requirements.txt (line 44))
+crawl	Install dependencies	2026-04-09T05:05:46.6079629Z   Downloading google_cloud_storage-3.10.1-py3-none-any.whl.metadata (15 kB)
+crawl	Install dependencies	2026-04-09T05:05:46.6300415Z Collecting pyjwt>=2.10.1 (from pyjwt[crypto]>=2.10.1->firebase-admin->-r requirements.txt (line 44))
+crawl	Install dependencies	2026-04-09T05:05:46.6374160Z   Downloading pyjwt-2.12.1-py3-none-any.whl.metadata (4.1 kB)
+crawl	Install dependencies	2026-04-09T05:05:46.6583928Z Collecting httpx==0.28.1 (from httpx[http2]==0.28.1->firebase-admin->-r requirements.txt (line 44))
+crawl	Install dependencies	2026-04-09T05:05:46.6655560Z   Downloading httpx-0.28.1-py3-none-any.whl.metadata (7.1 kB)
+crawl	Install dependencies	2026-04-09T05:05:46.6884981Z Collecting anyio (from httpx==0.28.1->httpx[http2]==0.28.1->firebase-admin->-r requirements.txt (line 44))
+crawl	Install dependencies	2026-04-09T05:05:46.6958729Z   Downloading anyio-4.13.0-py3-none-any.whl.metadata (4.5 kB)
+crawl	Install dependencies	2026-04-09T05:05:46.7162370Z Collecting httpcore==1.* (from httpx==0.28.1->httpx[http2]==0.28.1->firebase-admin->-r requirements.txt (line 44))
+crawl	Install dependencies	2026-04-09T05:05:46.7236764Z   Downloading httpcore-1.0.9-py3-none-any.whl.metadata (21 kB)
+crawl	Install dependencies	2026-04-09T05:05:46.7447486Z Collecting h2<5,>=3 (from httpx[http2]==0.28.1->firebase-admin->-r requirements.txt (line 44))
+crawl	Install dependencies	2026-04-09T05:05:46.7518861Z   Downloading h2-4.3.0-py3-none-any.whl.metadata (5.1 kB)
+crawl	Install dependencies	2026-04-09T05:05:46.7720702Z Collecting googleapis-common-protos<2.0.0,>=1.63.2 (from google-api-core<3.0.0dev,>=2.25.1->google-api-core[grpc]<3.0.0dev,>=2.25.1; platform_python_implementation != "PyPy"->firebase-admin->-r requirements.txt (line 44))
+crawl	Install dependencies	2026-04-09T05:05:46.7794728Z   Downloading googleapis_common_protos-1.74.0-py3-none-any.whl.metadata (9.2 kB)
+crawl	Install dependencies	2026-04-09T05:05:46.9160980Z Collecting protobuf<8.0.0,>=4.25.8 (from google-api-core<3.0.0dev,>=2.25.1->google-api-core[grpc]<3.0.0dev,>=2.25.1; platform_python_implementation != "PyPy"->firebase-admin->-r requirements.txt (line 44))
+crawl	Install dependencies	2026-04-09T05:05:46.9239295Z   Downloading protobuf-7.34.1-cp310-abi3-manylinux2014_x86_64.whl.metadata (595 bytes)
+crawl	Install dependencies	2026-04-09T05:05:46.9426553Z Collecting proto-plus<2.0.0,>=1.22.3 (from google-api-core<3.0.0dev,>=2.25.1->google-api-core[grpc]<3.0.0dev,>=2.25.1; platform_python_implementation != "PyPy"->firebase-admin->-r requirements.txt (line 44))
+crawl	Install dependencies	2026-04-09T05:05:46.9500942Z   Downloading proto_plus-1.27.2-py3-none-any.whl.metadata (2.2 kB)
+crawl	Install dependencies	2026-04-09T05:05:47.0073268Z Collecting google-auth<3.0.0,>=2.14.1 (from google-api-core<3.0.0dev,>=2.25.1->google-api-core[grpc]<3.0.0dev,>=2.25.1; platform_python_implementation != "PyPy"->firebase-admin->-r requirements.txt (line 44))
+crawl	Install dependencies	2026-04-09T05:05:47.0147214Z   Downloading google_auth-2.49.1-py3-none-any.whl.metadata (6.2 kB)
+crawl	Install dependencies	2026-04-09T05:05:47.4993159Z Collecting grpcio<2.0.0,>=1.33.2 (from google-api-core[grpc]<3.0.0dev,>=2.25.1; platform_python_implementation != "PyPy"->firebase-admin->-r requirements.txt (line 44))
+crawl	Install dependencies	2026-04-09T05:05:47.5135416Z   Downloading grpcio-1.80.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (3.8 kB)
+crawl	Install dependencies	2026-04-09T05:05:47.5448892Z Collecting grpcio-status<2.0.0,>=1.33.2 (from google-api-core[grpc]<3.0.0dev,>=2.25.1; platform_python_implementation != "PyPy"->firebase-admin->-r requirements.txt (line 44))
+crawl	Install dependencies	2026-04-09T05:05:47.5524095Z   Downloading grpcio_status-1.80.0-py3-none-any.whl.metadata (1.3 kB)
+crawl	Install dependencies	2026-04-09T05:05:47.5787022Z Collecting pyasn1-modules>=0.2.1 (from google-auth<3.0.0,>=2.14.1->google-api-core<3.0.0dev,>=2.25.1->google-api-core[grpc]<3.0.0dev,>=2.25.1; platform_python_implementation != "PyPy"->firebase-admin->-r requirements.txt (line 44))
+crawl	Install dependencies	2026-04-09T05:05:47.5864008Z   Downloading pyasn1_modules-0.4.2-py3-none-any.whl.metadata (3.5 kB)
+crawl	Install dependencies	2026-04-09T05:05:47.7506920Z Collecting cryptography>=38.0.3 (from google-auth<3.0.0,>=2.14.1->google-api-core<3.0.0dev,>=2.25.1->google-api-core[grpc]<3.0.0dev,>=2.25.1; platform_python_implementation != "PyPy"->firebase-admin->-r requirements.txt (line 44))
+crawl	Install dependencies	2026-04-09T05:05:47.7581797Z   Downloading cryptography-46.0.7-cp311-abi3-manylinux_2_34_x86_64.whl.metadata (5.7 kB)
+crawl	Install dependencies	2026-04-09T05:05:47.7714653Z Collecting protobuf<8.0.0,>=4.25.8 (from google-api-core<3.0.0dev,>=2.25.1->google-api-core[grpc]<3.0.0dev,>=2.25.1; platform_python_implementation != "PyPy"->firebase-admin->-r requirements.txt (line 44))
+crawl	Install dependencies	2026-04-09T05:05:47.7787022Z   Downloading protobuf-6.33.6-cp39-abi3-manylinux2014_x86_64.whl.metadata (593 bytes)
+crawl	Install dependencies	2026-04-09T05:05:47.7971413Z Collecting hyperframe<7,>=6.1 (from h2<5,>=3->httpx[http2]==0.28.1->firebase-admin->-r requirements.txt (line 44))
+crawl	Install dependencies	2026-04-09T05:05:47.8043405Z   Downloading hyperframe-6.1.0-py3-none-any.whl.metadata (4.3 kB)
+crawl	Install dependencies	2026-04-09T05:05:47.8182624Z Collecting hpack<5,>=4.1 (from h2<5,>=3->httpx[http2]==0.28.1->firebase-admin->-r requirements.txt (line 44))
+crawl	Install dependencies	2026-04-09T05:05:47.8255540Z   Downloading hpack-4.1.0-py3-none-any.whl.metadata (4.6 kB)
+crawl	Install dependencies	2026-04-09T05:05:47.8557248Z Collecting google-cloud-core<3.0.0,>=1.4.1 (from google-cloud-firestore->-r requirements.txt (line 45))
+crawl	Install dependencies	2026-04-09T05:05:47.8628472Z   Downloading google_cloud_core-2.5.1-py3-none-any.whl.metadata (2.8 kB)
+crawl	Install dependencies	2026-04-09T05:05:47.9326004Z Collecting msgpack<2.0.0,>=0.5.2 (from cachecontrol>=0.14.3->firebase-admin->-r requirements.txt (line 44))
+crawl	Install dependencies	2026-04-09T05:05:47.9403249Z   Downloading msgpack-1.1.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (8.1 kB)
+crawl	Install dependencies	2026-04-09T05:05:47.9458367Z INFO: pip is looking at multiple versions of cryptography to determine which version is compatible with other requirements. This could take a while.
+crawl	Install dependencies	2026-04-09T05:05:47.9463344Z Collecting cryptography>=38.0.3 (from google-auth<3.0.0,>=2.14.1->google-api-core<3.0.0dev,>=2.25.1->google-api-core[grpc]<3.0.0dev,>=2.25.1; platform_python_implementation != "PyPy"->firebase-admin->-r requirements.txt (line 44))
+crawl	Install dependencies	2026-04-09T05:05:47.9537143Z   Downloading cryptography-46.0.6-cp311-abi3-manylinux_2_34_x86_64.whl.metadata (5.7 kB)
+crawl	Install dependencies	2026-04-09T05:05:47.9661121Z   Downloading cryptography-46.0.5-cp311-abi3-manylinux_2_34_x86_64.whl.metadata (5.7 kB)
+crawl	Install dependencies	2026-04-09T05:05:47.9780369Z   Downloading cryptography-46.0.4-cp311-abi3-manylinux_2_34_x86_64.whl.metadata (5.7 kB)
+crawl	Install dependencies	2026-04-09T05:05:47.9901047Z   Downloading cryptography-46.0.3-cp311-abi3-manylinux_2_34_x86_64.whl.metadata (5.7 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.0018586Z   Downloading cryptography-46.0.2-cp311-abi3-manylinux_2_34_x86_64.whl.metadata (5.7 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.0138003Z   Downloading cryptography-46.0.1-cp311-abi3-manylinux_2_34_x86_64.whl.metadata (5.7 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.0255503Z   Downloading cryptography-46.0.0-cp311-abi3-manylinux_2_34_x86_64.whl.metadata (5.7 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.0523647Z Collecting google-resumable-media<3.0.0,>=2.7.2 (from google-cloud-storage>=3.1.1->firebase-admin->-r requirements.txt (line 44))
+crawl	Install dependencies	2026-04-09T05:05:48.0595793Z   Downloading google_resumable_media-2.8.2-py3-none-any.whl.metadata (2.2 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.1616747Z Collecting google-crc32c<2.0.0,>=1.1.3 (from google-cloud-storage>=3.1.1->firebase-admin->-r requirements.txt (line 44))
+crawl	Install dependencies	2026-04-09T05:05:48.1692414Z   Downloading google_crc32c-1.8.0-cp311-cp311-manylinux1_x86_64.manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_5_x86_64.whl.metadata (1.7 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.1957643Z Collecting pyasn1<0.7.0,>=0.6.1 (from pyasn1-modules>=0.2.1->google-auth<3.0.0,>=2.14.1->google-api-core<3.0.0dev,>=2.25.1->google-api-core[grpc]<3.0.0dev,>=2.25.1; platform_python_implementation != "PyPy"->firebase-admin->-r requirements.txt (line 44))
+crawl	Install dependencies	2026-04-09T05:05:48.2027300Z   Downloading pyasn1-0.6.3-py3-none-any.whl.metadata (8.4 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.2293461Z Downloading flask-3.1.1-py3-none-any.whl (103 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.2446438Z Downloading flask_cors-6.0.1-py3-none-any.whl (13 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.2536237Z Downloading gunicorn-21.2.0-py3-none-any.whl (80 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.2649083Z Downloading curl_cffi-0.7.4-cp38-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (6.1 MB)
+crawl	Install dependencies	2026-04-09T05:05:48.3212814Z    ?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺 6.1/6.1 MB 121.0 MB/s  0:00:00
+crawl	Install dependencies	2026-04-09T05:05:48.3284796Z Downloading requests-2.32.4-py3-none-any.whl (64 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.3378652Z Downloading urllib3-2.4.0-py3-none-any.whl (128 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.3473533Z Downloading idna-3.10-py3-none-any.whl (70 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.3570715Z Downloading charset_normalizer-3.4.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (147 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.3663045Z Downloading beautifulsoup4-4.13.4-py3-none-any.whl (187 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.3764029Z Downloading lxml-5.1.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (8.1 MB)
+crawl	Install dependencies	2026-04-09T05:05:48.4188154Z    ?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺 8.1/8.1 MB 196.7 MB/s  0:00:00
+crawl	Install dependencies	2026-04-09T05:05:48.4258246Z Downloading soupsieve-2.7-py3-none-any.whl (36 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.4377368Z Downloading selenium-4.34.0-py3-none-any.whl (9.4 MB)
+crawl	Install dependencies	2026-04-09T05:05:48.4819205Z    ?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺 9.4/9.4 MB 218.9 MB/s  0:00:00
+crawl	Install dependencies	2026-04-09T05:05:48.4893319Z Downloading trio-0.30.0-py3-none-any.whl (499 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.5005491Z Downloading trio_websocket-0.12.2-py3-none-any.whl (21 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.5097237Z Downloading typing_extensions-4.14.0-py3-none-any.whl (43 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.5192756Z Downloading PySocks-1.7.1-py3-none-any.whl (16 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.5284743Z Downloading certifi-2025.6.15-py3-none-any.whl (157 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.5380268Z Downloading jinja2-3.1.6-py3-none-any.whl (134 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.5475316Z Downloading MarkupSafe-3.0.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (23 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.5567033Z Downloading werkzeug-3.1.3-py3-none-any.whl (224 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.5659811Z Downloading itsdangerous-2.2.0-py3-none-any.whl (16 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.5748944Z Downloading click-8.2.1-py3-none-any.whl (102 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.5843944Z Downloading colorama-0.4.6-py2.py3-none-any.whl (25 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.5949118Z Downloading blinker-1.9.0-py3-none-any.whl (8.5 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.6053832Z Downloading sniffio-1.3.1-py3-none-any.whl (10 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.6144355Z Downloading outcome-1.3.0.post0-py2.py3-none-any.whl (10 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.6243503Z Downloading wsproto-1.2.0-py3-none-any.whl (24 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.6339450Z Downloading h11-0.16.0-py3-none-any.whl (37 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.6430994Z Downloading attrs-25.3.0-py3-none-any.whl (63 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.6525193Z Downloading cffi-1.17.1-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (467 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.6625239Z Downloading pycparser-2.22-py3-none-any.whl (117 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.6720312Z Downloading sortedcontainers-2.4.0-py2.py3-none-any.whl (29 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.6816854Z Downloading websocket_client-1.8.0-py3-none-any.whl (58 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.6909142Z Downloading firebase_admin-7.3.0-py3-none-any.whl (138 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.7011421Z Downloading httpx-0.28.1-py3-none-any.whl (73 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.7106743Z Downloading google_api_core-2.30.2-py3-none-any.whl (173 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.7210328Z Downloading google_auth-2.49.1-py3-none-any.whl (240 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.7309600Z Downloading googleapis_common_protos-1.74.0-py3-none-any.whl (300 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.7413488Z Downloading grpcio-1.80.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (6.8 MB)
+crawl	Install dependencies	2026-04-09T05:05:48.7661553Z    ?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺 6.8/6.8 MB 324.9 MB/s  0:00:00
+crawl	Install dependencies	2026-04-09T05:05:48.7732881Z Downloading grpcio_status-1.80.0-py3-none-any.whl (14 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.7825278Z Downloading h2-4.3.0-py3-none-any.whl (61 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.7918833Z Downloading hpack-4.1.0-py3-none-any.whl (34 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.8012121Z Downloading httpcore-1.0.9-py3-none-any.whl (78 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.8104650Z Downloading hyperframe-6.1.0-py3-none-any.whl (13 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.8198295Z Downloading proto_plus-1.27.2-py3-none-any.whl (50 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.8293042Z Downloading protobuf-6.33.6-cp39-abi3-manylinux2014_x86_64.whl (323 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.8395934Z Downloading google_cloud_firestore-2.26.0-py3-none-any.whl (416 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.8500158Z Downloading google_cloud_core-2.5.1-py3-none-any.whl (29 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.8592819Z Downloading cachecontrol-0.14.4-py3-none-any.whl (22 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.8687111Z Downloading msgpack-1.1.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (426 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.8784592Z Downloading cryptography-46.0.0-cp311-abi3-manylinux_2_34_x86_64.whl (4.6 MB)
+crawl	Install dependencies	2026-04-09T05:05:48.9187752Z    ?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺?곣봺 4.6/4.6 MB 118.2 MB/s  0:00:00
+crawl	Install dependencies	2026-04-09T05:05:48.9262061Z Downloading google_cloud_storage-3.10.1-py3-none-any.whl (324 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.9361871Z Downloading google_crc32c-1.8.0-cp311-cp311-manylinux1_x86_64.manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_5_x86_64.whl (33 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.9451697Z Downloading google_resumable_media-2.8.2-py3-none-any.whl (81 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.9555968Z Downloading pyasn1_modules-0.4.2-py3-none-any.whl (181 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.9649050Z Downloading pyasn1-0.6.3-py3-none-any.whl (83 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.9739603Z Downloading pyjwt-2.12.1-py3-none-any.whl (29 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.9829382Z Downloading anyio-4.13.0-py3-none-any.whl (114 kB)
+crawl	Install dependencies	2026-04-09T05:05:48.9920629Z Downloading packaging-26.0-py3-none-any.whl (74 kB)
+crawl	Install dependencies	2026-04-09T05:05:49.1572266Z Installing collected packages: sortedcontainers, websocket-client, urllib3, typing_extensions, soupsieve, sniffio, PySocks, pyjwt, pycparser, pyasn1, protobuf, packaging, msgpack, MarkupSafe, lxml, itsdangerous, idna, hyperframe, hpack, h11, google-crc32c, colorama, click, charset-normalizer, certifi, blinker, attrs, wsproto, Werkzeug, requests, pyasn1-modules, proto-plus, outcome, Jinja2, httpcore, h2, gunicorn, grpcio, googleapis-common-protos, google-resumable-media, cffi, beautifulsoup4, anyio, trio, httpx, grpcio-status, Flask, curl_cffi, cryptography, cachecontrol, trio-websocket, google-auth, flask-cors, selenium, google-api-core, google-cloud-core, google-cloud-storage, google-cloud-firestore, firebase-admin
+crawl	Install dependencies	2026-04-09T05:05:53.1435740Z 
+crawl	Install dependencies	2026-04-09T05:05:53.1466029Z Successfully installed Flask-3.1.1 Jinja2-3.1.6 MarkupSafe-3.0.2 PySocks-1.7.1 Werkzeug-3.1.3 anyio-4.13.0 attrs-25.3.0 beautifulsoup4-4.13.4 blinker-1.9.0 cachecontrol-0.14.4 certifi-2025.6.15 cffi-1.17.1 charset-normalizer-3.4.2 click-8.2.1 colorama-0.4.6 cryptography-46.0.0 curl_cffi-0.7.4 firebase-admin-7.3.0 flask-cors-6.0.1 google-api-core-2.30.2 google-auth-2.49.1 google-cloud-core-2.5.1 google-cloud-firestore-2.26.0 google-cloud-storage-3.10.1 google-crc32c-1.8.0 google-resumable-media-2.8.2 googleapis-common-protos-1.74.0 grpcio-1.80.0 grpcio-status-1.80.0 gunicorn-21.2.0 h11-0.16.0 h2-4.3.0 hpack-4.1.0 httpcore-1.0.9 httpx-0.28.1 hyperframe-6.1.0 idna-3.10 itsdangerous-2.2.0 lxml-5.1.0 msgpack-1.1.2 outcome-1.3.0.post0 packaging-26.0 proto-plus-1.27.2 protobuf-6.33.6 pyasn1-0.6.3 pyasn1-modules-0.4.2 pycparser-2.22 pyjwt-2.12.1 requests-2.32.4 selenium-4.34.0 sniffio-1.3.1 sortedcontainers-2.4.0 soupsieve-2.7 trio-0.30.0 trio-websocket-0.12.2 typing_extensions-4.14.0 urllib3-2.4.0 websocket-client-1.8.0 wsproto-1.2.0
+crawl	Create Service Account Key	癤?026-04-09T05:05:53.5462125Z ##[group]Run import os
+crawl	Create Service Account Key	2026-04-09T05:05:53.5462431Z [36;1mimport os[0m
+crawl	Create Service Account Key	2026-04-09T05:05:53.5462630Z [36;1mimport base64[0m
+crawl	Create Service Account Key	2026-04-09T05:05:53.5462822Z [36;1m[0m
+crawl	Create Service Account Key	2026-04-09T05:05:53.5463055Z [36;1msecret_val = os.environ.get("GCP_SA_KEY", "")[0m
+crawl	Create Service Account Key	2026-04-09T05:05:53.5463362Z [36;1mif not secret_val:[0m
+crawl	Create Service Account Key	2026-04-09T05:05:53.5463620Z [36;1m    print("ERROR: Secret is empty!")[0m
+crawl	Create Service Account Key	2026-04-09T05:05:53.5463884Z [36;1m    exit(1)[0m
+crawl	Create Service Account Key	2026-04-09T05:05:53.5464061Z [36;1m    [0m
+crawl	Create Service Account Key	2026-04-09T05:05:53.5464231Z [36;1mtry:[0m
+crawl	Create Service Account Key	2026-04-09T05:05:53.5464506Z [36;1m    decoded = base64.b64decode(secret_val.strip()).decode('utf-8')[0m
+crawl	Create Service Account Key	2026-04-09T05:05:53.5465048Z [36;1m    content = decoded[0m
+crawl	Create Service Account Key	2026-04-09T05:05:53.5465273Z [36;1mexcept Exception:[0m
+crawl	Create Service Account Key	2026-04-09T05:05:53.5465489Z [36;1m    content = secret_val[0m
+crawl	Create Service Account Key	2026-04-09T05:05:53.5465698Z [36;1m[0m
+crawl	Create Service Account Key	2026-04-09T05:05:53.5465858Z [36;1mimport json[0m
+crawl	Create Service Account Key	2026-04-09T05:05:53.5466032Z [36;1mtry:[0m
+crawl	Create Service Account Key	2026-04-09T05:05:53.5466209Z [36;1m    json.loads(content)[0m
+crawl	Create Service Account Key	2026-04-09T05:05:53.5466474Z [36;1mexcept Exception as e:[0m
+crawl	Create Service Account Key	2026-04-09T05:05:53.5466754Z [36;1m    print(f"ERROR: Content is NOT valid JSON: {e}")[0m
+crawl	Create Service Account Key	2026-04-09T05:05:53.5467042Z [36;1m    exit(1)[0m
+crawl	Create Service Account Key	2026-04-09T05:05:53.5467211Z [36;1m[0m
+crawl	Create Service Account Key	2026-04-09T05:05:53.5467424Z [36;1mwith open("service-account.json", "w") as f:[0m
+crawl	Create Service Account Key	2026-04-09T05:05:53.5467707Z [36;1m    f.write(content)[0m
+crawl	Create Service Account Key	2026-04-09T05:05:53.5471296Z shell: /opt/hostedtoolcache/Python/3.11.15/x64/bin/python {0}
+crawl	Create Service Account Key	2026-04-09T05:05:53.5471631Z env:
+crawl	Create Service Account Key	2026-04-09T05:05:53.5471886Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.15/x64
+crawl	Create Service Account Key	2026-04-09T05:05:53.5472323Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib/pkgconfig
+crawl	Create Service Account Key	2026-04-09T05:05:53.5472768Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+crawl	Create Service Account Key	2026-04-09T05:05:53.5473136Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+crawl	Create Service Account Key	2026-04-09T05:05:53.5473495Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+crawl	Create Service Account Key	2026-04-09T05:05:53.5473868Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib
+crawl	Create Service Account Key	2026-04-09T05:05:53.5581846Z   GCP_SA_KEY: ***
+crawl	Create Service Account Key	
+crawl	Create Service Account Key	2026-04-09T05:05:53.5582073Z ##[endgroup]
+crawl	Run Crawler (D+0 to D+3)	癤?026-04-09T05:05:53.5813737Z ##[group]Run python ingest_data.py
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:53.5814037Z [36;1mpython ingest_data.py[0m
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:53.5836167Z shell: /usr/bin/bash -e {0}
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:53.5836395Z env:
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:53.5836641Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.15/x64
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:53.5837065Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib/pkgconfig
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:53.5837485Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:53.5837852Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:53.5838236Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:53.5838595Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:53.5838910Z   PROJECT_ID: golf-ai-480805
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:53.5839415Z   CRAWL_START_DAY: 0
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:53.5839596Z   CRAWL_END_DAY: 3
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:53.5839773Z ##[endgroup]
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:54.1841266Z /opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/site-packages/google/cloud/firestore_v1/base_collection.py:317: UserWarning: Detected filter using positional arguments. Prefer using the 'filter' keyword argument instead.
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:54.1843371Z   return query.where(field_path, op_string, value)
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:57.7320146Z Using service account file: service-account.json
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:57.7320819Z Cleaning up tee_times older than 2026-04-09...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:57.7321184Z Tee times cleanup complete. Total deleted: 0
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:57.7321716Z Starting sequential crawl for 4 days: ['2026-04-09', '2026-04-10', '2026-04-11', '2026-04-12']
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:57.7322124Z 
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:57.7322230Z >>> [Start] Crawling for 2026-04-09...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:57.7322554Z [05:05:57] [Golfpang] bootstrap list.do status=200
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:57.8720089Z [05:05:57] [Golfpang] bootstrap list.do status=200
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:57.9188440Z [05:05:57] [Golfpang] bootstrap node.do status=200 payload={'Depth': '2', 'GID': '4', 'SUB_GID': ''}
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:57.9189800Z [05:05:57] [Golfpang] ??START sector=4 date=2026-04-09
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:57.9515463Z [05:05:57] [Golfpang] bootstrap list.do status=200
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:58.0574135Z [05:05:58] [Golfpang] bootstrap node.do status=200 payload={'Depth': '2', 'GID': '8', 'SUB_GID': ''}
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:58.0575025Z [05:05:58] [Golfpang] ??START sector=8 date=2026-04-09
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:58.1592187Z [05:05:58] [Golfpang] bootstrap node.do status=200 payload={'Depth': '2', 'GID': '5', 'SUB_GID': ''}
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:58.1593655Z [05:05:58] [Golfpang] ??START sector=5 date=2026-04-09
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:58.7571766Z [05:05:58] [Golfpang]  ??No more rows. Stop sector=8
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:58.7674377Z [05:05:58] [Golfpang] ? DONE sector=8 count=8
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:59.2989910Z [05:05:59] [Golfpang]  ??No more rows. Stop sector=4
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:05:59.2991210Z [05:05:59] [Golfpang] ? DONE sector=4 count=23
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:06:00.3367024Z [05:06:00] [Golfpang]  ??No more rows. Stop sector=5
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:06:00.3368385Z [05:06:00] [Golfpang] ? DONE sector=5 count=27
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:01.8918485Z /home/runner/work/Golf-ai/Golf-ai/ingest_data.py:89: UserWarning: Detected filter using positional arguments. Prefer using the 'filter' keyword argument instead.
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:01.8920187Z   .where('sync_id', '<', sync_id) \
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5885015Z ?좑툘 [2026-04-09] TeeScanner returned 0 results!
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5885866Z [2026-04-09] Found 58 tee times (GP:58, TS:0). Syncing...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5886652Z Starting sync for 2026-04-09 with sync_id=202604090506, active sources: {'golfpang'}
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5887382Z Fetching weather for ??곷쿋?댁뒪...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5887769Z Fetching weather for ?숈큿...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5888140Z Fetching weather for 猷⑦듃52...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5888500Z Fetching weather for ?좊씪...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5888857Z Fetching weather for ?묒??뚯씤...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5889633Z Fetching weather for ?먮뜲??..
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5890017Z Fetching weather for 怨⑤뱶...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5890368Z Fetching weather for ?쇱젣踰?..
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5890718Z Fetching weather for 濡쒖뻹?щ젅...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5891658Z Fetching weather for ?덉껜?ㅽ듃...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5892020Z Fetching weather for 媛먭끝...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5892377Z Fetching weather for 怨⑦봽議댄솕??..
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5892746Z Fetching weather for ??곹옄??..
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5893098Z Fetching weather for 由щ쿋??..
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5893461Z Fetching weather for 紐⑤굹??..
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5893750Z Fetching weather for 踰⑤씪?ㅽ넠...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5894455Z Weather fetch failed for 踰⑤씪?ㅽ넠: HTTPSConnectionPool(host='api.open-meteo.com', port=443): Read timed out. (read timeout=10)
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5895166Z Fetching weather for ?명쁽...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5895851Z Weather fetch failed for ?명쁽: HTTPSConnectionPool(host='api.open-meteo.com', port=443): Read timed out. (read timeout=10)
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5896523Z Fetching weather for ?쇱텛由?..
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5897207Z Weather fetch failed for ?쇱텛由? HTTPSConnectionPool(host='api.open-meteo.com', port=443): Read timed out. (read timeout=10)
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5897898Z Fetching weather for ?⑤떇?ъ씤??..
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5898590Z Weather fetch failed for ?⑤떇?ъ씤?? HTTPSConnectionPool(host='api.open-meteo.com', port=443): Read timed out. (read timeout=10)
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5899425Z Fetching weather for ?뚰봽?ㅻ???..
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5900115Z Weather fetch failed for ?뚰봽?ㅻ??? HTTPSConnectionPool(host='api.open-meteo.com', port=443): Read timed out. (read timeout=10)
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5900783Z Fetching weather for 肄붾━??..
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5901465Z Weather fetch failed for 肄붾━?? HTTPSConnectionPool(host='api.open-meteo.com', port=443): Read timed out. (read timeout=10)
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5902158Z Fetching weather for ?뚮씪?먯슜??..
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5902845Z Weather fetch failed for ?뚮씪?먯슜?? HTTPSConnectionPool(host='api.open-meteo.com', port=443): Read timed out. (read timeout=10)
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5903517Z Fetching weather for ?쒕┝?⑹씤...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5904172Z Weather fetch failed for ?쒕┝?⑹씤: HTTPSConnectionPool(host='api.open-meteo.com', port=443): Read timed out. (read timeout=10)
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5904710Z Fetching weather for ?댁넄由ъ븘...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5905275Z Weather fetch failed for ?댁넄由ъ븘: HTTPSConnectionPool(host='api.open-meteo.com', port=443): Read timed out. (read timeout=10)
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5905812Z Fetching weather for 濡쒖젣鍮꾩븰...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5906351Z Weather fetch failed for 濡쒖젣鍮꾩븰: HTTPSConnectionPool(host='api.open-meteo.com', port=443): Read timed out. (read timeout=10)
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5906913Z Upsert complete. Now clearing stale data for 2026-04-09...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5908910Z Error processing 2026-04-09: 400 The query requires an index. You can create it here: https://console.firebase.google.com/v1/r/project/golf-ai-480805/firestore/databases/teetime/indexes?create_composite=Ck5wcm9qZWN0cy9nb2xmLWFpLTQ4MDgwNS9kYXRhYmFzZXMvdGVldGltZS9jb2xsZWN0aW9uR3JvdXBzL3RlZV90aW1lcy9pbmRleGVzL18QARoICgRkYXRlEAEaCwoHc3luY19pZBABGgwKCF9fbmFtZV9fEAE
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5910881Z >>> [Done] 2026-04-09 finished. Items: GP=0, TS=0
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5911075Z 
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5911173Z >>> [Start] Crawling for 2026-04-10...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.5911444Z [05:08:04] [Golfpang] bootstrap list.do status=200
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.7356236Z [05:08:04] [Golfpang] bootstrap list.do status=200
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.7942742Z [05:08:04] [Golfpang] bootstrap node.do status=200 payload={'Depth': '2', 'GID': '4', 'SUB_GID': ''}
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.7943799Z [05:08:04] [Golfpang] ??START sector=4 date=2026-04-10
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.8021512Z [05:08:04] [Golfpang] bootstrap list.do status=200
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.9220387Z [05:08:04] [Golfpang] bootstrap node.do status=200 payload={'Depth': '2', 'GID': '8', 'SUB_GID': ''}
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:04.9221468Z [05:08:04] [Golfpang] ??START sector=8 date=2026-04-10
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:05.0123422Z [05:08:05] [Golfpang] bootstrap node.do status=200 payload={'Depth': '2', 'GID': '5', 'SUB_GID': ''}
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:05.0124730Z [05:08:05] [Golfpang] ??START sector=5 date=2026-04-10
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:13.8072266Z [05:08:13] [Golfpang]  ??No more rows. Stop sector=8
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:13.8073622Z [05:08:13] [Golfpang] ? DONE sector=8 count=63
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:21.2429338Z [05:08:21] [Golfpang]  ??Max page reached. Stop sector=5
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:21.2430578Z [05:08:21] [Golfpang] ? DONE sector=5 count=147
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:22.1049950Z [05:08:22] [Golfpang]  ??Max page reached. Stop sector=4
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:08:22.1052003Z [05:08:22] [Golfpang] ? DONE sector=4 count=164
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:19.9614149Z ?좑툘 [2026-04-10] TeeScanner returned 0 results!
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:19.9615965Z [2026-04-10] Found 374 tee times (GP:374, TS:0). Syncing...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:19.9617035Z Starting sync for 2026-04-10 with sync_id=202604090508, active sources: {'golfpang'}
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:19.9617890Z Fetching weather for 怨⑦봽議퀷...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:19.9618291Z Fetching weather for 湲고씎...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:19.9618606Z Fetching weather for ?⑥뿬二?..
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:19.9618933Z Fetching weather for ?뷀겕濡쒖뒪鍮?..
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:19.9619701Z Fetching weather for ?덉떥...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:19.9620028Z Fetching weather for 留덉씠?ㅼ뒪...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:19.9620369Z Fetching weather for ?쒖궛??..
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:19.9620675Z Fetching weather for ??붿궪...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:19.9620983Z Fetching weather for 肄붿뒪移?..
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:19.9621293Z Fetching weather for ?뚯씤?щ━...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:19.9621599Z Fetching weather for ?ъ쎇...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:19.9621904Z Fetching weather for ?ㅻ줈??..
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:19.9622212Z Fetching weather for ?щ뜲??..
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:19.9622516Z Fetching weather for ?닿?紐ы듃...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:19.9622828Z Fetching weather for ?쇰젅釉?..
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:19.9623147Z Fetching weather for ?ㅼ뭅?대갭由?..
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:19.9623474Z Fetching weather for 吏꾩뼇諛몃━...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:19.9624255Z Weather fetch failed for 吏꾩뼇諛몃━: HTTPSConnectionPool(host='api.open-meteo.com', port=443): Read timed out. (read timeout=10)
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:19.9625002Z Fetching weather for 踰⑤씪45...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:19.9627344Z Weather fetch failed for 踰⑤씪45: HTTPSConnectionPool(host='api.open-meteo.com', port=443): Read timed out. (read timeout=10)
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:19.9628149Z Fetching weather for 釉붾（?먯슜??..
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:19.9628759Z Weather fetch failed for 釉붾（?먯슜?? HTTPSConnectionPool(host='api.open-meteo.com', port=443): Read timed out. (read timeout=10)
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:19.9629659Z Upsert complete. Now clearing stale data for 2026-04-10...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:19.9631338Z Error processing 2026-04-10: 400 The query requires an index. You can create it here: https://console.firebase.google.com/v1/r/project/golf-ai-480805/firestore/databases/teetime/indexes?create_composite=Ck5wcm9qZWN0cy9nb2xmLWFpLTQ4MDgwNS9kYXRhYmFzZXMvdGVldGltZS9jb2xsZWN0aW9uR3JvdXBzL3RlZV90aW1lcy9pbmRleGVzL18QARoICgRkYXRlEAEaCwoHc3luY19pZBABGgwKCF9fbmFtZV9fEAE
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:19.9633342Z >>> [Done] 2026-04-10 finished. Items: GP=0, TS=0
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:19.9633544Z 
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:19.9633633Z >>> [Start] Crawling for 2026-04-11...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:19.9633911Z [05:09:19] [Golfpang] bootstrap list.do status=200
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:19.9675667Z [05:09:19] [Golfpang] bootstrap list.do status=200
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:20.0342664Z [05:09:20] [Golfpang] bootstrap list.do status=200
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:20.1474173Z [05:09:20] [Golfpang] bootstrap node.do status=200 payload={'Depth': '2', 'GID': '4', 'SUB_GID': ''}
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:20.1475857Z [05:09:20] [Golfpang] ??START sector=4 date=2026-04-11
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:20.1530754Z [05:09:20] [Golfpang] bootstrap node.do status=200 payload={'Depth': '2', 'GID': '8', 'SUB_GID': ''}
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:20.1531820Z [05:09:20] [Golfpang] ??START sector=8 date=2026-04-11
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:20.2415185Z [05:09:20] [Golfpang] bootstrap node.do status=200 payload={'Depth': '2', 'GID': '5', 'SUB_GID': ''}
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:20.2416689Z [05:09:20] [Golfpang] ??START sector=5 date=2026-04-11
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:27.0055946Z [05:09:27] [Golfpang]  ??No more rows. Stop sector=8
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:27.0057119Z [05:09:27] [Golfpang] ? DONE sector=8 count=46
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:36.7550290Z [05:09:36] [Golfpang]  ??Max page reached. Stop sector=5
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:36.7551446Z [05:09:36] [Golfpang] ? DONE sector=5 count=157
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:39.8575901Z [05:09:39] [Golfpang]  ??Max page reached. Stop sector=4
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:09:39.8577325Z [05:09:39] [Golfpang] ? DONE sector=4 count=151
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:10.4242696Z ?좑툘 [2026-04-11] TeeScanner returned 0 results!
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:10.4243629Z [2026-04-11] Found 354 tee times (GP:354, TS:0). Syncing...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:10.4244534Z Starting sync for 2026-04-11 with sync_id=202604090509, active sources: {'golfpang'}
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:10.4245451Z Fetching weather for ?щ갭由?..
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:10.4246673Z Weather fetch failed for ?щ갭由? HTTPSConnectionPool(host='api.open-meteo.com', port=443): Read timed out. (read timeout=10)
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:10.4247907Z Upsert complete. Now clearing stale data for 2026-04-11...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:10.4251319Z Error processing 2026-04-11: 400 The query requires an index. You can create it here: https://console.firebase.google.com/v1/r/project/golf-ai-480805/firestore/databases/teetime/indexes?create_composite=Ck5wcm9qZWN0cy9nb2xmLWFpLTQ4MDgwNS9kYXRhYmFzZXMvdGVldGltZS9jb2xsZWN0aW9uR3JvdXBzL3RlZV90aW1lcy9pbmRleGVzL18QARoICgRkYXRlEAEaCwoHc3luY19pZBABGgwKCF9fbmFtZV9fEAE
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:10.4253764Z >>> [Done] 2026-04-11 finished. Items: GP=0, TS=0
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:10.4254017Z 
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:10.4254135Z >>> [Start] Crawling for 2026-04-12...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:10.4254475Z [05:10:10] [Golfpang] bootstrap list.do status=200
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:10.6004248Z [05:10:10] [Golfpang] bootstrap list.do status=200
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:10.6106951Z [05:10:10] [Golfpang] bootstrap node.do status=200 payload={'Depth': '2', 'GID': '8', 'SUB_GID': ''}
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:10.6108329Z [05:10:10] [Golfpang] ??START sector=8 date=2026-04-12
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:10.6330846Z [05:10:10] [Golfpang] bootstrap list.do status=200
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:10.7977276Z [05:10:10] [Golfpang] bootstrap node.do status=200 payload={'Depth': '2', 'GID': '4', 'SUB_GID': ''}
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:10.7979362Z [05:10:10] [Golfpang] ??START sector=4 date=2026-04-12
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:10.8437472Z [05:10:10] [Golfpang] bootstrap node.do status=200 payload={'Depth': '2', 'GID': '5', 'SUB_GID': ''}
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:10.8438910Z [05:10:10] [Golfpang] ??START sector=5 date=2026-04-12
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:19.1039877Z [05:10:19] [Golfpang]  ??No more rows. Stop sector=8
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:19.1040779Z [05:10:19] [Golfpang] ? DONE sector=8 count=56
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:28.5691829Z [05:10:28] [Golfpang]  ??Max page reached. Stop sector=4
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:28.5693460Z [05:10:28] [Golfpang] ? DONE sector=4 count=156
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:28.6522883Z [05:10:28] [Golfpang]  ??Max page reached. Stop sector=5
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:28.6524772Z [05:10:28] [Golfpang] ? DONE sector=5 count=162
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:47.9413025Z ?좑툘 [2026-04-12] TeeScanner returned 0 results!
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:47.9413857Z [2026-04-12] Found 374 tee times (GP:374, TS:0). Syncing...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:47.9414763Z Starting sync for 2026-04-12 with sync_id=202604090510, active sources: {'golfpang'}
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:47.9415660Z Fetching weather for ?⑺룊...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:47.9416015Z Upsert complete. Now clearing stale data for 2026-04-12...
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:47.9418298Z Error processing 2026-04-12: 400 The query requires an index. You can create it here: https://console.firebase.google.com/v1/r/project/golf-ai-480805/firestore/databases/teetime/indexes?create_composite=Ck5wcm9qZWN0cy9nb2xmLWFpLTQ4MDgwNS9kYXRhYmFzZXMvdGVldGltZS9jb2xsZWN0aW9uR3JvdXBzL3RlZV90aW1lcy9pbmRleGVzL18QARoICgRkYXRlEAEaCwoHc3luY19pZBABGgwKCF9fbmFtZV9fEAE
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:47.9422914Z >>> [Done] 2026-04-12 finished. Items: GP=0, TS=0
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:47.9423343Z 
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:47.9423583Z All crawling tasks completed. Total GP: 0, Total TS: 0
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:47.9424022Z 
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:47.9424197Z =====================================================
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:47.9424900Z ?슚 ALERT! Crawler Failure in Hot (D+0~3) ?슚
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:47.9425408Z One of the data sources returned 0 results.
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:47.9425907Z Golfpang: 0, TeeScanner: 0
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:47.9426409Z Failing the Action to trigger GitHub notifications.
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:47.9426926Z =====================================================
+crawl	Run Crawler (D+0 to D+3)	2026-04-09T05:10:48.0287045Z ##[error]Process completed with exit code 1.
+crawl	Post Checkout code	癤?026-04-09T05:10:48.0391966Z Post job cleanup.
+crawl	Post Checkout code	2026-04-09T05:10:48.1485006Z [command]/usr/bin/git version
+crawl	Post Checkout code	2026-04-09T05:10:48.1525710Z git version 2.53.0
+crawl	Post Checkout code	2026-04-09T05:10:48.1571258Z Temporarily overriding HOME='/home/runner/work/_temp/91907e7c-22b5-4e98-97dd-60b7f32a9e77' before making global git config changes
+crawl	Post Checkout code	2026-04-09T05:10:48.1595204Z Adding repository directory to the temporary git global config as a safe directory
+crawl	Post Checkout code	2026-04-09T05:10:48.1604777Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/Golf-ai/Golf-ai
+crawl	Post Checkout code	2026-04-09T05:10:48.1615938Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+crawl	Post Checkout code	2026-04-09T05:10:48.1650904Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+crawl	Post Checkout code	2026-04-09T05:10:48.1889740Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+crawl	Post Checkout code	2026-04-09T05:10:48.1912802Z http.https://github.com/.extraheader
+crawl	Post Checkout code	2026-04-09T05:10:48.1925700Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+crawl	Post Checkout code	2026-04-09T05:10:48.1958460Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+crawl	Post Checkout code	2026-04-09T05:10:48.2202759Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+crawl	Post Checkout code	2026-04-09T05:10:48.2229255Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+crawl	Complete job	癤?026-04-09T05:10:48.2596897Z Cleaning up orphan processes
+crawl	Complete job	2026-04-09T05:10:48.2883203Z ##[warning]Node.js 20 actions are deprecated. The following actions are running on Node.js 20 and may not work as expected: actions/checkout@v4, actions/setup-python@v5. Actions will be forced to run with Node.js 24 by default starting June 2nd, 2026. Node.js 20 will be removed from the runner on September 16th, 2026. Please check if updated versions of these actions are available that support Node.js 24. To opt into Node.js 24 now, set the FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true environment variable on the runner or in your workflow file. Once Node.js 24 becomes the default, you can temporarily opt out by setting ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

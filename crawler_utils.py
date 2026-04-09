@@ -1,12 +1,13 @@
 # crawler_utils.py
 import json, os, re, time as _time
+import requests as std_requests  # Standard requests (always available, needed for teescan SSL bypass)
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 try:
     from curl_cffi import requests
     HAS_CURL_CFFI = True
 except ImportError:
     import requests
-    import urllib3
-    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
     HAS_CURL_CFFI = False
 from bs4 import BeautifulSoup
 from typing import List, Dict, Optional, Tuple
@@ -195,8 +196,9 @@ def _name_match(site_txt: str, gp_code_txt: str) -> bool:
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Teescan (원본 유지)
-def get_teescan_times(s: requests.Session, seq: str, date_str: str) -> List[Dict]:
-    """티스캐너 API에서 특정 구장/날짜의 티타임 리스트 조회 (with retry)"""
+def get_teescan_times(s: std_requests.Session, seq: str, date_str: str) -> List[Dict]:
+    """티스캐너 API에서 특정 구장/날짜의 티타임 리스트 조회 (with retry)
+    Uses standard requests (NOT curl_cffi) to ensure verify=False works for self-signed cert."""
     url = (
         "https://foapi.teescanner.com/v1/booking/getTeeTimeListbyGolfclub"
         f"?golfclub_seq={seq}&roundDay={date_str}&orderType="
@@ -231,37 +233,37 @@ def crawl_teescan(date_str: str, favorite: List[str]):
         if favorite and name not in favorite: continue
         targets.append((name, seq))
         
-    # Sequential processing with Session reuse
-    with _make_session() as s:
-        # Set common headers for Teescan if needed
-        s.headers.update({"User-Agent": "Mozilla/5.0"})
-        
-        for t_name, t_seq in targets:
-            try:
-                items = get_teescan_times(s, t_seq, date_str)
-                
-                for it in items:
-                    try:
-                        price = int(it.get("price", 0))
-                        if price < 1000 or price > 10000000:
-                            continue
-                    except (ValueError, TypeError):
+    # Use standard requests.Session (NOT curl_cffi) for Teescan
+    # curl_cffi ignores verify=False, causing SSL failures with teescan's self-signed cert
+    s = std_requests.Session()
+    s.headers.update({"User-Agent": "Mozilla/5.0"})
+    
+    for t_name, t_seq in targets:
+        try:
+            items = get_teescan_times(s, t_seq, date_str)
+            
+            for it in items:
+                try:
+                    price = int(it.get("price", 0))
+                    if price < 1000 or price > 10000000:
                         continue
-                    
-                    ttxt  = str(it.get("teetime_time", "00:00"))
-                    h     = int(ttxt.split(":")[0]) if ":" in ttxt else int(ttxt[:2] or 0)
-                    # 티스캐너 API에서 benefit 필드 추출
-                    benefit_text = str(it.get("benefit", "") or "").strip()
-                    res.append({
-                        "golf": t_name, "date": date_str,
-                        "hour": f"{h:02d}시대", "hour_num": h,
-                        "price": price, "benefit": benefit_text,
-                        "time": ttxt,
-                        "url": "https://www.teescanner.com/", "source": "teescan",
-                    })
-            except Exception as e:
-                print(f"[Teescan] Error processing {t_name}: {e}", flush=True)
+                except (ValueError, TypeError):
+                    continue
                 
+                ttxt  = str(it.get("teetime_time", "00:00"))
+                h     = int(ttxt.split(":")[0]) if ":" in ttxt else int(ttxt[:2] or 0)
+                # 티스캐너 API에서 benefit 필드 추출
+                benefit_text = str(it.get("benefit", "") or "").strip()
+                res.append({
+                    "golf": t_name, "date": date_str,
+                    "hour": f"{h:02d}시대", "hour_num": h,
+                    "price": price, "benefit": benefit_text,
+                    "time": ttxt,
+                    "url": "https://www.teescanner.com/", "source": "teescan",
+                })
+        except Exception as e:
+            print(f"[Teescan] Error processing {t_name}: {e}", flush=True)
+            
     return res
 
 # ─────────────────────────────────────────────────────────────────────────────
