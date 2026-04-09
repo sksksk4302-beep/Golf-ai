@@ -198,43 +198,54 @@ def _name_match(site_txt: str, gp_code_txt: str) -> bool:
 # ─────────────────────────────────────────────────────────────────────────────
 # Teescan (원본 유지)
 def get_teescan_times(s: std_requests.Session, seq: str, date_str: str) -> List[Dict]:
-    """티스캐너 API에서 특정 구장/날짜의 티타임 리스트 조회 (with retry)
-    Uses standard requests (NOT curl_cffi) to ensure verify=False works for self-signed cert."""
+    """티스캐너 API에서 특정 구장/날짜의 티타임 리스트 조회 (with retry)"""
     raw_url = (
         "https://foapi.teescanner.com/v1/booking/getTeeTimeListbyGolfclub"
         f"?golfclub_seq={seq}&roundDay={date_str}&orderType="
     )
-    # Use TeeScanner-specific proxy if available (Cloudflare Worker)
+    
+    # Check proxy setting
     if TEESCAN_PROXY_URL:
         sep = "&" if "?" in TEESCAN_PROXY_URL else "?"
-        # MUST quote the raw_url so that its internal '&' symbols are preserved correctly
         url = f"{TEESCAN_PROXY_URL}{sep}url={urllib.parse.quote(raw_url)}"
+        if seq == "51": # Log only once for debugging
+            print(f"[Teescan] Proxy in use: {TEESCAN_PROXY_URL[:30]}...", flush=True)
     else:
         url = raw_url
     
     max_retries = 2
     for attempt in range(max_retries + 1):
         try:
-            # Increase timeout to 20s for international latency
             r = s.get(url, timeout=20, verify=False)
+            
             if r.status_code != 200:
-                print(f"[Teescan] seq={seq} status={r.status_code} text={r.text[:100]}", flush=True)
+                print(f"[Teescan] seq={seq} status={r.status_code} text={r.text[:200]}", flush=True)
                 if attempt < max_retries:
                     _time.sleep(1.0)
                     continue
                 return []
             
             try:
-                return r.json().get("data", {}).get("teeTimeList", [])
+                data = r.json()
+                tee_list = data.get("data", {}).get("teeTimeList", [])
+                
+                # If surprisingly empty but success, log more info
+                if not tee_list and seq in ["51", "114055"]: # Check a few representative clubs
+                    print(f"[Teescan] seq={seq} returned 200 OK but 0 items. Result: {data.get('resultMsg', 'No Msg')}", flush=True)
+                    
+                return tee_list
             except Exception as json_e:
-                print(f"[Teescan] JSON parsing failed (seq={seq}): {json_e}. Response snippet: {r.text[:200]}", flush=True)
-                raise json_e
+                print(f"[Teescan] JSON Error (seq={seq}): {json_e}. Raw: {r.text[:200]}", flush=True)
+                if attempt < max_retries:
+                    _time.sleep(1.0)
+                    continue
+                return []
                 
         except Exception as e:
             if attempt < max_retries:
                 _time.sleep(1.0)
                 continue
-            print(f"[Teescan] seq={seq} date={date_str} 오류 (after {max_retries+1} attempts): {e}", flush=True)
+            print(f"[Teescan] seq={seq} Request Error: {e}", flush=True)
             return []
 
 def crawl_teescan(date_str: str, favorite: List[str]):
