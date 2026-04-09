@@ -230,15 +230,12 @@ def main():
     # Verification Logic for ALL workflows (Hot/Warm/Cold)
     crawl_tier = "Hot" if start_day_env == "0" else ("Warm" if start_day_env == "4" else "Cold")
     
-    # TeeScanner returning 0 is common (SSL/rate-limit) — warn only
-    if total_ts_items == 0:
-        print(f"\n⚠️ WARNING: TeeScanner returned 0 results in {crawl_tier}. Existing TS data preserved.")
-    
-    # Golfpang returning 0 is a real failure — fail the Action
-    if total_gp_items == 0:
+    # If either source returned 0 results, fail the Action to trigger GitHub notification
+    if total_gp_items == 0 or total_ts_items == 0:
         print("\n=====================================================")
-        print(f"🚨 ALERT! Golfpang Failure in {crawl_tier} (D+{start_day_env}~{end_day}) 🚨")
-        print(f"Golfpang returned 0 results. TeeScanner: {total_ts_items}")
+        print(f"🚨 ALERT! Crawler Failure in {crawl_tier} (D+{start_day_env}~{end_day}) 🚨")
+        print(f"One of the data sources returned 0 results.")
+        print(f"Golfpang: {total_gp_items}, TeeScanner: {total_ts_items}")
         print("Failing the Action to trigger GitHub notifications.")
         print("=====================================================")
         import sys

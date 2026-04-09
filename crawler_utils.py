@@ -34,6 +34,7 @@ CONNECT_TIMEOUT = int(os.environ.get("GPANG_CONNECT_TIMEOUT", 5))
 READ_TIMEOUT    = int(os.environ.get("GPANG_READ_TIMEOUT", 20))
 SLEEP_BETWEEN   = float(os.environ.get("GPANG_SLEEP", 0.25))
 PROXY_WORKER_URL = os.environ.get("GPANG_PROXY_WORKER", "") # e.g., https://my-worker.workers.dev
+TEESCAN_PROXY_URL = os.environ.get("TEESCAN_PROXY_URL", "") # e.g., https://teescan-proxy.xxx.workers.dev
 
 COMMON_HEADERS = {
     # User-Agent is handled by curl_cffi impersonate="chrome"
@@ -203,7 +204,12 @@ def get_teescan_times(s: std_requests.Session, seq: str, date_str: str) -> List[
         "https://foapi.teescanner.com/v1/booking/getTeeTimeListbyGolfclub"
         f"?golfclub_seq={seq}&roundDay={date_str}&orderType="
     )
-    url = _get_url(raw_url)
+    # Use TeeScanner-specific proxy if available (Cloudflare Worker)
+    if TEESCAN_PROXY_URL:
+        sep = "&" if "?" in TEESCAN_PROXY_URL else "?"
+        url = f"{TEESCAN_PROXY_URL}{sep}url={raw_url}"
+    else:
+        url = raw_url
     
     max_retries = 2
     for attempt in range(max_retries + 1):
