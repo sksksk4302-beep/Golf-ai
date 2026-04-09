@@ -81,12 +81,10 @@ def save_tee_times(db, tee_times, target_date, sources_with_data=None):
         
     print(f"Upsert complete. Now clearing stale data for {target_date}...")
 
-    # 2. Delete stale data — SOURCE-AWARE
     # Only delete stale data for sources that actually returned results.
     # This prevents wiping teescan data when teescan crawl fails/returns 0.
     stale_docs = db.collection('tee_times') \
         .where('date', '==', target_date) \
-        .where('sync_id', '<', sync_id) \
         .stream()
         
     delete_batch = db.batch()
@@ -95,6 +93,11 @@ def save_tee_times(db, tee_times, target_date, sources_with_data=None):
     
     for doc in stale_docs:
         doc_data = doc.to_dict()
+        
+        # In-memory filter to avoid composite index requirement
+        if str(doc_data.get('sync_id', '999999999999')) >= sync_id:
+            continue
+            
         doc_source = doc_data.get('source', 'golfpang')
         
         # Only delete if this source had data in current sync
