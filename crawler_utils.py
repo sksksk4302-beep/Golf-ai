@@ -209,17 +209,19 @@ def get_teescan_times(s: std_requests.Session, seq: str, date_str: str) -> List[
     if TEESCAN_PROXY_URL:
         sep = "&" if "?" in TEESCAN_PROXY_URL else "?"
         url = f"{TEESCAN_PROXY_URL}{sep}url={urllib.parse.quote(raw_url)}"
-        if seq_str == "51": # Log for 태광 once
-            print(f"[Teescan] Using Proxy for seq={seq_str}: {TEESCAN_PROXY_URL[:40]}...", flush=True)
+        if seq_str == "51": # Log URL only for 태광 to avoid leaking all URLs
+            print(f"[Teescan] Using Proxy: {TEESCAN_PROXY_URL[:40]}...", flush=True)
     else:
         url = raw_url
     
     max_retries = 2
     for attempt in range(max_retries + 1):
         try:
-            r = s.get(url, timeout=20, verify=False)
+            # Removed the seq == "51" restriction for simple status logging
+            r = s.get(url, timeout=30, verify=False)
             
             if r.status_code != 200:
+                print(f"[Teescan] seq={seq_str} status={r.status_code} text={r.text[:200]}", flush=True)
                 print(f"[Teescan] seq={seq_str} status={r.status_code} text={r.text[:200]}", flush=True)
                 if attempt < max_retries:
                     _time.sleep(1.0)
@@ -279,9 +281,12 @@ def crawl_teescan(date_str: str, favorite: List[str]):
         "Origin": "https://www.teescanner.com"
     })
     
+    # Sequential crawling Instead of ThreadPool to avoid threading issues and ensure clear logs
     for t_name, t_seq in targets:
         try:
+            print(f"[Teescan] Start crawling {t_name} (seq={t_seq})...", flush=True)
             items = get_teescan_times(s, t_seq, date_str)
+            print(f"[Teescan] Found {len(items)} items for {t_name}", flush=True)
             
             for it in items:
                 try:
