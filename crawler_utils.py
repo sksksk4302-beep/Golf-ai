@@ -290,7 +290,7 @@ def crawl_teescan(date_str: str, favorite: List[str]):
             
             for it in items:
                 try:
-                    price = int(it.get("price", 0))
+                    price = int(it.get("min_cost") or it.get("price") or 0)
                     if price < 1000 or price > 10000000:
                         continue
                 except (ValueError, TypeError):
