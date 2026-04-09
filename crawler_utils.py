@@ -1,5 +1,5 @@
 # crawler_utils.py
-import json, os, re, time as _time
+import json, os, re, time as _time, urllib.parse
 import requests as std_requests  # Standard requests (always available, needed for teescan SSL bypass)
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -207,7 +207,8 @@ def get_teescan_times(s: std_requests.Session, seq: str, date_str: str) -> List[
     # Use TeeScanner-specific proxy if available (Cloudflare Worker)
     if TEESCAN_PROXY_URL:
         sep = "&" if "?" in TEESCAN_PROXY_URL else "?"
-        url = f"{TEESCAN_PROXY_URL}{sep}url={raw_url}"
+        # MUST quote the raw_url so that its internal '&' symbols are preserved correctly
+        url = f"{TEESCAN_PROXY_URL}{sep}url={urllib.parse.quote(raw_url)}"
     else:
         url = raw_url
     
