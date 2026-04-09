@@ -205,11 +205,12 @@ def get_teescan_times(s: std_requests.Session, seq: str, date_str: str) -> List[
     )
     
     # Check proxy setting
+    seq_str = str(seq)
     if TEESCAN_PROXY_URL:
         sep = "&" if "?" in TEESCAN_PROXY_URL else "?"
         url = f"{TEESCAN_PROXY_URL}{sep}url={urllib.parse.quote(raw_url)}"
-        if seq == "51": # Log only once for debugging
-            print(f"[Teescan] Proxy in use: {TEESCAN_PROXY_URL[:30]}...", flush=True)
+        if seq_str == "51": # Log for 태광 once
+            print(f"[Teescan] Using Proxy for seq={seq_str}: {TEESCAN_PROXY_URL[:40]}...", flush=True)
     else:
         url = raw_url
     
@@ -219,7 +220,7 @@ def get_teescan_times(s: std_requests.Session, seq: str, date_str: str) -> List[
             r = s.get(url, timeout=20, verify=False)
             
             if r.status_code != 200:
-                print(f"[Teescan] seq={seq} status={r.status_code} text={r.text[:200]}", flush=True)
+                print(f"[Teescan] seq={seq_str} status={r.status_code} text={r.text[:200]}", flush=True)
                 if attempt < max_retries:
                     _time.sleep(1.0)
                     continue
@@ -229,13 +230,14 @@ def get_teescan_times(s: std_requests.Session, seq: str, date_str: str) -> List[
                 data = r.json()
                 tee_list = data.get("data", {}).get("teeTimeList", [])
                 
-                # If surprisingly empty but success, log more info
-                if not tee_list and seq in ["51", "114055"]: # Check a few representative clubs
-                    print(f"[Teescan] seq={seq} returned 200 OK but 0 items. Result: {data.get('resultMsg', 'No Msg')}", flush=True)
+                # LOG EVERY EMPTY CASE to see what the server is actually responding
+                if not tee_list:
+                    print(f"[Teescan] seq={seq_str} 0 items. ResultCode={data.get('resultCode')} Msg={data.get('resultMsg')}", flush=True)
                     
                 return tee_list
             except Exception as json_e:
-                print(f"[Teescan] JSON Error (seq={seq}): {json_e}. Raw: {r.text[:200]}", flush=True)
+                # If JSON parsing fails, it's likely the proxy returned HTML (error page)
+                print(f"[Teescan] JSON Error (seq={seq_str}): {json_e}. Raw start: {r.text[:100]}", flush=True)
                 if attempt < max_retries:
                     _time.sleep(1.0)
                     continue
@@ -245,7 +247,7 @@ def get_teescan_times(s: std_requests.Session, seq: str, date_str: str) -> List[
             if attempt < max_retries:
                 _time.sleep(1.0)
                 continue
-            print(f"[Teescan] seq={seq} Request Error: {e}", flush=True)
+            print(f"[Teescan] seq={seq_str} Request Error: {e}", flush=True)
             return []
 
 def crawl_teescan(date_str: str, favorite: List[str]):
