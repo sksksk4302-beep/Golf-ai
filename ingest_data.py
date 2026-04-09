@@ -25,11 +25,15 @@ def init_firestore():
         credentials, project = google.auth.default()
         return firestore.Client(project=PROJECT_ID, credentials=credentials, database="teetime")
 
-def save_tee_times(db, tee_times, target_date):
+def save_tee_times(db, tee_times, target_date, sources_with_data=None):
     # 이번 업데이트의 고유 ID (예: 202602031950)
     sync_id = datetime.datetime.now().strftime("%Y%m%d%H%M")
     
-    print(f"Starting sync for {target_date} with sync_id={sync_id}")
+    # Determine which sources actually returned data
+    if sources_with_data is None:
+        sources_with_data = set(item.get('source', 'golfpang') for item in tee_times)
+    
+    print(f"Starting sync for {target_date} with sync_id={sync_id}, active sources: {sources_with_data}")
 
     # 1. Upsert new data (Write all current data with new sync_id)
     # This avoids reading all documents first.
@@ -77,8 +81,9 @@ def save_tee_times(db, tee_times, target_date):
         
     print(f"Upsert complete. Now clearing stale data for {target_date}...")
 
-    # 2. Delete stale data (Read only what needs to be deleted)
-    # Find documents for this date that do NOT have the current sync_id
+    # 2. Delete stale data — SOURCE-AWARE
+    # Only delete stale data for sources that actually returned results.
+    # This prevents wiping teescan data when teescan crawl fails/returns 0.
     stale_docs = db.collection('tee_times') \
         .where('date', '==', target_date) \
         .where('sync_id', '<', sync_id) \
@@ -86,13 +91,21 @@ def save_tee_times(db, tee_times, target_date):
         
     delete_batch = db.batch()
     delete_count = 0
+    skip_count = 0
     
     for doc in stale_docs:
-        delete_batch.delete(doc.reference)
-        delete_count += 1
-        ops_count += 1
+        doc_data = doc.to_dict()
+        doc_source = doc_data.get('source', 'golfpang')
         
-        if delete_count % 400 == 0:
+        # Only delete if this source had data in current sync
+        if doc_source in sources_with_data:
+            delete_batch.delete(doc.reference)
+            delete_count += 1
+            ops_count += 1
+        else:
+            skip_count += 1
+        
+        if delete_count > 0 and delete_count % 400 == 0:
             delete_batch.commit()
             delete_batch = db.batch()
             print(f"Processed {delete_count} stale items (deletes)...")
@@ -100,7 +113,9 @@ def save_tee_times(db, tee_times, target_date):
     if delete_count % 400 != 0:
         delete_batch.commit()
 
-    print(f"Sync complete for {target_date}. Total ops: {ops_count} (Upserts: {count}, Deletes: {delete_count}).")
+    if skip_count > 0:
+        print(f"⚠️ Preserved {skip_count} items from inactive sources (not in {sources_with_data})")
+    print(f"Sync complete for {target_date}. Total ops: {ops_count} (Upserts: {count}, Deletes: {delete_count}, Preserved: {skip_count}).")
 
 def cleanup_past_teetimes(db):
     """
@@ -146,17 +161,29 @@ def process_date(target_date, db):
         data_gp = crawl_golfpang(target_date, [])
         
         # Crawl Teescan
-        # print(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] Starting Teescan crawl for {target_date}...")
         data_ts = crawl_teescan(target_date, [])
+        
+        # Track which sources returned data
+        sources_with_data = set()
+        if data_gp:
+            sources_with_data.add('golfpang')
+        if data_ts:
+            sources_with_data.add('teescan')
+        
+        # Log warnings when a source returns 0
+        if not data_gp:
+            print(f"⚠️ [{target_date}] Golfpang returned 0 results!")
+        if not data_ts:
+            print(f"⚠️ [{target_date}] TeeScanner returned 0 results!")
         
         data = data_gp + data_ts
         if data:
             print(f"[{target_date}] Found {len(data)} tee times (GP:{len(data_gp)}, TS:{len(data_ts)}). Syncing...")
-            save_tee_times(db, data, target_date)
+            save_tee_times(db, data, target_date, sources_with_data)
             return len(data_gp), len(data_ts)
         else:
-            print(f"[{target_date}] No data found. Clearing...")
-            save_tee_times(db, [], target_date)
+            print(f"[{target_date}] No data found from any source. Clearing...")
+            save_tee_times(db, [], target_date, sources_with_data)
             return 0, 0
             
     except Exception as e:
@@ -205,19 +232,18 @@ def main():
 
     print(f"\nAll crawling tasks completed. Total GP: {total_gp_items}, Total TS: {total_ts_items}")
 
-    # 9AM KST (UTC 00:xx ~ 01:xx) Verification Logic for GitHub Actions Alerting
-    current_utc_hour = datetime.datetime.utcnow().hour
-    # Only verify on Crawl Hot (start_day == "0")
-    if os.environ.get("CRAWL_START_DAY", "0") == "0" and current_utc_hour in [0, 1]:
-        if total_gp_items == 0 or total_ts_items == 0:
-            print("\n=====================================================")
-            print(f"🚨 ALERT! Critical Crawler Failure at 9 AM KST 🚨")
-            print(f"One of the data sources returned 0 results.")
-            print(f"Golfpang: {total_gp_items}, TeeScanner: {total_ts_items}")
-            print("Failing the Action to trigger GitHub notifications.")
-            print("=====================================================")
-            import sys
-            sys.exit(1)
+    # Verification Logic for ALL workflows (Hot/Warm/Cold)
+    # If either source returned 0 results, fail the Action to trigger GitHub notification
+    crawl_tier = "Hot" if start_day_env == "0" else ("Warm" if start_day_env == "4" else "Cold")
+    if total_gp_items == 0 or total_ts_items == 0:
+        print("\n=====================================================")
+        print(f"🚨 ALERT! Crawler Failure in {crawl_tier} (D+{start_day_env}~{end_day}) 🚨")
+        print(f"One of the data sources returned 0 results.")
+        print(f"Golfpang: {total_gp_items}, TeeScanner: {total_ts_items}")
+        print("Failing the Action to trigger GitHub notifications.")
+        print("=====================================================")
+        import sys
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

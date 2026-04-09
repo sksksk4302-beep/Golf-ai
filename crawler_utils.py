@@ -196,18 +196,22 @@ def _name_match(site_txt: str, gp_code_txt: str) -> bool:
 # ─────────────────────────────────────────────────────────────────────────────
 # Teescan (원본 유지)
 def get_teescan_times(s: requests.Session, seq: str, date_str: str) -> List[Dict]:
-    """티스캐너 API에서 특정 구장/날짜의 티타임 리스트 조회"""
+    """티스캐너 API에서 특정 구장/날짜의 티타임 리스트 조회 (with retry)"""
     url = (
         "https://foapi.teescanner.com/v1/booking/getTeeTimeListbyGolfclub"
         f"?golfclub_seq={seq}&roundDay={date_str}&orderType="
     )
-    # headers = {"User-Agent": "Mozilla/5.0"} # Session handles headers
-    try:
-        r = s.get(url, timeout=3, verify=False)
-        return r.json().get("data", {}).get("teeTimeList", [])
-    except Exception as e:
-        print(f"[Teescan] seq={seq} date={date_str} 오류: {e}", flush=True)
-        return []
+    max_retries = 2
+    for attempt in range(max_retries + 1):
+        try:
+            r = s.get(url, timeout=8, verify=False)
+            return r.json().get("data", {}).get("teeTimeList", [])
+        except Exception as e:
+            if attempt < max_retries:
+                _time.sleep(0.5)
+                continue
+            print(f"[Teescan] seq={seq} date={date_str} 오류 (after {max_retries+1} attempts): {e}", flush=True)
+            return []
 
 def crawl_teescan(date_str: str, favorite: List[str]):
     from concurrent.futures import ThreadPoolExecutor, as_completed
