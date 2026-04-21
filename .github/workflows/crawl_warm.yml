@@ -2,9 +2,9 @@ name: Crawl Warm (D+4~7)
 
 on:
   schedule:
-    # Every 6 hours during active hours (06, 12, 18 KST)
-    # KST = UTC+9: 06 KST = 21 UTC (prev day), 12 KST = 03 UTC, 18 KST = 09 UTC
-    - cron: '0 21,3,9 * * *'
+    # Every 12 hours during active hours (06, 18 KST)
+    # KST = UTC+9: 06 KST = 21 UTC (prev day), 18 KST = 09 UTC
+    - cron: '0 21,9 * * *'
   workflow_dispatch:
 
 jobs:

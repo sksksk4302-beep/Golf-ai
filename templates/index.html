@@ -506,6 +506,9 @@
             </header>
             <div class="modal-body">
                 <div class="region-tabs" id="regionTabs"></div>
+                <div style="margin-bottom: 12px; display: flex; justify-content: flex-end;">
+                    <button class="action-btn secondary" style="padding: 8px 12px; width: auto; font-size: 0.85rem;" onclick="selectAllInRegion()">현재 탭 전체 선택/해제</button>
+                </div>
                 <div class="club-grid" id="clubList"></div>
             </div>
             <div class="modal-footer">
@@ -603,6 +606,11 @@
         document.addEventListener('DOMContentLoaded', async () => {
             if ('serviceWorker' in navigator) navigator.serviceWorker.register('/static/service-worker.js');
 
+            if (!localStorage.getItem('addedClubsPopupSeen')) {
+                alert('구장이 추가되었습니다. 확인하세요');
+                localStorage.setItem('addedClubsPopupSeen', 'true');
+            }
+
             renderTimeGrid(); // Render time chips (Mobile & Desktop)
             await Promise.all([fetchClubs(), fetchAvailableDates()]);
 
@@ -644,7 +652,28 @@
         // --- API ---
         async function fetchClubs() {
             const res = await fetch('/api/clubs');
-            allClubs = await res.json();
+            let rawClubs = await res.json();
+            
+            let publicClubs = [];
+            Object.keys(rawClubs).forEach(region => {
+                let filtered = [];
+                rawClubs[region].forEach(c => {
+                    if (c.name.includes('(9)') || c.name.includes('(9*2)')) {
+                        publicClubs.push(c);
+                    } else {
+                        filtered.push(c);
+                    }
+                });
+                if (filtered.length > 0) {
+                    rawClubs[region] = filtered;
+                } else {
+                    delete rawClubs[region];
+                }
+            });
+            if (publicClubs.length > 0) {
+                rawClubs["퍼블릭"] = publicClubs;
+            }
+            allClubs = rawClubs;
             renderSettings();
         }
 
@@ -749,6 +778,20 @@
                 };
                 list.appendChild(el);
             });
+        }
+
+        function selectAllInRegion() {
+            const clubsInRegion = allClubs[currentRegion] || [];
+            const allSelected = clubsInRegion.every(c => selectedClubs.has(c.name));
+            
+            clubsInRegion.forEach(c => {
+                if (allSelected) {
+                    selectedClubs.delete(c.name);
+                } else {
+                    selectedClubs.add(c.name);
+                }
+            });
+            renderSettings(); // Re-render checks
         }
 
         function renderTimeGrid() {
