@@ -176,7 +176,8 @@ def _bootstrap_gp_session(s: requests.Session, date_str: str, sector: Optional[i
 # 이름 매칭 (사이트 표기 ↔ 우리 JSON 표기)
 def _norm_name(n: str) -> str:
     if not n: return ""
-    # n = re.sub(r"\(.*?\)", "", n)      # 괄호 제거 (REMOVED to distinguish Public/Member)
+    # Remove parenthesis characters (do not remove contents)
+    n = n.replace("(", "").replace(")", "")
     n = re.sub(r"\s+", "", n)          # 공백 제거
     n = re.sub(r"C\.?C\.?$", "CC", n)  # C.C → CC
     n = n.replace("-", "")
@@ -191,6 +192,8 @@ def _name_match(site_txt: str, gp_code_txt: str) -> bool:
         # Check if the extra part contains parentheses
         extra = a.replace(b, "")
         if "(" in extra or ")" in extra:
+            return False
+        if "퍼" in extra or "9" in extra or "퍼블릭" in extra:
             return False
         return True
     return False
@@ -402,9 +405,16 @@ def crawl_golfpang(date_str: str, favorite: List[str], sectors: List[int] = None
                             continue
 
                         matched = None
+                        # First pass: Exact match
                         for t in targets:
-                            if _name_match(club_txt, t["gp"]):
+                            if _norm_name(club_txt) == _norm_name(t["gp"]):
                                 matched = t; break
+                        # Second pass: Substring match
+                        if not matched:
+                            for t in targets:
+                                if _name_match(club_txt, t["gp"]):
+                                    matched = t; break
+                                    
                         if not matched:
                             continue
 
