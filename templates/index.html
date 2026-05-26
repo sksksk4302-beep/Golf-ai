@@ -1032,18 +1032,21 @@
         }
         function closeDetail() { document.getElementById('detailModal').classList.remove('open'); }
 
+        let isBookingFetching = false;
         function handleBookingClick(clubName, date, time, price, source, sourceIdx, url) {
             if (source.toLowerCase().includes('teescan')) {
-                if (url) {
-                    window.location.href = url;
-                } else {
-                    window.location.href = "https://www.teescanner.com/";
-                }
+                const targetUrl = url || "https://m.teescanner.com/";
+                window.open(targetUrl, '_blank');
             } else if (source.toLowerCase().includes('golfpang')) {
                 if (!sourceIdx) {
                     alert('골팡 예약 정보 ID가 없습니다.');
                     return;
                 }
+                
+                if (isBookingFetching) return;
+                isBookingFetching = true;
+                document.body.style.cursor = 'wait';
+                document.body.style.pointerEvents = 'none';
                 
                 fetch(`/api/booking-contact?idx=${sourceIdx}`)
                     .then(res => res.json())
@@ -1062,6 +1065,11 @@
                     .catch(err => {
                         console.error(err);
                         alert('연락처 조회 실패');
+                    })
+                    .finally(() => {
+                        isBookingFetching = false;
+                        document.body.style.cursor = 'default';
+                        document.body.style.pointerEvents = 'auto';
                     });
             }
         }

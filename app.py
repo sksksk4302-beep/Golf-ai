@@ -271,14 +271,14 @@ def get_booking_contact():
         return jsonify({"error": "Missing idx"}), 400
         
     try:
-        from crawler_utils import _make_session, AJAX_HEADERS
+        from crawler_utils import _make_session, AJAX_HEADERS, _get_url
         from bs4 import BeautifulSoup
         
-        url = "https://www.golfpang.com/web/round/booking_addcon.do"
-        form = {"idx": idx}
+        raw_url = f"https://www.golfpang.com/web/round/booking_addcon.do?idx={idx}"
+        url = _get_url(raw_url)
         
         with _make_session() as s:
-            r = s.post(url, data=form, headers=AJAX_HEADERS, timeout=(5, 10), verify=False)
+            r = s.get(url, headers=AJAX_HEADERS, timeout=(5, 10), verify=False)
             r.encoding = 'utf-8'
             
             soup = BeautifulSoup(r.text, "html.parser")
