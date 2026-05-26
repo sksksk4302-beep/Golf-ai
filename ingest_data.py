@@ -54,6 +54,8 @@ def save_tee_times(db, tee_times, target_date, sources_with_data=None):
             "price": item['price'],
             "benefit": item.get('benefit', ''),  # 티스캐너 benefit 필드
             "source": item.get('source', 'Golfpang'),
+            "url": item.get('url', ''),
+            "source_idx": item.get('source_idx', ''),
             "weekday": datetime.datetime.strptime(item['date'], "%Y-%m-%d").weekday(),
             "sync_id": sync_id,  # Save current session ID
             "updated_at": firestore.SERVER_TIMESTAMP

@@ -180,6 +180,8 @@ def get_prices():
                         "diff": diff,
                         "source": item.get('source', 'Unknown'),
                         "benefit": item.get('benefit', ''),  # 티스캐너 benefit 필드
+                        "url": item.get('url', ''),
+                        "source_idx": item.get('source_idx', ''),
                         "history_price": hist_price
                     })
 
@@ -261,6 +263,38 @@ def get_weather():
     except Exception as e:
         print(f"Weather Error: {e}")
         return jsonify([])
+
+@app.route("/api/booking-contact", methods=["GET"])
+def get_booking_contact():
+    idx = request.args.get("idx")
+    if not idx:
+        return jsonify({"error": "Missing idx"}), 400
+        
+    try:
+        from crawler_utils import _make_session, AJAX_HEADERS
+        from bs4 import BeautifulSoup
+        
+        url = "https://www.golfpang.com/web/round/booking_addcon.do"
+        form = {"idx": idx}
+        
+        with _make_session() as s:
+            r = s.post(url, data=form, headers=AJAX_HEADERS, timeout=(5, 10), verify=False)
+            r.encoding = 'utf-8'
+            
+            soup = BeautifulSoup(r.text, "html.parser")
+            nickname_span = soup.select_one(".nickname")
+            phone_span = soup.select_one(".phone")
+            
+            manager = nickname_span.get_text(strip=True) if nickname_span else ""
+            phone = phone_span.get_text(strip=True) if phone_span else ""
+            
+            return jsonify({
+                "manager": manager,
+                "phone": phone
+            })
+    except Exception as e:
+        print(f"Error fetching booking contact for idx {idx}: {e}")
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))

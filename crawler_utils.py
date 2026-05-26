@@ -303,12 +303,13 @@ def crawl_teescan(date_str: str, favorite: List[str]):
                 h     = int(ttxt.split(":")[0]) if ":" in ttxt else int(ttxt[:2] or 0)
                 # 티스캐너 API에서 benefit 필드 추출
                 benefit_text = str(it.get("benefit", "") or "").strip()
+                teescan_url = f"https://www.teescanner.com/booking/detail?tab=teetime&golfclub_seq={t_seq}&roundDay={date_str}&isJoin=N&entry_path=RT&step=1"
                 res.append({
                     "golf": t_name, "date": date_str,
                     "hour": f"{h:02d}시대", "hour_num": h,
                     "price": price, "benefit": benefit_text,
                     "time": ttxt,
-                    "url": "https://www.teescanner.com/", "source": "teescan",
+                    "url": teescan_url, "source": "teescan",
                 })
         except Exception as e:
             print(f"[Teescan] Error processing {t_name}: {e}", flush=True)
@@ -448,6 +449,7 @@ def crawl_golfpang(date_str: str, favorite: List[str], sectors: List[int] = None
                             "time": time_txt,
                             "url": GOLFPANG_BASE + "/",
                             "source": "golfpang",
+                            "source_idx": tr.get("id", "").replace("tr_", ""),
                         })
                         added_this_page += 1
 
@@ -583,6 +585,7 @@ def crawl_golfpang_specific_club(date_str: str, club_id: str, sector: int) -> Li
                         "time": time_txt,
                         "url": GOLFPANG_BASE + "/",
                         "source": "golfpang",
+                        "source_idx": tr.get("id", "").replace("tr_", ""),
                     })
                     added_this_page += 1
                 
