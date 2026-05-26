@@ -209,6 +209,22 @@
             color: var(--text);
         }
 
+        .badge-9hole {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background-color: #4CAF50;
+            color: white;
+            font-size: 10px;
+            font-weight: 800;
+            margin-left: 5px;
+            vertical-align: middle;
+            line-height: 15px;
+        }
+
         .src-red {
             color: #E57373;
             background: #FFEBEE;
@@ -557,6 +573,25 @@
         </div>
     </div>
 
+    <!-- Contact View Modal -->
+    <div id="contactModal" class="modal-overlay" style="z-index: 1100;">
+        <div class="modal-content" style="max-width: 340px; border-radius: 20px; padding: 20px;">
+            <header class="modal-header" style="padding-bottom: 10px; border-bottom: 1px solid #f0f0f0;">
+                <h1 style="font-size: 1.1rem; color: var(--primary);">예약 매니저 정보</h1>
+                <button class="close-btn" onclick="closeContactModal()"><i class="fa-solid fa-xmark"></i></button>
+            </header>
+            <div class="modal-body" style="padding: 20px 0; text-align: center;">
+                <div style="font-size: 1.2rem; font-weight: bold; margin-bottom: 10px;" id="contactManager">매니저: 조회중...</div>
+                <div style="font-size: 1.1rem; color: #555; margin-bottom: 20px;" id="contactPhone">연락처: 조회중...</div>
+                <div style="font-size: 0.85rem; color: #888; background: #f8f9fa; padding: 10px; border-radius: 8px; text-align: left; word-break: break-all;" id="contactPreviewMsg"></div>
+            </div>
+            <div class="modal-footer" style="display: flex; gap: 10px; padding: 0;">
+                <button class="action-btn secondary" onclick="closeContactModal()" style="flex: 1; margin: 0; padding: 10px;">닫기</button>
+                <button class="action-btn" id="sendSmsBtn" style="flex: 2; margin: 0; padding: 10px; background: var(--primary); color: white;">문자 보내기</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Main App -->
     <header class="main-header">
         <div class="header-left">
@@ -868,6 +903,23 @@
                 return;
             }
 
+            // 9홀 라운드 의심 판별을 위한 구장/날짜별 평균가 사전 계산
+            const avgPrices = {};
+            const pricesSum = {};
+            const pricesCount = {};
+            items.forEach(item => {
+                const k = `${item.club_name}_${item.date}`;
+                if (!pricesSum[k]) {
+                    pricesSum[k] = 0;
+                    pricesCount[k] = 0;
+                }
+                pricesSum[k] += item.price;
+                pricesCount[k]++;
+            });
+            Object.keys(pricesSum).forEach(k => {
+                avgPrices[k] = pricesSum[k] / pricesCount[k];
+            });
+
             const byDate = {};
             items.forEach(item => {
                 if (!byDate[item.date]) byDate[item.date] = [];
@@ -917,6 +969,14 @@
                         }
                     };
 
+                    // 9홀 의심 여부 판별 도우미 (새벽 시간대 & 해당날짜 평균가의 50% 이하)
+                    const k = `${clubName}_${date}`;
+                    const avg = avgPrices[k] || 0;
+                    const is9Hole = (item) => {
+                        const h = parseInt((item.time || '00:00').split(':')[0]);
+                        return h < 8 && item.price <= (avg / 2);
+                    };
+
                     // Desktop Details HTML (Hidden by default via CSS) - 시간순 정렬
                     const timeSorted = [...groupItems].sort((a, b) => a.time.localeCompare(b.time));
                     let desktopDetailsHtml = `<div class="card-details-desktop desktop-only">`;
@@ -926,12 +986,13 @@
                     const escapeStr = (s) => (s || '').replace(/'/g, "\\'");
                     timeSorted.forEach((item, idx) => {
                         const itemSourceClass = item.source.toLowerCase().includes('teescan') ? 'src-red' : 'src-blue';
+                        const item9Html = is9Hole(item) ? '<span class="badge-9hole" title="9홀 라운드 의심 (이른 아침 새벽 시간대의 평균 가격 절반 이하 상품)">9</span>' : '';
                         desktopDetailsHtml += `
                             <div class="detail-item" style="padding: 6px 0; border-bottom: 1px dashed #eee;" onclick="event.stopPropagation(); handleBookingClick('${escapeStr(best.club_name)}', '${escapeStr(item.date)}', '${escapeStr(item.time)}', ${item.price}, '${escapeStr(item.source)}', '${escapeStr(item.source_idx)}', '${escapeStr(item.url)}')">
                                 <span class="d-time" style="font-size:0.9rem;">${item.time}</span>
                                 <div style="display:flex; gap:4px; align-items:center;">
                                     <span class="d-source ${itemSourceClass}" style="font-size:0.7rem;">${item.source}</span>
-                                    <span class="d-price" style="font-size:0.9rem;">${item.price.toLocaleString()}</span>
+                                    <span class="d-price" style="font-size:0.9rem;">${item.price.toLocaleString()}${item9Html}</span>
                                 </div>
                             </div>
                         `;
@@ -951,6 +1012,8 @@
                     const benefitText = (isTeescanBest && best.benefit) ? best.benefit : '';
                     const benefitHtml = benefitText ? `<span style="font-size:0.65rem; color:#e74c3c; margin-left:4px; font-weight:normal;">${benefitText}</span>` : '';
 
+                    const best9Html = is9Hole(best) ? '<span class="badge-9hole" title="9홀 라운드 의심 (이른 아침 새벽 시간대의 평균 가격 절반 이하 상품)">9</span>' : '';
+
                     card.innerHTML = `
                         <div class="card-content">
                             <div class="card-top">
@@ -961,7 +1024,7 @@
                                 <span class="count-badge">${groupItems.length}</span>
                             </div>
                             <div class="card-mid" style="margin-bottom:8px;">
-                                <span class="best-price" style="font-size:1.3rem;">₩${best.price.toLocaleString()}~</span>${benefitHtml}
+                                <span class="best-price" style="font-size:1.3rem;">₩${best.price.toLocaleString()}~</span>${best9Html}${benefitHtml}
                             </div>
                             <div class="card-btm">
                                 <div style="display:flex; align-items:center; gap:6px;">
@@ -1014,6 +1077,16 @@
             const list = document.getElementById('detailList');
             list.innerHTML = '';
 
+            // 9홀 라운드 의심 판별을 위한 평균가 계산
+            let total = 0;
+            items.forEach(i => total += i.price);
+            const avg = items.length > 0 ? (total / items.length) : 0;
+
+            const is9Hole = (item) => {
+                const h = parseInt((item.time || '00:00').split(':')[0]);
+                return h < 8 && item.price <= (avg / 2);
+            };
+
             // 시간순 정렬
             const sorted = [...items].sort((a, b) => a.time.localeCompare(b.time));
             const escapeStr = (s) => (s || '').replace(/'/g, "\\'");
@@ -1021,16 +1094,20 @@
                 const row = document.createElement('div');
                 row.className = 'detail-item';
                 row.setAttribute('onclick', `handleBookingClick('${escapeStr(clubName)}', '${escapeStr(item.date)}', '${escapeStr(item.time)}', ${item.price}, '${escapeStr(item.source)}', '${escapeStr(item.source_idx)}', '${escapeStr(item.url)}')`);
+                
+                const item9Html = is9Hole(item) ? '<span class="badge-9hole" title="9홀 라운드 의심 (이른 아침 새벽 시간대의 평균 가격 절반 이하 상품)">9</span>' : '';
                 row.innerHTML = `
                     <span class="d-time">${item.time}</span>
                     <span class="d-source ${item.source.toLowerCase().includes('teescan') ? 'src-red' : 'src-blue'}">${item.source}</span>
-                    <span class="d-price">₩${item.price.toLocaleString()}</span>
+                    <span class="d-price">₩${item.price.toLocaleString()}${item9Html}</span>
                 `;
                 list.appendChild(row);
             });
             modal.classList.add('open');
         }
+
         function closeDetail() { document.getElementById('detailModal').classList.remove('open'); }
+        function closeContactModal() { document.getElementById('contactModal').classList.remove('open'); }
 
         let isBookingFetching = false;
         function handleBookingClick(clubName, date, time, price, source, sourceIdx, url) {
@@ -1056,8 +1133,20 @@
                             let formattedDate = `${parseInt(dateParts[1])}월 ${parseInt(dateParts[2])}일`;
                             let msg = `[${clubName}] ${formattedDate} ${time} 그린피 ${price.toLocaleString()}원 부킹 문의합니다.`;
                             
-                            let smsUrl = `sms:${data.phone}?body=${encodeURIComponent(msg)}`;
-                            window.location.href = smsUrl;
+                            // 팝업 데이터 주입
+                            document.getElementById('contactManager').innerText = `매니저: ${data.manager || '정보 없음'}`;
+                            document.getElementById('contactPhone').innerText = `연락처: ${data.phone}`;
+                            document.getElementById('contactPreviewMsg').innerText = msg;
+                            
+                            // 문자보내기 버튼 바인딩
+                            document.getElementById('sendSmsBtn').onclick = () => {
+                                let smsUrl = `sms:${data.phone}?body=${encodeURIComponent(msg)}`;
+                                window.location.href = smsUrl;
+                                closeContactModal();
+                            };
+                            
+                            // 팝업 오픈
+                            document.getElementById('contactModal').classList.add('open');
                         } else {
                             alert('매니저 연락처 정보를 찾을 수 없습니다.');
                         }
