@@ -35,6 +35,25 @@ def init_firestore():
 
 db = init_firestore()
 
+# IP Access Logger
+def log_access(ip):
+    try:
+        from datetime import timezone
+        KST = timezone(timedelta(hours=9))
+        now = datetime.now(KST)
+        date_str = now.strftime('%Y-%m-%d')
+        doc_id = f"{date_str}_{ip.replace('.', '_')}"
+        
+        doc_ref = db.collection('access_logs').document(doc_id)
+        doc_ref.set({
+            "date": date_str,
+            "ip": ip,
+            "hits": google_firestore.Increment(1),
+            "last_active": google_firestore.SERVER_TIMESTAMP
+        }, merge=True)
+    except Exception as e:
+        print(f"Failed to log access: {e}")
+
 # Load Club Data for Regions
 GOLF_CLUBS = []
 try:
@@ -100,6 +119,15 @@ def get_available_dates():
 @app.route("/api/prices", methods=["POST"])
 def get_prices():
     try:
+        # IP 로깅 호출
+        try:
+            ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+            if ip:
+                client_ip = ip.split(",")[0].strip()
+                log_access(client_ip)
+        except Exception as e:
+            print(f"Logging invocation failed: {e}")
+
         data = request.get_json()
         dates = data.get("dates", []) # List of "YYYY-MM-DD"
         times = data.get("times", []) # List of hour strings "06", "07"
@@ -295,6 +323,110 @@ def get_booking_contact():
     except Exception as e:
         print(f"Error fetching booking contact for idx {idx}: {e}")
         return jsonify({"error": str(e)}), 500
+
+@app.route("/admin/stats")
+def admin_stats():
+    try:
+        docs = db.collection('access_logs').order_by('date', direction=google_firestore.Query.DESCENDING).limit(1000).stream()
+        
+        # Build a beautiful, minimal, modern HTML table
+        rows_html = ""
+        for d in docs:
+            data = d.to_dict()
+            last_active = data.get('last_active')
+            last_active_str = "-"
+            if last_active:
+                if hasattr(last_active, 'astimezone'):
+                    from datetime import timezone
+                    KST = timezone(timedelta(hours=9))
+                    kst_time = last_active.astimezone(KST)
+                    last_active_str = kst_time.strftime('%Y-%m-%d %H:%M:%S')
+                else:
+                    last_active_str = str(last_active)
+                    
+            rows_html += f"""
+            <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 12px; font-weight: bold; color: #555;">{data.get('date')}</td>
+                <td style="padding: 12px; font-family: monospace; color: #007bff;">{data.get('ip')}</td>
+                <td style="padding: 12px; font-weight: bold; text-align: center; color: #28a745;">{data.get('hits')} 회</td>
+                <td style="padding: 12px; color: #666; font-size: 0.9rem;">{last_active_str}</td>
+            </tr>
+            """
+            
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Golf AI - 접속 통계 관리자</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+            <style>
+                body {{
+                    font-family: 'Inter', sans-serif;
+                    background-color: #f8f9fa;
+                    margin: 0;
+                    padding: 20px;
+                    color: #333;
+                }}
+                .container {{
+                    max-width: 900px;
+                    margin: 0 auto;
+                    background: white;
+                    padding: 25px;
+                    border-radius: 16px;
+                    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+                }}
+                h1 {{
+                    font-size: 1.5rem;
+                    color: #2c3e50;
+                    margin-bottom: 20px;
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                }}
+                table {{
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-top: 10px;
+                }}
+                th {{
+                    background-color: #f1f3f5;
+                    color: #495057;
+                    font-weight: 600;
+                    text-align: left;
+                    padding: 12px;
+                    font-size: 0.9rem;
+                }}
+                tr:hover {{
+                    background-color: #f8f9fa;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>📊 Golf AI - 일별 접속 통계 (최근 1,000건)</h1>
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>날짜</th>
+                                <th>사용자 IP</th>
+                                <th style="text-align: center;">조회 횟수</th>
+                                <th>마지막 활동 시간 (KST)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {rows_html if rows_html else '<tr><td colspan="4" style="text-align:center; padding:20px; color:#888;">접속 기록이 없습니다.</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        return html
+    except Exception as e:
+        return f"관리자 통계 로드 실패: {e}", 500
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
