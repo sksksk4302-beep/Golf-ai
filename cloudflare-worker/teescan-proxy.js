@@ -35,11 +35,17 @@ export default {
       });
     }
 
-    // Only allow teescanner.com domains (security)
+    // Allow both teescanner.com and golfpang.com domains (security)
+    let isTeescan = false;
+    let isGolfpang = false;
     try {
       const target = new URL(targetUrl);
-      if (!target.hostname.endsWith('teescanner.com')) {
-        return new Response(JSON.stringify({ error: 'Only teescanner.com URLs allowed' }), {
+      if (target.hostname.endsWith('teescanner.com')) {
+        isTeescan = true;
+      } else if (target.hostname.endsWith('golfpang.com')) {
+        isGolfpang = true;
+      } else {
+        return new Response(JSON.stringify({ error: 'Domain not allowed. Only teescanner.com and golfpang.com allowed.' }), {
           status: 403,
           headers: { 'Content-Type': 'application/json', ...corsHeaders },
         });
@@ -52,15 +58,23 @@ export default {
     }
 
     try {
+      const headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+      };
+
+      if (isTeescan) {
+        headers['Referer'] = 'https://www.teescanner.com/';
+        headers['Origin'] = 'https://www.teescanner.com';
+      } else if (isGolfpang) {
+        headers['Referer'] = 'https://www.golfpang.com/web/round/booking_list.do';
+        headers['Origin'] = 'https://www.golfpang.com';
+      }
+
       const response = await fetch(targetUrl, {
         method: 'GET',
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-          'Accept': 'application/json, text/plain, */*',
-          'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-          'Referer': 'https://www.teescanner.com/',
-          'Origin': 'https://www.teescanner.com',
-        },
+        headers: headers,
       });
 
       const body = await response.text();

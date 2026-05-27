@@ -355,7 +355,7 @@ def crawl_golfpang(date_str: str, favorite: List[str], sectors: List[int] = None
         # 각 스레드별 독립 세션 사용 (중요)
         with _make_session() as s:
             _bootstrap_gp_session(s, date_str, sector)
-            print(f"[{_fmt_ts()}] [Golfpang] ▶ START sector={sector} date={date_str}", flush=True)
+            print(f"[{_fmt_ts()}] [Golfpang] [START] sector={sector} date={date_str}", flush=True)
 
             seen = set()
             page = 1
@@ -455,7 +455,7 @@ def crawl_golfpang(date_str: str, favorite: List[str], sectors: List[int] = None
 
                     # Log/Break conditions
                     if not rows:
-                        print(f"[{_fmt_ts()}] [Golfpang]  ⏹ No more rows. Stop sector={sector}", flush=True)
+                        print(f"[{_fmt_ts()}] [Golfpang]  [STOP] No more rows. Stop sector={sector}", flush=True)
                         break
                     
                     if added_this_page == 0:
@@ -464,11 +464,11 @@ def crawl_golfpang(date_str: str, favorite: List[str], sectors: List[int] = None
                         empty_consecutive_pages = 0
                         
                     if empty_consecutive_pages >= 3:
-                        print(f"[{_fmt_ts()}] [Golfpang]  ⏹ 3 consecutive pages with no matches. Stop sector={sector}", flush=True)
+                        print(f"[{_fmt_ts()}] [Golfpang]  [STOP] 3 consecutive pages with no matches. Stop sector={sector}", flush=True)
                         break
 
                     if page >= 20:
-                        print(f"[{_fmt_ts()}] [Golfpang]  ⏹ Max page reached. Stop sector={sector}", flush=True)
+                        print(f"[{_fmt_ts()}] [Golfpang]  [STOP] Max page reached. Stop sector={sector}", flush=True)
                         break
 
                     page += 1
@@ -491,9 +491,9 @@ def crawl_golfpang(date_str: str, favorite: List[str], sectors: List[int] = None
             try:
                 data = future.result()
                 out.extend(data)
-                print(f"[{_fmt_ts()}] [Golfpang] ◀ DONE sector={sec} count={len(data)}", flush=True)
+                print(f"[{_fmt_ts()}] [Golfpang] [DONE] sector={sec} count={len(data)}", flush=True)
             except Exception as e:
-                print(f"[{_fmt_ts()}] [Golfpang] ◀ FAILED sector={sec} err={e}", flush=True)
+                print(f"[{_fmt_ts()}] [Golfpang] [FAILED] sector={sec} err={e}", flush=True)
 
     out.sort(key=lambda x: (x.get("date",""), x.get("hour_num", 99), x.get("golf",""), x.get("price", 1<<60)))
     return out
@@ -516,7 +516,7 @@ def crawl_golfpang_specific_club(date_str: str, club_id: str, sector: int) -> Li
             
     with _make_session() as s:
         _bootstrap_gp_session(s, date_str, sector)
-        print(f"[{_fmt_ts()}] [Golfpang] ▶ START Specific Club={club_name}({club_id}) date={date_str}", flush=True)
+        print(f"[{_fmt_ts()}] [Golfpang] [START_SPECIFIC] Club={club_name}({club_id}) date={date_str}", flush=True)
         
         seen = set()
         page = 1

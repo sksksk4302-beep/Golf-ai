@@ -68,9 +68,23 @@ def get_region(address):
     if "강원" in address: return "강원"
     return "기타"
 
+def get_proxy_worker_url():
+    try:
+        doc = db.collection('config').document('proxy').get()
+        if doc.exists:
+            url = doc.to_dict().get('url', '')
+            if url:
+                return url
+    except Exception as e:
+        print(f"Failed to fetch proxy from Firestore: {e}")
+    
+    # Fallback to env variables
+    return os.environ.get("GPANG_PROXY_WORKER") or os.environ.get("TEESCAN_PROXY_URL") or ""
+
 @app.route("/")
 def index():
-    return render_template("index.html")
+    proxy_url = get_proxy_worker_url()
+    return render_template("index.html", proxy_url=proxy_url)
 
 @app.route("/api/clubs", methods=["GET"])
 def get_clubs():
@@ -324,6 +338,7 @@ def get_booking_contact():
         print(f"Error fetching booking contact for idx {idx}: {e}")
         return jsonify({"error": str(e)}), 500
 
+@app.route("/admin/status")
 @app.route("/admin/stats")
 def admin_stats():
     try:

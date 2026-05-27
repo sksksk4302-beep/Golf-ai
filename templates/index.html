@@ -532,6 +532,15 @@
                     <button class="action-btn secondary" style="padding: 8px 12px; width: auto; font-size: 0.85rem;" onclick="selectAllInRegion()">현재 탭 전체 선택/해제</button>
                 </div>
                 <div class="club-grid" id="clubList"></div>
+                
+                <!-- Proxy Settings (Developer option) -->
+                <div style="margin-top: 25px; border-top: 1px dashed #e0e0e0; padding-top: 15px;">
+                    <h3 style="font-size: 0.95rem; margin: 0 0 8px 0; color: #555; display: flex; align-items: center; gap: 6px;">
+                        <i class="fa-solid fa-network-wired" style="color: var(--primary);"></i> 프록시 워커 주소 설정
+                    </h3>
+                    <input type="text" id="proxyWorkerInput" placeholder="https://teescan-proxy.xxxxx.workers.dev" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 10px; font-size: 0.85rem; box-sizing: border-box;" />
+                    <p style="font-size: 0.75rem; color: #888; margin: 6px 0 0 0; line-height: 1.3;">골팡 예약 상세페이지 우회 조회를 위해 등록된 Cloudflare Worker 주소입니다. (비어 있는 경우 서버를 거쳐 조회합니다.)</p>
+                </div>
             </div>
             <div class="modal-footer">
                 <button class="action-btn" onclick="saveSettings()">저장하고 시작하기</button>
@@ -592,6 +601,21 @@
         </div>
     </div>
 
+    <!-- Fullscreen Loading Overlay (Glassmorphism) -->
+    <style>
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+    <div id="actionLoading" class="modal-overlay" style="z-index: 3000; background: rgba(255, 255, 255, 0.4); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);">
+        <div style="text-align: center; background: white; padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); max-width: 250px; width: 100%;">
+            <div style="width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 15px auto;"></div>
+            <div style="font-weight: bold; color: #333; font-size: 0.95rem;">예약 정보 조회 중...</div>
+            <div style="color: #666; font-size: 0.8rem; margin-top: 5px;">잠시만 기다려주세요.</div>
+        </div>
+    </div>
+
     <!-- Main App -->
     <header class="main-header">
         <div class="header-left">
@@ -634,6 +658,7 @@
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ko.js"></script>
     <script>
+        const SERVER_PROXY_URL = "{{ proxy_url or '' }}";
         // --- State ---
         let allClubs = {};
         let selectedClubs = new Set();
@@ -801,6 +826,12 @@
 
         // --- UI Rendering ---
         function renderSettings() {
+            // Load proxy setting
+            const proxyInput = document.getElementById('proxyWorkerInput');
+            if (proxyInput) {
+                proxyInput.value = localStorage.getItem('gpang_proxy_worker') || '';
+            }
+
             const tabs = document.getElementById('regionTabs');
             tabs.innerHTML = '';
             Object.keys(allClubs).forEach(region => {
@@ -987,15 +1018,28 @@
                     timeSorted.forEach((item, idx) => {
                         const itemSourceClass = item.source.toLowerCase().includes('teescan') ? 'src-red' : 'src-blue';
                         const item9Html = is9Hole(item) ? '<span class="badge-9hole" title="9홀 라운드 의심 (이른 아침 새벽 시간대의 평균 가격 절반 이하 상품)">9</span>' : '';
-                        desktopDetailsHtml += `
-                            <div class="detail-item" style="padding: 6px 0; border-bottom: 1px dashed #eee;" onclick="event.stopPropagation(); handleBookingClick('${escapeStr(best.club_name)}', '${escapeStr(item.date)}', '${escapeStr(item.time)}', ${item.price}, '${escapeStr(item.source)}', '${escapeStr(item.source_idx)}', '${escapeStr(item.url)}')">
-                                <span class="d-time" style="font-size:0.9rem;">${item.time}</span>
-                                <div style="display:flex; gap:4px; align-items:center;">
-                                    <span class="d-source ${itemSourceClass}" style="font-size:0.7rem;">${item.source}</span>
-                                    <span class="d-price" style="font-size:0.9rem;">${item.price.toLocaleString()}${item9Html}</span>
+                        
+                        if (item.source.toLowerCase().includes('teescan')) {
+                            desktopDetailsHtml += `
+                                <a href="${item.url || 'https://m.teescanner.com/'}" target="_blank" class="detail-item" style="padding: 6px 0; border-bottom: 1px dashed #eee; text-decoration: none; color: inherit; display: flex; justify-content: space-between;" onclick="event.stopPropagation();">
+                                    <span class="d-time" style="font-size:0.9rem;">${item.time}</span>
+                                    <div style="display:flex; gap:4px; align-items:center;">
+                                        <span class="d-source ${itemSourceClass}" style="font-size:0.7rem;">${item.source}</span>
+                                        <span class="d-price" style="font-size:0.9rem;">${item.price.toLocaleString()}${item9Html}</span>
+                                    </div>
+                                </a>
+                            `;
+                        } else {
+                            desktopDetailsHtml += `
+                                <div class="detail-item" style="padding: 6px 0; border-bottom: 1px dashed #eee;" onclick="event.stopPropagation(); handleBookingClick('${escapeStr(best.club_name)}', '${escapeStr(item.date)}', '${escapeStr(item.time)}', ${item.price}, '${escapeStr(item.source)}', '${escapeStr(item.source_idx)}', '${escapeStr(item.url)}')">
+                                    <span class="d-time" style="font-size:0.9rem;">${item.time}</span>
+                                    <div style="display:flex; gap:4px; align-items:center;">
+                                        <span class="d-source ${itemSourceClass}" style="font-size:0.7rem;">${item.source}</span>
+                                        <span class="d-price" style="font-size:0.9rem;">${item.price.toLocaleString()}${item9Html}</span>
+                                    </div>
                                 </div>
-                            </div>
-                        `;
+                            `;
+                        }
                     });
                     desktopDetailsHtml += `</div>`;
 
@@ -1049,6 +1093,12 @@
         function closeSettings() { document.getElementById('onboarding').classList.remove('open'); }
         function saveSettings() {
             localStorage.setItem('favoriteClubs', JSON.stringify(Array.from(selectedClubs)));
+            
+            // Save proxy worker URL
+            const proxyInput = document.getElementById('proxyWorkerInput');
+            if (proxyInput) {
+                localStorage.setItem('gpang_proxy_worker', proxyInput.value.trim());
+            }
 
             // Auto-select date if none selected
             if (selectedDates.length === 0 && availableDates.length > 0) {
@@ -1091,9 +1141,20 @@
             const sorted = [...items].sort((a, b) => a.time.localeCompare(b.time));
             const escapeStr = (s) => (s || '').replace(/'/g, "\\'");
             sorted.forEach(item => {
-                const row = document.createElement('div');
-                row.className = 'detail-item';
-                row.setAttribute('onclick', `handleBookingClick('${escapeStr(clubName)}', '${escapeStr(item.date)}', '${escapeStr(item.time)}', ${item.price}, '${escapeStr(item.source)}', '${escapeStr(item.source_idx)}', '${escapeStr(item.url)}')`);
+                let row;
+                if (item.source.toLowerCase().includes('teescan')) {
+                    row = document.createElement('a');
+                    row.className = 'detail-item';
+                    row.href = item.url || "https://m.teescanner.com/";
+                    row.target = '_blank';
+                    row.style.textDecoration = 'none';
+                    row.style.color = 'inherit';
+                    row.setAttribute('onclick', 'event.stopPropagation();');
+                } else {
+                    row = document.createElement('div');
+                    row.className = 'detail-item';
+                    row.setAttribute('onclick', `handleBookingClick('${escapeStr(clubName)}', '${escapeStr(item.date)}', '${escapeStr(item.time)}', ${item.price}, '${escapeStr(item.source)}', '${escapeStr(item.source_idx)}', '${escapeStr(item.url)}')`);
+                }
                 
                 const item9Html = is9Hole(item) ? '<span class="badge-9hole" title="9홀 라운드 의심 (이른 아침 새벽 시간대의 평균 가격 절반 이하 상품)">9</span>' : '';
                 row.innerHTML = `
@@ -1110,6 +1171,28 @@
         function closeContactModal() { document.getElementById('contactModal').classList.remove('open'); }
 
         let isBookingFetching = false;
+        
+        function showSmsModal(clubName, date, time, price, manager, phone) {
+            let dateParts = date.split('-');
+            let formattedDate = `${parseInt(dateParts[1])}월 ${parseInt(dateParts[2])}일`;
+            let msg = `[${clubName}] ${formattedDate} ${time} 그린피 ${price.toLocaleString()}원 부킹 문의합니다.`;
+            
+            // 팝업 데이터 주입
+            document.getElementById('contactManager').innerText = `매니저: ${manager || '정보 없음'}`;
+            document.getElementById('contactPhone').innerText = `연락처: ${phone}`;
+            document.getElementById('contactPreviewMsg').innerText = msg;
+            
+            // 문자보내기 버튼 바인딩
+            document.getElementById('sendSmsBtn').onclick = () => {
+                let smsUrl = `sms:${phone}?body=${encodeURIComponent(msg)}`;
+                window.location.href = smsUrl;
+                closeContactModal();
+            };
+            
+            // 팝업 오픈
+            document.getElementById('contactModal').classList.add('open');
+        }
+
         function handleBookingClick(clubName, date, time, price, source, sourceIdx, url) {
             if (source.toLowerCase().includes('teescan')) {
                 const targetUrl = url || "https://m.teescanner.com/";
@@ -1124,42 +1207,76 @@
                 isBookingFetching = true;
                 document.body.style.cursor = 'wait';
                 document.body.style.pointerEvents = 'none';
+                document.getElementById('actionLoading').classList.add('open');
                 
-                fetch(`/api/booking-contact?idx=${sourceIdx}`)
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.phone) {
-                            let dateParts = date.split('-');
-                            let formattedDate = `${parseInt(dateParts[1])}월 ${parseInt(dateParts[2])}일`;
-                            let msg = `[${clubName}] ${formattedDate} ${time} 그린피 ${price.toLocaleString()}원 부킹 문의합니다.`;
+                const proxyUrl = localStorage.getItem('gpang_proxy_worker') || SERVER_PROXY_URL;
+                
+                const fallbackToServer = () => {
+                    fetch(`/api/booking-contact?idx=${sourceIdx}`)
+                        .then(res => {
+                            if (!res.ok) throw new Error(`Server returned ${res.status}`);
+                            return res.json();
+                        })
+                        .then(data => {
+                            if (data.phone) {
+                                showSmsModal(clubName, date, time, price, data.manager, data.phone);
+                            } else {
+                                alert('매니저 연락처 정보를 찾을 수 없습니다.');
+                            }
+                        })
+                        .catch(err => {
+                            console.error(err);
+                            alert('연락처 조회 실패 (서버 오류 또는 IP 차단)');
+                        })
+                        .finally(() => {
+                            finalizeRequest();
+                        });
+                };
+                
+                const finalizeRequest = () => {
+                    isBookingFetching = false;
+                    document.body.style.cursor = 'default';
+                    document.body.style.pointerEvents = 'auto';
+                    document.getElementById('actionLoading').classList.remove('open');
+                };
+                
+                if (proxyUrl) {
+                    const targetUrl = `https://www.golfpang.com/web/round/booking_addcon.do?idx=${sourceIdx}`;
+                    const fetchUrl = `${proxyUrl}${proxyUrl.includes('?') ? '&' : '?'}url=${encodeURIComponent(targetUrl)}`;
+                    
+                    fetch(fetchUrl)
+                        .then(res => {
+                            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                            return res.text();
+                        })
+                        .then(htmlText => {
+                            const parser = new DOMParser();
+                            const doc = parser.parseFromString(htmlText, 'text/html');
+                            const nicknameSpan = doc.querySelector('.nickname');
+                            const phoneSpan = doc.querySelector('.phone');
                             
-                            // 팝업 데이터 주입
-                            document.getElementById('contactManager').innerText = `매니저: ${data.manager || '정보 없음'}`;
-                            document.getElementById('contactPhone').innerText = `연락처: ${data.phone}`;
-                            document.getElementById('contactPreviewMsg').innerText = msg;
+                            const manager = nicknameSpan ? nicknameSpan.textContent.trim() : '';
+                            const phone = phoneSpan ? phoneSpan.textContent.trim() : '';
                             
-                            // 문자보내기 버튼 바인딩
-                            document.getElementById('sendSmsBtn').onclick = () => {
-                                let smsUrl = `sms:${data.phone}?body=${encodeURIComponent(msg)}`;
-                                window.location.href = smsUrl;
-                                closeContactModal();
-                            };
-                            
-                            // 팝업 오픈
-                            document.getElementById('contactModal').classList.add('open');
-                        } else {
-                            alert('매니저 연락처 정보를 찾을 수 없습니다.');
-                        }
-                    })
-                    .catch(err => {
-                        console.error(err);
-                        alert('연락처 조회 실패');
-                    })
-                    .finally(() => {
-                        isBookingFetching = false;
-                        document.body.style.cursor = 'default';
-                        document.body.style.pointerEvents = 'auto';
-                    });
+                            if (phone) {
+                                showSmsModal(clubName, date, time, price, manager, phone);
+                                finalizeRequest();
+                            } else {
+                                if (htmlText.includes("서비스 점검") || htmlText.includes("점검 중")) {
+                                    alert('골팡 매니저 연락처 조회 권한이 없습니다. (프록시 세션 만료 또는 핫링크 제한)');
+                                } else {
+                                    alert('매니저 연락처 정보를 찾을 수 없습니다. (마감된 예약)');
+                                }
+                                finalizeRequest();
+                            }
+                        })
+                        .catch(err => {
+                            console.warn("Proxy fetch failed, falling back to server:", err);
+                            fallbackToServer();
+                        });
+                } else {
+                    fallbackToServer();
+                }
             }
         }
 
