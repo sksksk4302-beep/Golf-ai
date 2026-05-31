@@ -232,6 +232,26 @@ def main():
     # Verification Logic for ALL workflows (Hot/Warm/Cold)
     crawl_tier = "Hot" if start_day_env == "0" else ("Warm" if start_day_env == "4" else "Cold")
     
+    # Write crawl execution stats to Firestore
+    try:
+        from google.cloud import firestore as gc_firestore
+        crawl_stat = {
+            "date": datetime.date.today().strftime("%Y-%m-%d"),
+            "tier": crawl_tier,
+            "crawl_range": f"D+{start_day}~D+{end_day}",
+            "golfpang_total": total_gp_items,
+            "teescan_total": total_ts_items,
+            "dates_crawled": len(dates_to_crawl),
+            "status": "success" if (total_gp_items > 0 and total_ts_items > 0) else "partial_fail",
+            "completed_at": gc_firestore.SERVER_TIMESTAMP
+        }
+        # Doc ID: YYYYMMDDHHMM_Tier
+        doc_id = f"{datetime.datetime.now().strftime('%Y%m%d%H%M')}_{crawl_tier}"
+        db.collection('crawl_stats').document(doc_id).set(crawl_stat)
+        print(f"Successfully recorded crawl statistics in Firestore: {doc_id}")
+    except Exception as e:
+        print(f"Failed to record crawl statistics in Firestore: {e}")
+
     # If either source returned 0 results, fail the Action to trigger GitHub notification
     if total_gp_items == 0 or total_ts_items == 0:
         print("\n=====================================================")

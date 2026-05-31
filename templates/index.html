@@ -1021,7 +1021,7 @@
                         
                         if (item.source.toLowerCase().includes('teescan')) {
                             desktopDetailsHtml += `
-                                <a href="${item.url || 'https://m.teescanner.com/'}" target="_blank" class="detail-item" style="padding: 6px 0; border-bottom: 1px dashed #eee; text-decoration: none; color: inherit; display: flex; justify-content: space-between;" onclick="event.stopPropagation();">
+                                <a href="${item.url || 'https://m.teescanner.com/'}" class="detail-item" style="padding: 6px 0; border-bottom: 1px dashed #eee; text-decoration: none; color: inherit; display: flex; justify-content: space-between;" onclick="event.preventDefault(); event.stopPropagation(); handleTeescanClick(null, '${item.url || 'https://m.teescanner.com/'}');">
                                     <span class="d-time" style="font-size:0.9rem;">${item.time}</span>
                                     <div style="display:flex; gap:4px; align-items:center;">
                                         <span class="d-source ${itemSourceClass}" style="font-size:0.7rem;">${item.source}</span>
@@ -1048,7 +1048,14 @@
                     if (weatherCache[clubName] && weatherCache[clubName][date]) {
                         const w = weatherCache[clubName][date];
                         const icon = getWeatherIcon(w.weather_code_daily);
-                        weatherHtml = `<span style="font-size:0.85rem; color:#666;">${icon} ${w.temp_min}°/${w.temp_max}°</span>`;
+                        let rainAmountHtml = '';
+                        if (w.precipitation_sum > 0 && (icon === '🌧️' || icon === '⛈️')) {
+                            const amount = Math.round(w.precipitation_sum);
+                            if (amount > 0) {
+                                rainAmountHtml = `(${amount})`;
+                            }
+                        }
+                        weatherHtml = `<span style="font-size:0.85rem; color:#666;">${icon}${rainAmountHtml} ${w.temp_min}°/${w.temp_max}°</span>`;
                     }
 
                     // 티스캐너 최저가일 때 benefit 표시
@@ -1146,10 +1153,10 @@
                     row = document.createElement('a');
                     row.className = 'detail-item';
                     row.href = item.url || "https://m.teescanner.com/";
-                    row.target = '_blank';
                     row.style.textDecoration = 'none';
                     row.style.color = 'inherit';
-                    row.setAttribute('onclick', 'event.stopPropagation();');
+                    const targetUrl = item.url || "https://m.teescanner.com/";
+                    row.setAttribute('onclick', `event.preventDefault(); event.stopPropagation(); handleTeescanClick(null, '${targetUrl}');`);
                 } else {
                     row = document.createElement('div');
                     row.className = 'detail-item';
@@ -1193,10 +1200,36 @@
             document.getElementById('contactModal').classList.add('open');
         }
 
+        function handleTeescanClick(event, url) {
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            const targetUrl = url || "https://m.teescanner.com/";
+            try {
+                const parsedUrl = new URL(targetUrl);
+                const seq = parsedUrl.searchParams.get("golfclub_seq");
+                const date = parsedUrl.searchParams.get("roundDay");
+                
+                const isAndroid = /Android/i.test(navigator.userAgent);
+                const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+                
+                if (isAndroid && seq && date) {
+                    const intentUrl = `intent://booking/detail?tab=teetime&golfclub_seq=${seq}&roundDay=${date}&isJoin=N&entry_path=RT&step=1#Intent;scheme=https;package=com.golfzon.booking;host=m.teescanner.com;fallback=${encodeURIComponent(targetUrl)};end;`;
+                    window.location.href = intentUrl;
+                } else if (isIOS && seq && date) {
+                    window.location.href = targetUrl;
+                } else {
+                    window.open(targetUrl, '_blank');
+                }
+            } catch (e) {
+                window.open(targetUrl, '_blank');
+            }
+        }
+
         function handleBookingClick(clubName, date, time, price, source, sourceIdx, url) {
             if (source.toLowerCase().includes('teescan')) {
-                const targetUrl = url || "https://m.teescanner.com/";
-                window.open(targetUrl, '_blank');
+                handleTeescanClick(null, url);
             } else if (source.toLowerCase().includes('golfpang')) {
                 if (!sourceIdx) {
                     alert('골팡 예약 정보 ID가 없습니다.');

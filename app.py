@@ -295,6 +295,7 @@ def get_weather():
                     "date": original_date,
                     "temp_min": weather_data.get("temp_min"),
                     "temp_max": weather_data.get("temp_max"),
+                    "precipitation_sum": weather_data.get("precipitation_sum"),
                     "precip_prob_max": weather_data.get("precip_prob_max"),
                     "weather_code_daily": weather_data.get("weather_code_daily"),
                     "hourly": weather_data.get("hourly", [])
@@ -342,9 +343,12 @@ def get_booking_contact():
 @app.route("/admin/stats")
 def admin_stats():
     try:
+        from datetime import timezone
+        KST = timezone(timedelta(hours=9))
+        
+        # 1. Fetch user access logs
         docs = db.collection('access_logs').order_by('date', direction=google_firestore.Query.DESCENDING).limit(1000).stream()
         
-        # Build a beautiful, minimal, modern HTML table
         rows_html = ""
         for d in docs:
             data = d.to_dict()
@@ -352,90 +356,358 @@ def admin_stats():
             last_active_str = "-"
             if last_active:
                 if hasattr(last_active, 'astimezone'):
-                    from datetime import timezone
-                    KST = timezone(timedelta(hours=9))
                     kst_time = last_active.astimezone(KST)
                     last_active_str = kst_time.strftime('%Y-%m-%d %H:%M:%S')
                 else:
                     last_active_str = str(last_active)
                     
             rows_html += f"""
-            <tr style="border-bottom: 1px solid #eee;">
-                <td style="padding: 12px; font-weight: bold; color: #555;">{data.get('date')}</td>
-                <td style="padding: 12px; font-family: monospace; color: #007bff;">{data.get('ip')}</td>
-                <td style="padding: 12px; font-weight: bold; text-align: center; color: #28a745;">{data.get('hits')} 회</td>
-                <td style="padding: 12px; color: #666; font-size: 0.9rem;">{last_active_str}</td>
+            <tr style="border-bottom: 1px solid #e1e4e8;">
+                <td style="padding: 14px 16px; font-weight: bold; color: #24292f;">{data.get('date')}</td>
+                <td style="padding: 14px 16px; font-family: monospace; color: #0969da; font-weight: 600;">{data.get('ip')}</td>
+                <td style="padding: 14px 16px; font-weight: bold; text-align: center; color: #1f2328;">{data.get('hits', 0):,} 회</td>
+                <td style="padding: 14px 16px; color: #57606a; font-size: 0.9rem;">{last_active_str}</td>
             </tr>
             """
+
+        # 2. Fetch crawler statistics
+        crawl_docs = db.collection('crawl_stats').order_by('completed_at', direction=google_firestore.Query.DESCENDING).limit(50).stream()
+        
+        crawl_rows_html = ""
+        for c_doc in crawl_docs:
+            c_data = c_doc.to_dict()
+            completed_at = c_data.get('completed_at')
+            completed_at_str = "-"
+            if completed_at:
+                if hasattr(completed_at, 'astimezone'):
+                    completed_at_kst = completed_at.astimezone(KST)
+                    completed_at_str = completed_at_kst.strftime('%Y-%m-%d %H:%M:%S')
+                else:
+                    completed_at_str = str(completed_at)
+                    
+            status_val = c_data.get('status', 'success')
+            status_badge = ""
+            if status_val == 'success':
+                status_badge = '<span class="badge success">성공</span>'
+            else:
+                status_badge = '<span class="badge fail">오류</span>'
+                
+            tier_val = c_data.get('tier', 'Unknown')
             
+            crawl_rows_html += f"""
+            <tr style="border-bottom: 1px solid #e1e4e8;">
+                <td style="padding: 14px 16px; font-weight: bold; color: #24292f;">{completed_at_str}</td>
+                <td style="padding: 14px 16px;"><span class="badge tier">{tier_val}</span></td>
+                <td style="padding: 14px 16px; color: #57606a; font-size: 0.9rem;">{c_data.get('crawl_range', '-')}</td>
+                <td style="padding: 14px 16px; font-weight: bold; text-align: center; color: #0969da;">{c_data.get('golfpang_total', 0):,} 건</td>
+                <td style="padding: 14px 16px; font-weight: bold; text-align: center; color: #1a7f37;">{c_data.get('teescan_total', 0):,} 건</td>
+                <td style="padding: 14px 16px; text-align: center;">{status_badge}</td>
+            </tr>
+            """
+
+        # 3. Calculate metrics for today
+        now_kst = datetime.now(KST)
+        today_str = now_kst.strftime('%Y-%m-%d')
+        today_crawl_docs = db.collection('crawl_stats').where('date', '==', today_str).stream()
+        
+        today_gp_sum = 0
+        today_ts_sum = 0
+        today_crawls_count = 0
+        has_failure_today = False
+        
+        for doc in today_crawl_docs:
+            data = doc.to_dict()
+            today_gp_sum += data.get('golfpang_total', 0)
+            today_ts_sum += data.get('teescan_total', 0)
+            today_crawls_count += 1
+            if data.get('status') != 'success':
+                has_failure_today = True
+
+        # 4. Get last crawler state
+        last_crawl_docs = db.collection('crawl_stats').order_by('completed_at', direction=google_firestore.Query.DESCENDING).limit(1).stream()
+        last_crawl = None
+        for doc in last_crawl_docs:
+            last_crawl = doc.to_dict()
+
+        if last_crawl:
+            lc_time = last_crawl.get('completed_at')
+            if lc_time and hasattr(lc_time, 'astimezone'):
+                lc_kst = lc_time.astimezone(KST)
+                last_crawl_time_str = lc_kst.strftime('%Y-%m-%d %H:%M:%S KST')
+            else:
+                last_crawl_time_str = str(lc_time) if lc_time else "-"
+            last_crawl_status = last_crawl.get('status', 'success')
+            last_crawl_gp = last_crawl.get('golfpang_total', 0)
+            last_crawl_ts = last_crawl.get('teescan_total', 0)
+            last_crawl_tier = last_crawl.get('tier', 'Unknown')
+        else:
+            last_crawl_time_str = "기록 없음"
+            last_crawl_status = "unknown"
+            last_crawl_gp = 0
+            last_crawl_ts = 0
+            last_crawl_tier = "-"
+
+        # Build Status Indicator Card classes
+        status_card_class = "info"
+        status_text = "기록 없음"
+        if last_crawl_status == "success":
+            status_card_class = "success"
+            status_text = "정상동작 중"
+        elif last_crawl_status == "partial_fail":
+            status_card_class = "warning"
+            status_text = "오류 감지"
+
         html = f"""
         <!DOCTYPE html>
         <html>
         <head>
-            <title>Golf AI - 접속 통계 관리자</title>
+            <title>Golf AI - 관리자 대시보드</title>
             <meta name="viewport" content="width=device-width, initial-scale=1">
-            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
             <style>
                 body {{
                     font-family: 'Inter', sans-serif;
-                    background-color: #f8f9fa;
+                    background-color: #f6f8fa;
                     margin: 0;
-                    padding: 20px;
-                    color: #333;
+                    padding: 30px 20px;
+                    color: #24292f;
                 }}
                 .container {{
-                    max-width: 900px;
+                    max-width: 1000px;
                     margin: 0 auto;
                     background: white;
-                    padding: 25px;
-                    border-radius: 16px;
-                    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+                    padding: 35px;
+                    border-radius: 20px;
+                    box-shadow: 0 10px 30px rgba(0,0,0,0.03);
+                    border: 1px solid #e1e4e8;
+                }}
+                header {{
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 30px;
                 }}
                 h1 {{
-                    font-size: 1.5rem;
-                    color: #2c3e50;
-                    margin-bottom: 20px;
+                    font-size: 1.6rem;
+                    color: #1f2328;
+                    margin: 0;
                     display: flex;
                     align-items: center;
-                    gap: 10px;
+                    gap: 12px;
                 }}
+                .badge-header {{
+                    background: #ddf4ff;
+                    color: #0969da;
+                    font-size: 0.8rem;
+                    padding: 6px 12px;
+                    border-radius: 20px;
+                    font-weight: 600;
+                }}
+                /* Summary Cards */
+                .summary-cards {{
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                    gap: 20px;
+                    margin-bottom: 35px;
+                }}
+                .card {{
+                    background: #ffffff;
+                    border: 1px solid #e1e4e8;
+                    border-radius: 14px;
+                    padding: 20px;
+                    box-shadow: 0 3px 12px rgba(0,0,0,0.01);
+                    display: flex;
+                    flex-direction: column;
+                }}
+                .card-title {{
+                    font-size: 0.85rem;
+                    color: #57606a;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    margin-bottom: 10px;
+                }}
+                .card-value {{
+                    font-size: 1.8rem;
+                    font-weight: 700;
+                    color: #24292f;
+                    margin-bottom: 6px;
+                }}
+                .card-desc {{
+                    font-size: 0.8rem;
+                    color: #57606a;
+                    margin-top: auto;
+                }}
+                .card.success {{ border-left: 5px solid #1a7f37; }}
+                .card.warning {{ border-left: 5px solid #cf222e; }}
+                .card.info {{ border-left: 5px solid #0969da; }}
+                
+                /* Tabs */
+                .tabs {{
+                    display: flex;
+                    gap: 8px;
+                    border-bottom: 1px solid #d0d7de;
+                    margin-bottom: 25px;
+                }}
+                .tab-btn {{
+                    padding: 10px 20px;
+                    font-size: 0.95rem;
+                    font-weight: 600;
+                    color: #57606a;
+                    background: none;
+                    border: none;
+                    cursor: pointer;
+                    border-bottom: 2px solid transparent;
+                    transition: all 0.2s ease;
+                }}
+                .tab-btn:hover {{
+                    color: #24292f;
+                    background-color: #f6f8fa;
+                }}
+                .tab-btn.active {{
+                    color: #0969da;
+                    border-bottom: 2px solid #0969da;
+                }}
+                
+                /* Tables */
                 table {{
                     width: 100%;
                     border-collapse: collapse;
-                    margin-top: 10px;
                 }}
                 th {{
-                    background-color: #f1f3f5;
-                    color: #495057;
+                    background-color: #f6f8fa;
+                    color: #57606a;
                     font-weight: 600;
                     text-align: left;
-                    padding: 12px;
+                    padding: 14px 16px;
                     font-size: 0.9rem;
+                    border-bottom: 1px solid #d0d7de;
+                }}
+                td {{
+                    padding: 14px 16px;
+                    font-size: 0.95rem;
+                    color: #24292f;
                 }}
                 tr:hover {{
-                    background-color: #f8f9fa;
+                    background-color: #f6f8fa;
+                }}
+                
+                /* Badges */
+                .badge {{
+                    display: inline-block;
+                    padding: 4px 10px;
+                    font-size: 0.75rem;
+                    font-weight: 600;
+                    border-radius: 2em;
+                }}
+                .badge.success {{
+                    background-color: #dafbe1;
+                    color: #1a7f37;
+                }}
+                .badge.fail {{
+                    background-color: #ffebe9;
+                    color: #cf222e;
+                }}
+                .badge.tier {{
+                    background-color: #ddf4ff;
+                    color: #0969da;
+                }}
+                
+                .responsive-table {{
+                    overflow-x: auto;
+                    border: 1px solid #e1e4e8;
+                    border-radius: 12px;
+                    background: white;
                 }}
             </style>
         </head>
         <body>
             <div class="container">
-                <h1>📊 Golf AI - 일별 접속 통계 (최근 1,000건)</h1>
-                <div style="overflow-x: auto;">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>날짜</th>
-                                <th>사용자 IP</th>
-                                <th style="text-align: center;">조회 횟수</th>
-                                <th>마지막 활동 시간 (KST)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {rows_html if rows_html else '<tr><td colspan="4" style="text-align:center; padding:20px; color:#888;">접속 기록이 없습니다.</td></tr>'}
-                        </tbody>
-                    </table>
+                <header>
+                    <h1>📊 Golf AI 관리자 대시보드</h1>
+                    <span class="badge-header">실시간 시스템 모니터</span>
+                </header>
+                
+                <!-- Summary Metrics Cards -->
+                <div class="summary-cards">
+                    <div class="card {status_card_class}">
+                        <div class="card-title">수집기 작동 상태</div>
+                        <div class="card-value">{status_text}</div>
+                        <div class="card-desc">최근 1시간 내 이상 여부 점검</div>
+                    </div>
+                    <div class="card success">
+                        <div class="card-title">골팡 오늘 수집</div>
+                        <div class="card-value">{today_gp_sum:,} 건</div>
+                        <div class="card-desc">금일 총 {today_crawls_count}회 수집 동작 완료</div>
+                    </div>
+                    <div class="card success">
+                        <div class="card-title">티스캐너 오늘 수집</div>
+                        <div class="card-value">{today_ts_sum:,} 건</div>
+                        <div class="card-desc">최근 수집: {last_crawl_time_str.split(' ')[0]}</div>
+                    </div>
+                </div>
+                
+                <!-- Tab Headers -->
+                <div class="tabs">
+                    <button class="tab-btn active" onclick="openTab('crawls')">🔄 크롤링 현황</button>
+                    <button class="tab-btn" onclick="openTab('access')">👤 사용자 접속 통계</button>
+                </div>
+                
+                <!-- Tab Contents -->
+                <div id="tab-crawls" class="tab-content">
+                    <div class="responsive-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>완료 시간 (KST)</th>
+                                    <th>수집 분류 (Tier)</th>
+                                    <th>수집 기간</th>
+                                    <th style="text-align: center;">골팡 수집</th>
+                                    <th style="text-align: center;">티스캐너 수집</th>
+                                    <th style="text-align: center;">최종 상태</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {crawl_rows_html if crawl_rows_html else '<tr><td colspan="6" style="text-align:center; padding:30px; color:#888;">크롤링 수집 기록이 없습니다.</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div id="tab-access" class="tab-content" style="display: none;">
+                    <div class="responsive-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>날짜</th>
+                                    <th>사용자 IP</th>
+                                    <th style="text-align: center;">조회 횟수</th>
+                                    <th>마지막 활동 시간 (KST)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {rows_html if rows_html else '<tr><td colspan="4" style="text-align:center; padding:30px; color:#888;">접속 기록이 없습니다.</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
+            
+            <script>
+                function openTab(tabName) {{
+                    // Hide all tab content
+                    document.querySelectorAll('.tab-content').forEach(el => {{
+                        el.style.display = 'none';
+                    }});
+                    // Remove active class from all buttons
+                    document.querySelectorAll('.tab-btn').forEach(btn => {{
+                        btn.classList.remove('active');
+                    }});
+                    // Show current tab content and make button active
+                    document.getElementById('tab-' + tabName).style.display = 'block';
+                    event.currentTarget.classList.add('active');
+                }}
+            </script>
         </body>
         </html>
         """

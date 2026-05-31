@@ -3,8 +3,11 @@ import os
 import requests
 from typing import Dict, Optional, List, Any
 
-# Load club coordinates
+# Load club coordinates and regions
 CLUB_COORDS = {}
+CLUB_REGION = {}
+REGION_CLUBS = {}
+
 try:
     # Try multiple paths for robustness
     paths = [
@@ -22,46 +25,91 @@ try:
     if json_path:
         with open(json_path, "r", encoding="utf-8") as f:
             clubs = json.load(f)
+            
+            def extract_region(address: str) -> str:
+                parts = address.split()
+                if len(parts) >= 2:
+                    prov = parts[0]
+                    city = parts[1]
+                    if '경기' in prov: prov = '경기도'
+                    elif '충북' in prov or '충청북' in prov: prov = '충청북도'
+                    elif '충남' in prov or '충청남' in prov: prov = '충청남도'
+                    elif '강원' in prov: prov = '강원도'
+                    if city == '여주군': city = '여주시'
+                    if '진천' in city: prov = '충청북도'
+                    return f"{prov} {city}"
+                return address
+
             for club in clubs:
                 if "name" in club and "lat" in club and "lng" in club:
-                    CLUB_COORDS[club["name"]] = (club["lat"], club["lng"])
+                    name = club["name"]
+                    lat = club["lat"]
+                    lng = club["lng"]
+                    CLUB_COORDS[name] = (lat, lng)
+                    
+                    addr = club.get("address", "")
+                    region = extract_region(addr)
+                    CLUB_REGION[name] = region
+                    
+                    if region not in REGION_CLUBS:
+                        REGION_CLUBS[region] = []
+                    REGION_CLUBS[region].append((lat, lng))
     else:
         print("Warning: golf_clubs.json not found for weather utils")
 except Exception as e:
     print(f"Error loading golf_clubs.json: {e}")
 
+# Compute representative coordinates for each region (centroid)
+REGION_COORDS = {}
+for region, coords in REGION_CLUBS.items():
+    if coords:
+        avg_lat = sum(c[0] for c in coords) / len(coords)
+        avg_lng = sum(c[1] for c in coords) / len(coords)
+        REGION_COORDS[region] = (avg_lat, avg_lng)
+
 def get_club_list() -> List[str]:
     return list(CLUB_COORDS.keys())
 
-def fetch_weather_forecast(club_name: str, days: int = 14) -> Optional[Dict[str, Any]]:
+def get_club_region(club_name: str) -> Optional[str]:
+    return CLUB_REGION.get(club_name)
+
+def get_unique_regions() -> List[str]:
+    return list(REGION_COORDS.keys())
+
+def get_region_coords() -> Dict[str, tuple]:
+    return REGION_COORDS
+
+def fetch_weather_batch(latitudes: List[float], longitudes: List[float], days: int = 14) -> List[Dict[str, Any]]:
     """
-    Fetches 14-day hourly and daily forecast for a club.
-    Returns a dictionary with 'daily' and 'hourly' data.
+    Fetches 14-day hourly and daily forecast for multiple coordinates in one batch request.
+    Returns a list of raw weather responses from Open-Meteo.
     """
-    if club_name not in CLUB_COORDS:
-        return None
+    if not latitudes or not longitudes:
+        return []
         
-    lat, lng = CLUB_COORDS[club_name]
-    
     try:
-        # Open-Meteo API
+        # Open-Meteo API (Batch mode)
         url = "https://api.open-meteo.com/v1/forecast"
         params = {
-            "latitude": lat,
-            "longitude": lng,
+            "latitude": ",".join(str(lat) for lat in latitudes),
+            "longitude": ",".join(str(lng) for lng in longitudes),
             "hourly": "temperature_2m,precipitation_probability,weathercode",
             "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weathercode",
             "timezone": "Asia/Tokyo",
             "forecast_days": days
         }
         
-        response = requests.get(url, params=params, timeout=10)
+        response = requests.get(url, params=params, timeout=15)
         if response.status_code == 200:
-            return response.json()
+            data = response.json()
+            if isinstance(data, list):
+                return data
+            elif isinstance(data, dict):
+                return [data]
     except Exception as e:
-        print(f"Weather fetch failed for {club_name}: {e}")
+        print(f"Weather batch fetch failed: {e}")
         
-    return None
+    return []
 
 def parse_weather_data(raw_data: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
@@ -82,6 +130,7 @@ def parse_weather_data(raw_data: Dict[str, Any]) -> List[Dict[str, Any]]:
             "date": date,
             "temp_max": daily["temperature_2m_max"][i],
             "temp_min": daily["temperature_2m_min"][i],
+            "precipitation_sum": daily["precipitation_sum"][i],
             "precip_prob_max": daily["precipitation_probability_max"][i],
             "weather_code_daily": daily["weathercode"][i],
             "hourly": []
@@ -109,29 +158,3 @@ def parse_weather_data(raw_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         
     return parsed_days
 
-# Cache to store weather data: {club_name: [parsed_daily_records]}
-WEATHER_CACHE = {}
-
-def get_weather_for_club(club_name: str, target_date: str) -> Optional[Dict[str, Any]]:
-    """
-    Returns the weather forecast for a specific club and date.
-    Uses caching to avoid repeated API calls.
-    """
-    if club_name not in CLUB_COORDS:
-        return None
-
-    # Check cache first
-    if club_name not in WEATHER_CACHE:
-        print(f"Fetching weather for {club_name}...")
-        raw_data = fetch_weather_forecast(club_name)
-        if raw_data:
-            WEATHER_CACHE[club_name] = parse_weather_data(raw_data)
-        else:
-            WEATHER_CACHE[club_name] = [] # Mark as failed/empty to avoid retrying
-
-    # Look for the specific date
-    for day_record in WEATHER_CACHE[club_name]:
-        if day_record["date"] == target_date:
-            return day_record
-            
-    return None
