@@ -8,6 +8,12 @@ from google.cloud import firestore as google_firestore
 import google.auth
 from collections import defaultdict
 import json
+from cachetools import cached, TTLCache
+
+# Initialize Caches
+tee_times_cache = TTLCache(maxsize=200, ttl=300) # 5 min cache
+history_cache = TTLCache(maxsize=100, ttl=3600)  # 1 hour cache
+dates_cache = TTLCache(maxsize=20, ttl=300)      # 5 min cache
 
 app = Flask(__name__)
 CORS(app)
@@ -98,37 +104,53 @@ def get_clubs():
         })
     return jsonify(grouped)
 
+@cached(dates_cache)
+def _get_raw_dates_with_teetimes():
+    today = datetime.now().date()
+    raw_data = {}
+    for i in range(14):
+        check_date = (today + timedelta(days=i)).strftime("%Y-%m-%d")
+        if i == 0:
+            docs = list(db.collection('tee_times').where('date', '==', check_date).stream())
+            raw_data[check_date] = [d.to_dict().get('time', '') for d in docs]
+        else:
+            docs = db.collection('tee_times').where('date', '==', check_date).limit(1).stream()
+            raw_data[check_date] = ["any"] if any(docs) else []
+    return raw_data
+
 @app.route("/api/available_dates", methods=["GET"])
 def get_available_dates():
     """Check next 14 days and return dates that have tee times.
     For today, only include if there are tee times AFTER the current time.
     """
-    available = []
     now = datetime.now()  # Local time (KST in production)
-    today = now.date()
     current_time_str = now.strftime("%H:%M")  # "HH:MM" format for comparison
     
-    # Check next 14 days
-    for i in range(14):
-        check_date = (today + timedelta(days=i)).strftime("%Y-%m-%d")
-        if i == 0:
-            # For today: only count tee times strictly after current time
-            docs = list(
-                db.collection('tee_times')
-                  .where('date', '==', check_date)
-                  .stream()
-            )
-            # Filter to times after now
-            future_docs = [d for d in docs if (d.to_dict().get('time', '') or '') > current_time_str]
-            if future_docs:
+    raw_data = _get_raw_dates_with_teetimes()
+    available = []
+    
+    for check_date, times_list in raw_data.items():
+        if not times_list:
+            continue
+            
+        if check_date == now.strftime("%Y-%m-%d"):
+            future_times = [t for t in times_list if (t or '') > current_time_str]
+            if future_times:
                 available.append(check_date)
         else:
-            # For future dates: any tee time is fine
-            docs = db.collection('tee_times').where('date', '==', check_date).limit(1).stream()
-            if any(docs):
-                available.append(check_date)
+            available.append(check_date)
             
     return jsonify(available)
+
+@cached(history_cache)
+def _get_history(date_str, chunk_tuple):
+    docs = db.collection('daily_stats').where('date', '==', date_str).where('club_name', 'in', chunk_tuple).stream()
+    return [d.to_dict() for d in docs]
+
+@cached(tee_times_cache)
+def _get_teetimes(date_str, chunk_tuple):
+    docs = db.collection('tee_times').where('date', '==', date_str).where('club_name', 'in', chunk_tuple).stream()
+    return [d.to_dict() for d in docs]
 
 @app.route("/api/prices", methods=["POST"])
 def get_prices():
@@ -167,14 +189,10 @@ def get_prices():
             history_date_str = history_date_obj.strftime("%Y-%m-%d")
             
             for chunk in club_chunks:
-                # Query only specified clubs for history
-                hist_docs = db.collection('daily_stats') \
-                    .where('date', '==', history_date_str) \
-                    .where('club_name', 'in', chunk) \
-                    .stream()
+                chunk_tuple = tuple(chunk) # cachetools requires hashable args
+                h_data_list = _get_history(history_date_str, chunk_tuple)
                 
-                for h_doc in hist_docs:
-                    h_data = h_doc.to_dict()
+                for h_data in h_data_list:
                     h_club = h_data.get('club_name')
                     h_hour = h_data.get('hour')
                     h_price = h_data.get('min_price')
@@ -185,13 +203,10 @@ def get_prices():
 
             # 2. Fetch Current Data (Filtered by clubs)
             for chunk in club_chunks:
-                docs = db.collection('tee_times') \
-                    .where('date', '==', date) \
-                    .where('club_name', 'in', chunk) \
-                    .stream()
+                chunk_tuple = tuple(chunk)
+                items = _get_teetimes(date, chunk_tuple)
                 
-                for doc in docs:
-                    item = doc.to_dict()
+                for item in items:
                     
                     # Filter by Time (Hour) if specified
                     item_hour = item.get('hour') # int or str
