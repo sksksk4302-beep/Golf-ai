@@ -60,5 +60,6 @@ jobs:
         CRAWL_START_DAY: "2"
         CRAWL_END_DAY: "3"
         TEESCAN_PROXY_URL: ${{ secrets.TEESCAN_PROXY_URL }}
+        GPANG_PROXY_WORKER: ${{ secrets.TEESCAN_PROXY_URL }}
       run: |
         python ingest_data.py

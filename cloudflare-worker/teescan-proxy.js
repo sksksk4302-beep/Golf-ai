@@ -58,11 +58,22 @@ export default {
     }
 
     try {
+      const requestMethod = request.method;
+      let requestBody = null;
+      if (requestMethod === 'POST' || requestMethod === 'PUT') {
+        requestBody = await request.text();
+      }
+
       const headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
         'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
       };
+
+      const reqContentType = request.headers.get('Content-Type');
+      if (reqContentType) {
+        headers['Content-Type'] = reqContentType;
+      }
 
       if (isTeescan) {
         headers['Referer'] = 'https://www.teescanner.com/';
@@ -70,11 +81,22 @@ export default {
       } else if (isGolfpang) {
         headers['Referer'] = 'https://www.golfpang.com/web/round/booking_list.do';
         headers['Origin'] = 'https://www.golfpang.com';
+        
+        // Forward essential Golfpang headers
+        const reqXRequestedWith = request.headers.get('x-requested-with');
+        if (reqXRequestedWith) {
+          headers['X-Requested-With'] = reqXRequestedWith;
+        }
+        const reqCustomerCheck = request.headers.get('x-customer-check');
+        if (reqCustomerCheck) {
+          headers['x-customer-check'] = reqCustomerCheck;
+        }
       }
 
       const response = await fetch(targetUrl, {
-        method: 'GET',
+        method: requestMethod,
         headers: headers,
+        body: requestBody
       });
 
       const body = await response.text();

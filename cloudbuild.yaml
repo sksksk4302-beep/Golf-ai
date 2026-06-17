@@ -28,7 +28,7 @@ steps:
       - '--set-env-vars'
       - 'PROJECT_ID=golf-ai-480805,CRAWL_START_DAY=0,CRAWL_END_DAY=1'
       - '--set-secrets'
-      - 'TEESCAN_PROXY_URL=teescan-proxy-url:latest'
+      - 'TEESCAN_PROXY_URL=teescan-proxy-url:latest,GPANG_PROXY_WORKER=teescan-proxy-url:latest'
       - '--command'
       - 'python'
       - '--args'
