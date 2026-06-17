@@ -238,26 +238,7 @@ def main():
         crawl_tier = "Warm"
     else:
         crawl_tier = "Cold"
-        
-    # Save crawl log to Firestore
-    try:
-        from datetime import timezone, timedelta
-        KST = timezone(timedelta(hours=9))
-        now_kst = datetime.datetime.now(KST)
-        
-        db.collection('crawl_runs').add({
-            "completed_at": now_kst.isoformat(),
-            "date_kst": now_kst.strftime("%Y-%m-%d"),
-            "tier": crawl_tier,
-            "range": f"D+{start_day}~D+{end_day}",
-            "golfpang_count": total_gp_items,
-            "teescan_count": total_ts_items,
-            "status": "success" if (total_gp_items > 0 and total_ts_items > 0) else "partial",
-            "timestamp": firestore.SERVER_TIMESTAMP
-        })
-        print("Successfully saved crawl run log to Firestore.")
-    except Exception as e:
-        print(f"Failed to save crawl run log: {e}")
+
         
     # Optional Weather Ingestion
     if os.environ.get("CRAWL_WEATHER", "").lower() == "true":
@@ -273,8 +254,13 @@ def main():
     # Write crawl execution stats to Firestore
     try:
         from google.cloud import firestore as gc_firestore
+        from datetime import timezone, timedelta
+        import datetime
+        KST = timezone(timedelta(hours=9))
+        now_kst = datetime.datetime.now(KST)
+        
         crawl_stat = {
-            "date": datetime.date.today().strftime("%Y-%m-%d"),
+            "date": now_kst.strftime("%Y-%m-%d"), # KST Date
             "tier": crawl_tier,
             "crawl_range": f"D+{start_day}~D+{end_day}",
             "golfpang_total": total_gp_items,
@@ -284,7 +270,7 @@ def main():
             "completed_at": gc_firestore.SERVER_TIMESTAMP
         }
         # Doc ID: YYYYMMDDHHMM_Tier
-        doc_id = f"{datetime.datetime.now().strftime('%Y%m%d%H%M')}_{crawl_tier}"
+        doc_id = f"{now_kst.strftime('%Y%m%d%H%M')}_{crawl_tier}"
         db.collection('crawl_stats').document(doc_id).set(crawl_stat)
         print(f"Successfully recorded crawl statistics in Firestore: {doc_id}")
     except Exception as e:
