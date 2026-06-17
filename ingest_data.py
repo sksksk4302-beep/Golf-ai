@@ -1,4 +1,5 @@
 import datetime
+from datetime import timezone, timedelta
 import os
 import firebase_admin
 from firebase_admin import credentials, firestore
@@ -254,8 +255,6 @@ def main():
     # Write crawl execution stats to Firestore
     try:
         from google.cloud import firestore as gc_firestore
-        from datetime import timezone, timedelta
-        import datetime
         KST = timezone(timedelta(hours=9))
         now_kst = datetime.datetime.now(KST)
         
