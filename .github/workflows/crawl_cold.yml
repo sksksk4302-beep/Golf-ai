@@ -2,9 +2,9 @@ name: Crawl Cold (D+8~14)
 
 on:
   schedule:
-    # Every 24 hours (06 KST)
+    # Every 48 hours (06 KST on odd days)
     # KST = UTC+9: 06 KST = 21 UTC (prev day)
-    - cron: '47 21 * * *'
+    - cron: '47 21 */2 * *'
   workflow_dispatch:
 
 jobs:

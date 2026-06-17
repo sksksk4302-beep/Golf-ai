@@ -229,8 +229,46 @@ def main():
 
     print(f"\nAll crawling tasks completed. Total GP: {total_gp_items}, Total TS: {total_ts_items}")
 
-    # Verification Logic for ALL workflows (Hot/Warm/Cold)
-    crawl_tier = "Hot" if start_day_env == "0" else ("Warm" if start_day_env == "4" else "Cold")
+    # Verification Logic for ALL workflows
+    if start_day_env == "0":
+        crawl_tier = "Hot-A"
+    elif start_day_env == "2":
+        crawl_tier = "Hot-B"
+    elif start_day_env == "4":
+        crawl_tier = "Warm"
+    else:
+        crawl_tier = "Cold"
+        
+    # Save crawl log to Firestore
+    try:
+        from datetime import timezone, timedelta
+        KST = timezone(timedelta(hours=9))
+        now_kst = datetime.datetime.now(KST)
+        
+        db.collection('crawl_runs').add({
+            "completed_at": now_kst.isoformat(),
+            "date_kst": now_kst.strftime("%Y-%m-%d"),
+            "tier": crawl_tier,
+            "range": f"D+{start_day}~D+{end_day}",
+            "golfpang_count": total_gp_items,
+            "teescan_count": total_ts_items,
+            "status": "success" if (total_gp_items > 0 and total_ts_items > 0) else "partial",
+            "timestamp": firestore.SERVER_TIMESTAMP
+        })
+        print("Successfully saved crawl run log to Firestore.")
+    except Exception as e:
+        print(f"Failed to save crawl run log: {e}")
+        
+    # Optional Weather Ingestion
+    if os.environ.get("CRAWL_WEATHER", "").lower() == "true":
+        try:
+            from ingest_weather import ingest_weather
+            print("\n=====================================================")
+            print("Starting weather ingestion as CRAWL_WEATHER=true")
+            print("=====================================================")
+            ingest_weather()
+        except Exception as e:
+            print(f"⚠️ Weather ingestion failed (non-fatal): {e}")
     
     # Write crawl execution stats to Firestore
     try:

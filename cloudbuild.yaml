@@ -7,14 +7,14 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/golf-repo/golf-app']
 
-  # 3. Deploy Cloud Run Job (Ingest) - Main Crawler
+  # 3. Deploy Cloud Run Job (Hot-A) - D+0~D+1 Crawler
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
       - 'run'
       - 'jobs'
       - 'deploy'
-      - 'ingest-job'
+      - 'hot-a-job'
       - '--image'
       - 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/golf-repo/golf-app'
       - '--region'
@@ -24,7 +24,11 @@ steps:
       - '--max-retries'
       - '0'
       - '--task-timeout'
-      - '60m'
+      - '15m'
+      - '--set-env-vars'
+      - 'PROJECT_ID=golf-ai-480805,CRAWL_START_DAY=0,CRAWL_END_DAY=1'
+      - '--set-secrets'
+      - 'TEESCAN_PROXY_URL=teescan-proxy-url:latest'
       - '--command'
       - 'python'
       - '--args'
