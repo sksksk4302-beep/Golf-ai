@@ -193,3 +193,10 @@ def aggregate_daily_stats(db):
 
 if __name__ == "__main__":
     archive_history()
+    
+    print("Running weather ingestion as part of daily archive...")
+    from ingest_weather import ingest_weather
+    try:
+        ingest_weather()
+    except Exception as e:
+        print(f"Error during weather ingestion: {e}")

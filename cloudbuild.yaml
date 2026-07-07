@@ -34,29 +34,6 @@ steps:
       - '--args'
       - 'ingest_data.py'
 
-  # 4. Deploy Cloud Run Job (Weather) - Weather Ingestion
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: gcloud
-    args:
-      - 'run'
-      - 'jobs'
-      - 'deploy'
-      - 'weather-job'
-      - '--image'
-      - 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/golf-repo/golf-app'
-      - '--region'
-      - 'asia-northeast3'
-      - '--tasks'
-      - '1'
-      - '--max-retries'
-      - '0'
-      - '--task-timeout'
-      - '10m'
-      - '--command'
-      - 'python'
-      - '--args'
-      - 'ingest_weather.py'
-
   # 5. Deploy Cloud Run Job (Archive) - History Archive
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
