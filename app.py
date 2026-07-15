@@ -88,6 +88,7 @@ def index():
 
 @app.route("/pickups")
 def pickups():
+    from datetime import timezone
     KST = timezone(timedelta(hours=9))
     now_kst = datetime.now(KST)
     today_str = now_kst.strftime("%Y-%m-%d")
