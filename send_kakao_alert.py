@@ -166,9 +166,15 @@ def send_kakao_message(access_token, text):
     
     response = requests.post(url, headers=headers, data=data)
     if response.status_code == 200:
-        print("✅ 카카오톡 메시지 전송 성공!")
+        try:
+            print("✅ 카카오톡 메시지 전송 성공!")
+        except UnicodeEncodeError:
+            print("KakaoTalk message sent successfully!")
     else:
-        print(f"❌ 카카오톡 전송 실패: {response.status_code}")
+        try:
+            print(f"❌ 카카오톡 전송 실패: {response.status_code}")
+        except UnicodeEncodeError:
+            print(f"Failed to send KakaoTalk message: {response.status_code}")
         print(response.text)
 
 def main():
