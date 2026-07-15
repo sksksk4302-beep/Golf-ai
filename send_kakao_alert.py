@@ -126,11 +126,10 @@ def get_lowest_prices(db):
             
     # 3. Format message
     if not club_mins:
-        return f"🚀 [오늘의 구장별 티타임 줍줍]\n📅 {today_str}\n\n알림 설정된 구장 중 09:30 이후 잔여 티타임이 없습니다."
+        return f"🚀 [오늘의 구장별 티타임 줍줍]\n\n알림 설정된 구장 중 {current_time_str} 이후 잔여 티타임이 없습니다."
         
     msg_lines = [
         f"🚀 [오늘의 구장별 티타임 줍줍]",
-        f"📅 {today_str}",
         ""
     ]
     
