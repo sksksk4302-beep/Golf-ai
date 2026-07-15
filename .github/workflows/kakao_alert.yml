@@ -1,13 +1,13 @@
-name: Crawl Warm (D+4~7)
+name: Send Kakao Alert (09:30 KST)
 
 on:
   schedule:
-    # Run twice a day
-    - cron: '41 0,7 * * *'  # KST 09:41, 16:41
+    # 00:30 UTC = 09:30 KST
+    - cron: '30 0 * * *'
   workflow_dispatch:
 
 jobs:
-  crawl:
+  alert:
     runs-on: ubuntu-latest
     
     steps:
@@ -22,7 +22,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install -r requirements.txt
+        pip install requests firebase-admin google-auth
 
     - name: Create Service Account Key
       shell: python
@@ -43,22 +43,9 @@ jobs:
         except Exception:
             content = secret_val
 
-        import json
-        try:
-            json.loads(content)
-        except Exception as e:
-            print(f"ERROR: Content is NOT valid JSON: {e}")
-            exit(1)
-
         with open("service-account.json", "w") as f:
             f.write(content)
 
-    - name: Run Crawler (D+4 to D+7)
-      env:
-        PROJECT_ID: "golf-ai-480805"
-        CRAWL_START_DAY: "4"
-        CRAWL_END_DAY: "7"
-        TEESCAN_PROXY_URL: ${{ secrets.TEESCAN_PROXY_URL }}
-        GPANG_PROXY_WORKER: ${{ secrets.TEESCAN_PROXY_URL }}
+    - name: Run Kakao Alert Script
       run: |
-        python ingest_data.py
+        python send_kakao_alert.py

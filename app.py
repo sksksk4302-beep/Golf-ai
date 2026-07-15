@@ -797,6 +797,7 @@ def admin_stats():
                                     <th style="text-align: center;">티스캐너 SEQ</th>
                                     <th style="text-align: center;">골팡 코드</th>
                                     <th style="text-align: center;">수집 상태(오늘)</th>
+                                    <th style="text-align: center;">🔔 알림</th>
                                     <th style="text-align: center;">관리</th>
                                 </tr>
                             </thead>
@@ -839,6 +840,7 @@ def admin_stats():
                         const tsBadge = club.status.ts ? '<span style="color:green;font-weight:bold;">✅ TS</span>' : '<span style="color:red;font-weight:bold;">❌ TS</span>';
                         const gpBadge = club.status.gp ? '<span style="color:green;font-weight:bold;">✅ GP</span>' : '<span style="color:red;font-weight:bold;">❌ GP</span>';
                         const statusHtml = `${{tsBadge}} / ${{gpBadge}}`;
+                        const alertHtml = club.alert_enabled ? '<span style="color:#2da44e;font-weight:bold;">ON</span>' : '<span style="color:#888;">OFF</span>';
                         
                         tr.innerHTML = `
                             <td>${{club.name}}</td>
@@ -846,6 +848,7 @@ def admin_stats():
                             <td style="text-align:center;">${{club.seq || '-'}}</td>
                             <td style="text-align:center;">${{club.Golpang_code || '-'}}</td>
                             <td style="text-align:center;">${{statusHtml}}</td>
+                            <td style="text-align:center;">${{alertHtml}}</td>
                             <td style="text-align:center;">
                                 <button onclick="editClub(${{index}})" style="padding:4px 8px;cursor:pointer;">수정</button>
                                 <button onclick="deleteClub('${{club.name}}')" style="padding:4px 8px;cursor:pointer;color:red;">삭제</button>
@@ -859,12 +862,14 @@ def admin_stats():
                     const club = clubsData[index];
                     const tbody = document.getElementById('clubs-tbody');
                     const tr = tbody.children[index];
+                    const checked = club.alert_enabled ? 'checked' : '';
                     tr.innerHTML = `
                         <td><input type="text" id="edit-name-${{index}}" value="${{club.name}}" style="width:100px;"></td>
                         <td><input type="text" id="edit-address-${{index}}" value="${{club.address || ''}}" style="width:150px;"></td>
                         <td style="text-align:center;"><input type="text" id="edit-seq-${{index}}" value="${{club.seq || ''}}" style="width:60px;text-align:center;"></td>
                         <td style="text-align:center;"><input type="text" id="edit-gp-${{index}}" value="${{club.Golpang_code || ''}}" style="width:80px;text-align:center;"></td>
                         <td style="text-align:center;">-</td>
+                        <td style="text-align:center;"><input type="checkbox" id="edit-alert-${{index}}" ${{checked}}></td>
                         <td style="text-align:center;">
                             <button onclick="saveClub(${{index}}, '${{club.name}}')" style="padding:4px 8px;cursor:pointer;background:#0969da;color:white;border:none;">저장</button>
                             <button onclick="renderClubs()" style="padding:4px 8px;cursor:pointer;">취소</button>
@@ -878,7 +883,8 @@ def admin_stats():
                         name: document.getElementById(`edit-name-${{index}}`).value,
                         address: document.getElementById(`edit-address-${{index}}`).value,
                         seq: document.getElementById(`edit-seq-${{index}}`).value,
-                        Golpang_code: document.getElementById(`edit-gp-${{index}}`).value
+                        Golpang_code: document.getElementById(`edit-gp-${{index}}`).value,
+                        alert_enabled: document.getElementById(`edit-alert-${{index}}`).checked
                     }};
                     const method = oldName ? 'PUT' : 'POST';
                     await fetch('/api/admin/clubs', {{
@@ -910,6 +916,7 @@ def admin_stats():
                         <td style="text-align:center;"><input type="text" id="edit-seq-${{index}}" placeholder="SEQ" style="width:60px;text-align:center;"></td>
                         <td style="text-align:center;"><input type="text" id="edit-gp-${{index}}" placeholder="골팡코드" style="width:80px;text-align:center;"></td>
                         <td style="text-align:center;">-</td>
+                        <td style="text-align:center;"><input type="checkbox" id="edit-alert-${{index}}"></td>
                         <td style="text-align:center;">
                             <button onclick="saveClub('${{index}}', '')" style="padding:4px 8px;cursor:pointer;background:#2da44e;color:white;border:none;">추가</button>
                             <button onclick="renderClubs()" style="padding:4px 8px;cursor:pointer;">취소</button>
