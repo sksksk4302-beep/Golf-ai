@@ -174,6 +174,27 @@ def send_kakao_message(access_token, text):
             print(f"Failed to send KakaoTalk message: {response.status_code}")
         print(response.text)
 
+def chunk_text(text, limit=190):
+    lines = text.split('\n')
+    chunks = []
+    current_chunk = []
+    current_len = 0
+    
+    for line in lines:
+        line_len = len(line) + 1 # +1 for newline
+        if current_len + line_len > limit and current_chunk:
+            chunks.append("\n".join(current_chunk))
+            current_chunk = [line]
+            current_len = line_len
+        else:
+            current_chunk.append(line)
+            current_len += line_len
+            
+    if current_chunk:
+        chunks.append("\n".join(current_chunk))
+        
+    return chunks
+
 def main():
     db = init_firestore()
     if not db:
@@ -187,12 +208,20 @@ def main():
     if not message_text:
         return
         
-    try:
-        print("Sending message:\n" + message_text)
-    except UnicodeEncodeError:
-        print("Sending message: (Contains emoji, skipped printing to Windows console)")
+    chunks = chunk_text(message_text, limit=190)
+    
+    for i, chunk in enumerate(chunks):
+        try:
+            print(f"Sending chunk {i+1}/{len(chunks)}:\n{chunk}")
+        except UnicodeEncodeError:
+            print(f"Sending chunk {i+1}/{len(chunks)}: (Contains emoji)")
+            
+        send_kakao_message(access_token, chunk)
         
-    send_kakao_message(access_token, message_text)
+        # small delay to prevent rate limit
+        if i < len(chunks) - 1:
+            import time
+            time.sleep(1)
 
 if __name__ == "__main__":
     main()
