@@ -77,6 +77,7 @@ def get_lowest_prices(db):
     KST = timezone(timedelta(hours=9))
     now_kst = datetime.datetime.now(KST)
     today_str = now_kst.strftime("%Y-%m-%d")
+    tomorrow_str = (now_kst + timedelta(days=1)).strftime("%Y-%m-%d")
     current_time_str = now_kst.strftime("%H:%M")
     
     # 1. Get clubs with alert_enabled == True
@@ -93,54 +94,97 @@ def get_lowest_prices(db):
         
     print(f"Target clubs for alert: {alert_clubs}")
     
-    # 2. Get today's tee times
-    tee_times_ref = db.collection('tee_times').where('date', '==', today_str).stream()
+    # 2. Get today & tomorrow's tee times
+    tee_times_ref = db.collection('tee_times').where('date', 'in', [today_str, tomorrow_str]).stream()
     
-    club_mins = {}
+    groups = {
+        'today_part2': {},       # Today 12-16
+        'today_early3': {},      # Today 17
+        'today_part3': {},       # Today 18-19
+        'tomorrow_early1': {},   # Tomorrow 06-07
+        'tomorrow_late1': {}     # Tomorrow 08-10
+    }
     
     for t in tee_times_ref:
         data = t.to_dict()
         club = data.get('club_name')
         
-        # Only interested in alert clubs
         if club not in alert_clubs:
             continue
             
+        date_str = data.get('date')
         time_str = data.get('time', '')
-        # Filter for times >= current time
-        if time_str < current_time_str:
-            continue
-            
         price = data.get('price', float('inf'))
         try:
             price = int(price)
         except:
             continue
             
-        if club not in club_mins or price < club_mins[club]['price']:
-            club_mins[club] = {
+        # Parse hour from time_str
+        try:
+            hour = int(time_str.split(':')[0])
+        except:
+            continue
+            
+        group_key = None
+        if date_str == today_str:
+            if time_str < current_time_str:
+                continue
+            
+            if 12 <= hour <= 16:
+                group_key = 'today_part2'
+            elif hour == 17:
+                group_key = 'today_early3'
+            elif 18 <= hour <= 19:
+                group_key = 'today_part3'
+                
+        elif date_str == tomorrow_str:
+            if 6 <= hour <= 7:
+                group_key = 'tomorrow_early1'
+            elif 8 <= hour <= 10:
+                group_key = 'tomorrow_late1'
+                
+        if not group_key:
+            continue
+            
+        if club not in groups[group_key] or price < groups[group_key][club]['price']:
+            groups[group_key][club] = {
                 'price': price,
                 'time': time_str,
                 'source': data.get('source', '')
             }
             
     # 3. Format message
-    if not club_mins:
-        return f"🚀 [오늘의 구장별 티타임 줍줍]\n\n알림 설정된 구장 중 {current_time_str} 이후 잔여 티타임이 없습니다."
+    if all(not clubs for clubs in groups.values()):
+        return f"🚀 [구장별 티타임 줍줍]\n\n조건에 맞는 잔여 티타임이 없습니다."
         
-    msg_lines = [
-        f"🚀 [오늘의 구장별 티타임 줍줍]",
-        ""
+    msg_lines = []
+    
+    group_titles = [
+        ('today_part2', "🚀 오늘 2부 줍줍 (12-4)"),
+        ('today_early3', "🚀 오늘 빠른 3부 줍줍 (17)"),
+        ('today_part3', "🚀 오늘 3부 줍줍 (18-19)"),
+        ('tomorrow_early1', "🚀 내일 빠른 1부 줍줍 (6-7)"),
+        ('tomorrow_late1', "🚀 내일 늦은 1부 줍줍 (8-10)")
     ]
     
-    # Sort clubs by price (lowest first)
-    sorted_clubs = sorted(club_mins.keys(), key=lambda c: club_mins[c]['price'])
-    for club in sorted_clubs:
-        info = club_mins[club]
-        source_kr = "골팡" if info['source'] == 'golfpang' else ("티스캐너" if info['source'] == 'teescan' else info['source'])
-        msg_lines.append(f"⛳ {club}: {info['time']} / {format_price(info['price'])} / {source_kr}")
+    for key, title in group_titles:
+        club_mins = groups[key]
+        if not club_mins:
+            continue
             
-    # If no clubs had times, we already returned early above, so we don't need to handle it again here.
+        if msg_lines:
+            msg_lines.append("")
+            msg_lines.append("")
+            
+        msg_lines.append(title)
+        
+        sorted_clubs = sorted(club_mins.keys(), key=lambda c: club_mins[c]['price'])
+        for club in sorted_clubs:
+            info = club_mins[club]
+            source_kr = "골팡" if info['source'] == 'golfpang' else ("티스캐너" if info['source'] == 'teescan' else info['source'])
+            msg_lines.append(f"⛳ {club}: {info['time']} / {format_price(info['price'])} / {source_kr}")
+            
     return "\n".join(msg_lines)
 
 def send_kakao_message(access_token, text):
