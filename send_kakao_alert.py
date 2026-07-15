@@ -123,7 +123,7 @@ def get_lowest_prices(db):
             
     # 3. Format message
     if not club_mins:
-        return f"🚀 [오늘의 구장별 최저가 줍줍]\n조건에 맞는 잔여 티타임이 없습니다.\n\n👉 상세보기: https://golf-ai-480805.du.r.appspot.com/pickups"
+        return f"🚀 [오늘의 구장별 최저가 줍줍]\n조건에 맞는 잔여 티타임이 없습니다.\n\n👉 상세보기: https://golf-ai-480805.web.app/pickups"
         
     msg_lines = [
         f"🚀 [오늘의 구장별 최저가 줍줍]",
@@ -134,11 +134,11 @@ def get_lowest_prices(db):
     sorted_clubs = sorted(club_mins.keys(), key=lambda c: club_mins[c]['price'])
     for club in sorted_clubs:
         info = club_mins[club]
-        source_kr = "🔵" if info['source'] == 'golfpang' else ("🔴" if info['source'] == 'teescan' else info['source'])
+        source_kr = "[G]" if info['source'] == 'golfpang' else ("[T]" if info['source'] == 'teescan' else f"[{info['source']}]")
         msg_lines.append(f"⛳ {club}: {info['time']} / {format_price(info['price'])} / {source_kr}")
         
     msg_lines.append("")
-    msg_lines.append("👉 상세보기: https://golf-ai-480805.du.r.appspot.com/pickups")
+    msg_lines.append("👉 상세보기: https://golf-ai-480805.web.app/pickups")
             
     return "\n".join(msg_lines)
 
@@ -153,8 +153,8 @@ def send_kakao_message(access_token, text):
         "object_type": "text",
         "text": text,
         "link": {
-            "web_url": "https://golf-ai-480805.du.r.appspot.com/pickups",
-            "mobile_web_url": "https://golf-ai-480805.du.r.appspot.com/pickups"
+            "web_url": "https://golf-ai-480805.web.app/pickups",
+            "mobile_web_url": "https://golf-ai-480805.web.app/pickups"
         },
         "button_title": " "
     }
