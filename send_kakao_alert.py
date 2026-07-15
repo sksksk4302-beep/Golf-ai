@@ -73,9 +73,11 @@ def format_price(price):
 
 def get_lowest_prices(db):
     from datetime import timezone, timedelta
+    import datetime
     KST = timezone(timedelta(hours=9))
     now_kst = datetime.datetime.now(KST)
     today_str = now_kst.strftime("%Y-%m-%d")
+    current_time_str = now_kst.strftime("%H:%M")
     
     # 1. Get clubs with alert_enabled == True
     clubs_ref = db.collection('golf_clubs').where('alert_enabled', '==', True).stream()
@@ -105,8 +107,8 @@ def get_lowest_prices(db):
             continue
             
         time_str = data.get('time', '')
-        # Filter for times >= 09:30
-        if time_str < "09:30":
+        # Filter for times >= current time
+        if time_str < current_time_str:
             continue
             
         price = data.get('price', float('inf'))
@@ -132,12 +134,12 @@ def get_lowest_prices(db):
         ""
     ]
     
-    # Create sorted list based on original alert_clubs order or alphabetically
-    for club in sorted(alert_clubs):
-        if club in club_mins:
-            info = club_mins[club]
-            source_kr = "골팡" if info['source'] == 'golfpang' else ("티스캐너" if info['source'] == 'teescan' else info['source'])
-            msg_lines.append(f"⛳ {club}: {info['time']} / {format_price(info['price'])} / {source_kr}")
+    # Sort clubs by price (lowest first)
+    sorted_clubs = sorted(club_mins.keys(), key=lambda c: club_mins[c]['price'])
+    for club in sorted_clubs:
+        info = club_mins[club]
+        source_kr = "골팡" if info['source'] == 'golfpang' else ("티스캐너" if info['source'] == 'teescan' else info['source'])
+        msg_lines.append(f"⛳ {club}: {info['time']} / {format_price(info['price'])} / {source_kr}")
             
     # If no clubs had times, we already returned early above, so we don't need to handle it again here.
     return "\n".join(msg_lines)
@@ -155,7 +157,8 @@ def send_kakao_message(access_token, text):
         "link": {
             "web_url": "https://golf-ai-480805.du.r.appspot.com",
             "mobile_web_url": "https://golf-ai-480805.du.r.appspot.com"
-        }
+        },
+        "button_title": " "
     }
     
     data = {
