@@ -77,7 +77,6 @@ def get_lowest_prices(db):
     KST = timezone(timedelta(hours=9))
     now_kst = datetime.datetime.now(KST)
     today_str = now_kst.strftime("%Y-%m-%d")
-    tomorrow_str = (now_kst + timedelta(days=1)).strftime("%Y-%m-%d")
     current_time_str = now_kst.strftime("%H:%M")
     
     # 1. Get clubs with alert_enabled == True
@@ -91,8 +90,8 @@ def get_lowest_prices(db):
     if not alert_clubs:
         return None
         
-    # 2. Get today & tomorrow's tee times
-    tee_times_ref = db.collection('tee_times').where('date', 'in', [today_str, tomorrow_str]).stream()
+    # 2. Get today's tee times
+    tee_times_ref = db.collection('tee_times').where('date', '==', today_str).stream()
     
     club_mins = {}
     
@@ -103,11 +102,10 @@ def get_lowest_prices(db):
         if club not in alert_clubs:
             continue
             
-        date_str = data.get('date')
         time_str = data.get('time', '')
         
         # Filter past times for today
-        if date_str == today_str and time_str < current_time_str:
+        if time_str < current_time_str:
             continue
             
         price = data.get('price', float('inf'))
@@ -120,7 +118,6 @@ def get_lowest_prices(db):
             club_mins[club] = {
                 'price': price,
                 'time': time_str,
-                'date': date_str,
                 'source': data.get('source', '')
             }
             
@@ -139,8 +136,7 @@ def get_lowest_prices(db):
     for club in sorted_clubs:
         info = club_mins[club]
         source_kr = "골팡" if info['source'] == 'golfpang' else ("티스캐너" if info['source'] == 'teescan' else info['source'])
-        date_mark = "[내일] " if info['date'] == tomorrow_str else ""
-        msg_lines.append(f"⛳ {club}: {date_mark}{info['time']} / {format_price(info['price'])} / {source_kr}")
+        msg_lines.append(f"⛳ {club}: {info['time']} / {format_price(info['price'])} / {source_kr}")
             
     return "\n".join(msg_lines)
 
