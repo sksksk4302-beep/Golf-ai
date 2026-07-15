@@ -36,11 +36,11 @@
             </div>
         {% else %}
             {% for group in groups %}
-                {% if group.items %}
+                {% if group['items'] %}
                 <div class="group-card">
                     <h2 class="group-title"><span>🚀</span> {{ group.title }}</h2>
                     <ul class="club-list">
-                        {% for item in group.items %}
+                        {% for item in group['items'] %}
                         <li class="club-item">
                             <div class="club-info">
                                 <span class="club-name">⛳ {{ item.club }}</span>
