@@ -841,7 +841,8 @@ def admin_stats():
                         const tsBadge = club.status.ts ? '<span style="color:green;font-weight:bold;">✅ TS</span>' : '<span style="color:red;font-weight:bold;">❌ TS</span>';
                         const gpBadge = club.status.gp ? '<span style="color:green;font-weight:bold;">✅ GP</span>' : '<span style="color:red;font-weight:bold;">❌ GP</span>';
                         const statusHtml = `${{tsBadge}} / ${{gpBadge}}`;
-                        const alertHtml = club.alert_enabled ? '<span style="color:#2da44e;font-weight:bold;">ON</span>' : '<span style="color:#888;">OFF</span>';
+                        const checkedStr = club.alert_enabled ? 'checked' : '';
+                        const alertHtml = `<input type="checkbox" onchange="toggleAlert(${{index}})" ${{checkedStr}} style="cursor:pointer; width:18px; height:18px;">`;
                         
                         tr.innerHTML = `
                             <td>${{club.name}}</td>
@@ -857,6 +858,32 @@ def admin_stats():
                         `;
                         tbody.appendChild(tr);
                     }});
+                }}
+                
+                async function toggleAlert(index) {{
+                    const club = clubsData[index];
+                    club.alert_enabled = !club.alert_enabled;
+                    
+                    const data = {{
+                        old_name: club.name,
+                        name: club.name,
+                        address: club.address || '',
+                        seq: club.seq || '',
+                        Golpang_code: club.Golpang_code || '',
+                        alert_enabled: club.alert_enabled
+                    }};
+                    
+                    try {{
+                        const res = await fetch('/api/admin/clubs', {{
+                            method: 'PUT',
+                            headers: {{'Content-Type': 'application/json'}},
+                            body: JSON.stringify(data)
+                        }});
+                        if(!res.ok) throw new Error('Network error');
+                    }} catch (e) {{
+                        alert('알림 설정 저장에 실패했습니다.');
+                        loadClubs();
+                    }}
                 }}
                 
                 function editClub(index) {{
