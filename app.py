@@ -821,7 +821,7 @@ def admin_stats():
                 let clubsData = [];
                 async function loadClubs() {{
                     try {{
-                        const res = await fetch('/api/admin/clubs');
+                        const res = await fetch('/api/admin/clubs', {{ cache: 'no-store' }});
                         clubsData = await res.json();
                         renderClubs();
                     }} catch (e) {{
