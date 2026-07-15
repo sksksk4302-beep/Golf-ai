@@ -89,21 +89,12 @@ def get_lowest_prices(db):
             alert_clubs.append(name)
             
     if not alert_clubs:
-        print("No clubs selected for alerts.")
         return None
         
-    print(f"Target clubs for alert: {alert_clubs}")
-    
     # 2. Get today & tomorrow's tee times
     tee_times_ref = db.collection('tee_times').where('date', 'in', [today_str, tomorrow_str]).stream()
     
-    groups = {
-        'today_part2': {},       # Today 12-16
-        'today_early3': {},      # Today 17
-        'today_part3': {},       # Today 18-19
-        'tomorrow_early1': {},   # Tomorrow 06-07
-        'tomorrow_late1': {}     # Tomorrow 08-10
-    }
+    club_mins = {}
     
     for t in tee_times_ref:
         data = t.to_dict()
@@ -114,76 +105,42 @@ def get_lowest_prices(db):
             
         date_str = data.get('date')
         time_str = data.get('time', '')
+        
+        # Filter past times for today
+        if date_str == today_str and time_str < current_time_str:
+            continue
+            
         price = data.get('price', float('inf'))
         try:
             price = int(price)
         except:
             continue
             
-        # Parse hour from time_str
-        try:
-            hour = int(time_str.split(':')[0])
-        except:
-            continue
-            
-        group_key = None
-        if date_str == today_str:
-            if time_str < current_time_str:
-                continue
-            
-            if 12 <= hour <= 16:
-                group_key = 'today_part2'
-            elif hour == 17:
-                group_key = 'today_early3'
-            elif 18 <= hour <= 19:
-                group_key = 'today_part3'
-                
-        elif date_str == tomorrow_str:
-            if 6 <= hour <= 7:
-                group_key = 'tomorrow_early1'
-            elif 8 <= hour <= 10:
-                group_key = 'tomorrow_late1'
-                
-        if not group_key:
-            continue
-            
-        if club not in groups[group_key] or price < groups[group_key][club]['price']:
-            groups[group_key][club] = {
+        if club not in club_mins or price < club_mins[club]['price']:
+            club_mins[club] = {
                 'price': price,
                 'time': time_str,
+                'date': date_str,
                 'source': data.get('source', '')
             }
             
     # 3. Format message
-    if all(not clubs for clubs in groups.values()):
-        return f"🚀 [구장별 티타임 줍줍]\n\n조건에 맞는 잔여 티타임이 없습니다."
+    if not club_mins:
+        return f"🚀 [오늘의 구장별 최저가 줍줍]\n상세보기: https://golf-ai-480805.du.r.appspot.com/pickups\n\n조건에 맞는 잔여 티타임이 없습니다."
         
-    msg_lines = []
-    
-    group_titles = [
-        ('today_part2', "🚀 오늘 2부 줍줍 (12-4)"),
-        ('today_early3', "🚀 오늘 빠른 3부 줍줍 (17)"),
-        ('today_part3', "🚀 오늘 3부 줍줍 (18-19)"),
-        ('tomorrow_early1', "🚀 내일 빠른 1부 줍줍 (6-7)"),
-        ('tomorrow_late1', "🚀 내일 늦은 1부 줍줍 (8-10)")
+    msg_lines = [
+        f"🚀 [오늘의 구장별 최저가 줍줍]",
+        "👉 상세보기: https://golf-ai-480805.du.r.appspot.com/pickups",
+        ""
     ]
     
-    for key, title in group_titles:
-        club_mins = groups[key]
-        if not club_mins:
-            continue
-            
-        if msg_lines:
-            msg_lines.append("")
-            msg_lines.append("")
-            
-        msg_lines.append(title)
-        
-        sorted_clubs = sorted(club_mins.keys(), key=lambda c: club_mins[c]['price'])
-        for club in sorted_clubs:
-            info = club_mins[club]
-            source_kr = "골팡" if info['source'] == 'golfpang' else ("티스캐너" if info['source'] == 'teescan' else info['source'])
-            msg_lines.append(f"⛳ {club}: {info['time']} / {format_price(info['price'])} / {source_kr}")
+    # Sort clubs by price (lowest first)
+    sorted_clubs = sorted(club_mins.keys(), key=lambda c: club_mins[c]['price'])
+    for club in sorted_clubs:
+        info = club_mins[club]
+        source_kr = "골팡" if info['source'] == 'golfpang' else ("티스캐너" if info['source'] == 'teescan' else info['source'])
+        date_mark = "[내일] " if info['date'] == tomorrow_str else ""
+        msg_lines.append(f"⛳ {club}: {date_mark}{info['time']} / {format_price(info['price'])} / {source_kr}")
             
     return "\n".join(msg_lines)
 
@@ -196,10 +153,10 @@ def send_kakao_message(access_token, text):
     import json
     template_object = {
         "object_type": "text",
-        "text": text,
+        "text": text[:200], # Ensure it does not throw an API error, though Kakao usually truncates automatically
         "link": {
-            "web_url": "https://golf-ai-480805.du.r.appspot.com",
-            "mobile_web_url": "https://golf-ai-480805.du.r.appspot.com"
+            "web_url": "https://golf-ai-480805.du.r.appspot.com/pickups",
+            "mobile_web_url": "https://golf-ai-480805.du.r.appspot.com/pickups"
         },
         "button_title": " "
     }
@@ -233,6 +190,7 @@ def main():
     message_text = get_lowest_prices(db)
     if not message_text:
         return
+        
     try:
         print("Sending message:\n" + message_text)
     except UnicodeEncodeError:

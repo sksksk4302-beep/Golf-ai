@@ -86,6 +86,101 @@ def index():
     proxy_url = get_proxy_worker_url()
     return render_template("index.html", proxy_url=proxy_url)
 
+@app.route("/pickups")
+def pickups():
+    KST = timezone(timedelta(hours=9))
+    now_kst = datetime.now(KST)
+    today_str = now_kst.strftime("%Y-%m-%d")
+    tomorrow_str = (now_kst + timedelta(days=1)).strftime("%Y-%m-%d")
+    current_time_str = now_kst.strftime("%H:%M")
+    
+    clubs_ref = db.collection('golf_clubs').where('alert_enabled', '==', True).stream()
+    alert_clubs = set()
+    for c in clubs_ref:
+        name = c.to_dict().get('name')
+        if name:
+            alert_clubs.add(name)
+            
+    tee_times_ref = db.collection('tee_times').where('date', 'in', [today_str, tomorrow_str]).stream()
+    
+    group_data = {
+        'today_part2': {},
+        'today_early3': {},
+        'today_part3': {},
+        'tomorrow_early1': {},
+        'tomorrow_late1': {}
+    }
+    
+    for t in tee_times_ref:
+        data = t.to_dict()
+        club = data.get('club_name')
+        if club not in alert_clubs:
+            continue
+            
+        date_str = data.get('date')
+        time_str = data.get('time', '')
+        price = data.get('price', float('inf'))
+        try: price = int(price)
+        except: continue
+            
+        try: hour = int(time_str.split(':')[0])
+        except: continue
+            
+        group_key = None
+        if date_str == today_str:
+            if time_str < current_time_str: continue
+            if 12 <= hour <= 15: group_key = 'today_part2'
+            elif 16 <= hour <= 17: group_key = 'today_early3'
+            elif 18 <= hour <= 19: group_key = 'today_part3'
+        elif date_str == tomorrow_str:
+            if 6 <= hour <= 7: group_key = 'tomorrow_early1'
+            elif 8 <= hour <= 10: group_key = 'tomorrow_late1'
+            
+        if not group_key: continue
+            
+        if club not in group_data[group_key] or price < group_data[group_key][club]['price']:
+            group_data[group_key][club] = {
+                'price': price,
+                'time': time_str,
+                'is_tomorrow': (date_str == tomorrow_str),
+                'source': data.get('source', '')
+            }
+            
+    def format_price(p):
+        if p >= 1000: return f"{p // 1000}k"
+        return str(p)
+        
+    titles = [
+        ('today_part2', "오늘 2부 줍줍 (12-15)"),
+        ('today_early3', "오늘 빠른 3부 줍줍 (16-17)"),
+        ('today_part3', "오늘 3부 줍줍 (18-19)"),
+        ('tomorrow_early1', "내일 빠른 1부 줍줍 (6-7)"),
+        ('tomorrow_late1', "내일 늦은 1부 줍줍 (8-10)")
+    ]
+    
+    groups_out = []
+    has_data = False
+    
+    for key, title in titles:
+        club_mins = group_data[key]
+        if not club_mins: continue
+        
+        has_data = True
+        items = []
+        for club in sorted(club_mins.keys(), key=lambda c: club_mins[c]['price']):
+            info = club_mins[club]
+            source_kr = "골팡" if info['source'] == 'golfpang' else ("티스캐너" if info['source'] == 'teescan' else info['source'])
+            items.append({
+                'club': club,
+                'time': info['time'],
+                'is_tomorrow': info['is_tomorrow'],
+                'formatted_price': format_price(info['price']),
+                'source_kr': source_kr
+            })
+        groups_out.append({'title': title, 'items': items})
+        
+    return render_template("pickups.html", groups=groups_out, has_data=has_data)
+
 @app.route("/api/clubs", methods=["GET"])
 def get_clubs():
     # Group clubs by region
