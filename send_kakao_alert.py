@@ -123,11 +123,10 @@ def get_lowest_prices(db):
             
     # 3. Format message
     if not club_mins:
-        return f"🚀 [오늘의 구장별 최저가 줍줍]\n상세보기: https://golf-ai-480805.du.r.appspot.com/pickups\n\n조건에 맞는 잔여 티타임이 없습니다."
+        return f"🚀 [오늘의 구장별 최저가 줍줍]\n조건에 맞는 잔여 티타임이 없습니다.\n\n👉 상세보기: https://golf-ai-480805.du.r.appspot.com/pickups"
         
     msg_lines = [
         f"🚀 [오늘의 구장별 최저가 줍줍]",
-        "👉 상세보기: https://golf-ai-480805.du.r.appspot.com/pickups",
         ""
     ]
     
@@ -137,6 +136,9 @@ def get_lowest_prices(db):
         info = club_mins[club]
         source_kr = "골팡" if info['source'] == 'golfpang' else ("티스캐너" if info['source'] == 'teescan' else info['source'])
         msg_lines.append(f"⛳ {club}: {info['time']} / {format_price(info['price'])} / {source_kr}")
+        
+    msg_lines.append("")
+    msg_lines.append("👉 상세보기: https://golf-ai-480805.du.r.appspot.com/pickups")
             
     return "\n".join(msg_lines)
 
@@ -149,7 +151,7 @@ def send_kakao_message(access_token, text):
     import json
     template_object = {
         "object_type": "text",
-        "text": text[:200], # Ensure it does not throw an API error, though Kakao usually truncates automatically
+        "text": text,
         "link": {
             "web_url": "https://golf-ai-480805.du.r.appspot.com/pickups",
             "mobile_web_url": "https://golf-ai-480805.du.r.appspot.com/pickups"
@@ -174,27 +176,6 @@ def send_kakao_message(access_token, text):
             print(f"Failed to send KakaoTalk message: {response.status_code}")
         print(response.text)
 
-def chunk_text(text, limit=190):
-    lines = text.split('\n')
-    chunks = []
-    current_chunk = []
-    current_len = 0
-    
-    for line in lines:
-        line_len = len(line) + 1 # +1 for newline
-        if current_len + line_len > limit and current_chunk:
-            chunks.append("\n".join(current_chunk))
-            current_chunk = [line]
-            current_len = line_len
-        else:
-            current_chunk.append(line)
-            current_len += line_len
-            
-    if current_chunk:
-        chunks.append("\n".join(current_chunk))
-        
-    return chunks
-
 def main():
     db = init_firestore()
     if not db:
@@ -208,20 +189,12 @@ def main():
     if not message_text:
         return
         
-    chunks = chunk_text(message_text, limit=190)
-    
-    for i, chunk in enumerate(chunks):
-        try:
-            print(f"Sending chunk {i+1}/{len(chunks)}:\n{chunk}")
-        except UnicodeEncodeError:
-            print(f"Sending chunk {i+1}/{len(chunks)}: (Contains emoji)")
-            
-        send_kakao_message(access_token, chunk)
+    try:
+        print("Sending message:\n" + message_text)
+    except UnicodeEncodeError:
+        print("Sending message: (Contains emoji, skipped printing to Windows console)")
         
-        # small delay to prevent rate limit
-        if i < len(chunks) - 1:
-            import time
-            time.sleep(1)
+    send_kakao_message(access_token, message_text)
 
 if __name__ == "__main__":
     main()
