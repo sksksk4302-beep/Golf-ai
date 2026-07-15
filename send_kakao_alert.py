@@ -183,8 +183,11 @@ def main():
     message_text = get_lowest_prices(db)
     if not message_text:
         return
+    try:
+        print("Sending message:\n" + message_text)
+    except UnicodeEncodeError:
+        print("Sending message: (Contains emoji, skipped printing to Windows console)")
         
-    print("Sending message:\n" + message_text)
     send_kakao_message(access_token, message_text)
 
 if __name__ == "__main__":
