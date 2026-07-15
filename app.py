@@ -146,6 +146,22 @@ def pickups():
                 'is_tomorrow': (date_str == tomorrow_str),
                 'source': data.get('source', '')
             }
+        elif price == group_data[group_key][club]['price']:
+            if time_str < group_data[group_key][club]['time']:
+                group_data[group_key][club] = {
+                    'price': price,
+                    'time': time_str,
+                    'is_tomorrow': (date_str == tomorrow_str),
+                    'source': data.get('source', '')
+                }
+            elif time_str == group_data[group_key][club]['time']:
+                if data.get('source', '') == 'teescan' and group_data[group_key][club]['source'] != 'teescan':
+                    group_data[group_key][club] = {
+                        'price': price,
+                        'time': time_str,
+                        'is_tomorrow': (date_str == tomorrow_str),
+                        'source': 'teescan'
+                    }
             
     def format_price(p):
         if p >= 1000: return f"{p // 1000}k"
