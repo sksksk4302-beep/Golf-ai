@@ -120,6 +120,14 @@ def get_lowest_prices(db):
                 'time': time_str,
                 'source': data.get('source', '')
             }
+        elif price == club_mins[club]['price']:
+            # Prioritize teescan if prices are identical
+            if data.get('source', '') == 'teescan' and club_mins[club]['source'] != 'teescan':
+                club_mins[club] = {
+                    'price': price,
+                    'time': time_str,
+                    'source': 'teescan'
+                }
             
     # 3. Format message
     if not club_mins:
@@ -134,7 +142,7 @@ def get_lowest_prices(db):
     sorted_clubs = sorted(club_mins.keys(), key=lambda c: club_mins[c]['price'])
     for club in sorted_clubs:
         info = club_mins[club]
-        source_kr = "[G]" if info['source'] == 'golfpang' else ("[T]" if info['source'] == 'teescan' else f"[{info['source']}]")
+        source_kr = "G" if info['source'] == 'golfpang' else ("T" if info['source'] == 'teescan' else info['source'])
         msg_lines.append(f"⛳ {club}: {info['time']} / {format_price(info['price'])} / {source_kr}")
         
     msg_lines.append("")
