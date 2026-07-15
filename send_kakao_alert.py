@@ -95,6 +95,13 @@ def get_lowest_prices(db):
     
     club_mins = {}
     
+    def get_group(h):
+        if 6 <= h <= 10: return 0 # 1부
+        if 12 <= h <= 15: return 1 # 2부
+        if 16 <= h <= 17: return 2 # 빠른 3부
+        if 18 <= h <= 19: return 3 # 3부
+        return 4 # 그 외
+        
     for t in tee_times_ref:
         data = t.to_dict()
         club = data.get('club_name')
@@ -121,13 +128,26 @@ def get_lowest_prices(db):
                 'source': data.get('source', '')
             }
         elif price == club_mins[club]['price']:
-            # Prioritize teescan if prices are identical
-            if data.get('source', '') == 'teescan' and club_mins[club]['source'] != 'teescan':
+            old_hour = int(club_mins[club]['time'].split(':')[0])
+            new_hour = int(time_str.split(':')[0])
+            old_group = get_group(old_hour)
+            new_group = get_group(new_hour)
+            
+            # 1. 다른 그룹이면 더 빠른 그룹 우선
+            if new_group < old_group:
                 club_mins[club] = {
                     'price': price,
                     'time': time_str,
-                    'source': 'teescan'
+                    'source': data.get('source', '')
                 }
+            # 2. 같은 그룹 내에서는 시간 상관없이 무조건 티스캐너 우선
+            elif new_group == old_group:
+                if data.get('source', '') == 'teescan' and club_mins[club]['source'] != 'teescan':
+                    club_mins[club] = {
+                        'price': price,
+                        'time': time_str,
+                        'source': 'teescan'
+                    }
             
     # 3. Format message
     if not club_mins:
