@@ -134,7 +134,7 @@ def get_lowest_prices(db):
     sorted_clubs = sorted(club_mins.keys(), key=lambda c: club_mins[c]['price'])
     for club in sorted_clubs:
         info = club_mins[club]
-        source_kr = "골팡" if info['source'] == 'golfpang' else ("티스캐너" if info['source'] == 'teescan' else info['source'])
+        source_kr = "🔵" if info['source'] == 'golfpang' else ("🔴" if info['source'] == 'teescan' else info['source'])
         msg_lines.append(f"⛳ {club}: {info['time']} / {format_price(info['price'])} / {source_kr}")
         
     msg_lines.append("")
