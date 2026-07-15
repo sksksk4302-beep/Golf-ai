@@ -3,7 +3,7 @@ from datetime import timezone, timedelta
 import os
 import firebase_admin
 from firebase_admin import credentials, firestore
-from crawler_utils import crawl_golfpang, crawl_teescan, GOLF_CLUBS
+from crawler_utils import crawl_golfpang, crawl_teescan
 # Weather crawling removed to avoid API timeout issues
 
 # Configuration
@@ -195,9 +195,16 @@ def main():
 
     # 0. Cleanup past data (only in Hot workflow: D+0)
     # This ensures we don't leak Action minutes in Warm/Cold workflows
+    # OPTIMIZATION: Only run this once a day around 07:00 KST to drastically reduce Firestore Reads
     start_day_env = os.environ.get("CRAWL_START_DAY", "0")
     if start_day_env == "0":
-        cleanup_past_teetimes(db)
+        from datetime import timezone, timedelta
+        KST = timezone(timedelta(hours=9))
+        now_kst = datetime.datetime.now(KST)
+        if 6 <= now_kst.hour <= 8:
+            cleanup_past_teetimes(db)
+        else:
+            print("Skipping cleanup_past_teetimes() because it's not the morning (06:00~08:00 KST).")
 
     today = datetime.date.today()
     

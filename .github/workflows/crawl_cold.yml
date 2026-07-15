@@ -4,7 +4,7 @@ on:
   schedule:
     # Every 48 hours (06 KST on odd days)
     # KST = UTC+9: 06 KST = 21 UTC (prev day)
-    - cron: '47 21 */2 * *'
+    - cron: '47 19 * * *'
   workflow_dispatch:
 
 jobs:

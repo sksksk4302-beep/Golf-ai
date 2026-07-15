@@ -16,12 +16,7 @@ from datetime import datetime
 # urllib3 warnings are not relevant for curl_cffi
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# 구장 정보 로딩 (static/golf_clubs.json, Golpang_code: 골팡 표기 문자열)
-base_dir = os.path.dirname(__file__)
-golf_club_path = os.path.join(base_dir, "static", "golf_clubs.json")
-with open(golf_club_path, "r", encoding="utf-8") as f:
-    GOLF_CLUBS = json.load(f)
+from club_utils import get_golf_clubs
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 공통 설정
@@ -264,6 +259,7 @@ def crawl_teescan(date_str: str, favorite: List[str]):
     
     # Filter targets first
     targets = []
+    GOLF_CLUBS = get_golf_clubs()
     for club in GOLF_CLUBS:
         name = club.get("name")
         if not name or name in visited: continue
@@ -337,6 +333,7 @@ def crawl_golfpang(date_str: str, favorite: List[str], sectors: List[int] = None
 
     # 수집 대상 구장 준비 (공통)
     targets_all: List[Dict] = []
+    GOLF_CLUBS = get_golf_clubs()
     for club in GOLF_CLUBS:
         name = club.get("name")
         gp_name = str(club.get("Golpang_code", "")).strip()
@@ -509,6 +506,7 @@ def crawl_golfpang_specific_club(date_str: str, club_id: str, sector: int) -> Li
     
     # Find club name from ID for logging/result
     club_name = "Unknown"
+    GOLF_CLUBS = get_golf_clubs()
     for c in GOLF_CLUBS:
         if str(c.get("golfpang_id", "")) == str(club_id):
             club_name = c.get("name")

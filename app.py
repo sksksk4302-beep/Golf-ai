@@ -60,13 +60,7 @@ def log_access(ip):
     except Exception as e:
         print(f"Failed to log access: {e}")
 
-# Load Club Data for Regions
-GOLF_CLUBS = []
-try:
-    with open(os.path.join("static", "golf_clubs.json"), "r", encoding="utf-8") as f:
-        GOLF_CLUBS = json.load(f)
-except Exception as e:
-    print(f"Error loading golf_clubs.json: {e}")
+from club_utils import get_golf_clubs
 
 def get_region(address):
     if "경기" in address: return "경기"
@@ -96,6 +90,7 @@ def index():
 def get_clubs():
     # Group clubs by region
     grouped = defaultdict(list)
+    GOLF_CLUBS = get_golf_clubs(db)
     for club in GOLF_CLUBS:
         region = get_region(club.get("address", ""))
         grouped[region].append({
@@ -352,6 +347,86 @@ def get_booking_contact():
             })
     except Exception as e:
         print(f"Error fetching booking contact for idx {idx}: {e}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/admin/clubs", methods=["GET", "POST", "PUT", "DELETE"])
+def api_admin_clubs():
+    try:
+        if request.method == "GET":
+            # Fetch all clubs from Firestore
+            clubs = get_golf_clubs(db, force_refresh=True)
+            
+            # Aggregate stats from today's tee_times
+            from datetime import timezone, timedelta, datetime
+            KST = timezone(timedelta(hours=9))
+            today_str = datetime.now(KST).strftime('%Y-%m-%d')
+            
+            # Simple stats gathering
+            tee_times_ref = db.collection('tee_times').where('date', '>=', today_str).stream()
+            club_stats = {}
+            for doc in tee_times_ref:
+                data = doc.to_dict()
+                c_name = data.get('club_name')
+                src = data.get('source')
+                if not c_name or not src: continue
+                if c_name not in club_stats:
+                    club_stats[c_name] = {'ts': False, 'gp': False}
+                if src == 'teescan': club_stats[c_name]['ts'] = True
+                if src == 'golfpang': club_stats[c_name]['gp'] = True
+                
+            # Merge stats into clubs
+            for c in clubs:
+                c_name = c.get('name')
+                c['status'] = club_stats.get(c_name, {'ts': False, 'gp': False})
+                
+            return jsonify(clubs)
+            
+        elif request.method == "POST":
+            # Add new club
+            data = request.json
+            name = data.get('name', '').strip()
+            if not name:
+                return jsonify({"error": "Name is required"}), 400
+                
+            # Save to Firestore
+            doc_ref = db.collection('golf_clubs').document(name)
+            if doc_ref.get().exists:
+                return jsonify({"error": "Club already exists"}), 400
+                
+            doc_ref.set(data)
+            get_golf_clubs(db, force_refresh=True) # refresh cache
+            return jsonify({"success": True, "message": "Added successfully"})
+            
+        elif request.method == "PUT":
+            # Update existing club
+            data = request.json
+            old_name = data.get('old_name', '').strip()
+            name = data.get('name', '').strip()
+            if not old_name or not name:
+                return jsonify({"error": "Name is required"}), 400
+                
+            if old_name != name:
+                # Rename means creating new and deleting old
+                db.collection('golf_clubs').document(name).set(data)
+                db.collection('golf_clubs').document(old_name).delete()
+            else:
+                db.collection('golf_clubs').document(name).set(data, merge=True)
+                
+            get_golf_clubs(db, force_refresh=True) # refresh cache
+            return jsonify({"success": True, "message": "Updated successfully"})
+            
+        elif request.method == "DELETE":
+            # Delete club
+            name = request.json.get('name', '').strip()
+            if not name:
+                return jsonify({"error": "Name is required"}), 400
+                
+            db.collection('golf_clubs').document(name).delete()
+            get_golf_clubs(db, force_refresh=True) # refresh cache
+            return jsonify({"success": True, "message": "Deleted successfully"})
+            
+    except Exception as e:
+        print(f"Admin API Error: {e}")
         return jsonify({"error": str(e)}), 500
 
 @app.route("/admin/status")
@@ -666,6 +741,7 @@ def admin_stats():
                 <div class="tabs">
                     <button class="tab-btn active" onclick="openTab('crawls')">🔄 크롤링 현황</button>
                     <button class="tab-btn" onclick="openTab('access')">👤 사용자 접속 통계</button>
+                    <button class="tab-btn" onclick="openTab('clubs')">🏌️ 구장 매핑 관리</button>
                 </div>
                 
                 <!-- Tab Contents -->
@@ -706,22 +782,146 @@ def admin_stats():
                         </table>
                     </div>
                 </div>
+                
+                <div id="tab-clubs" class="tab-content" style="display: none;">
+                    <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0; font-size: 1.1rem; color: #24292f;">구장 목록 및 매핑</h3>
+                        <button onclick="addClubRow()" style="padding: 6px 12px; background: #2da44e; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600;">+ 신규 구장 추가</button>
+                    </div>
+                    <div class="responsive-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>구장명</th>
+                                    <th>지역(주소)</th>
+                                    <th style="text-align: center;">티스캐너 SEQ</th>
+                                    <th style="text-align: center;">골팡 코드</th>
+                                    <th style="text-align: center;">수집 상태(오늘)</th>
+                                    <th style="text-align: center;">관리</th>
+                                </tr>
+                            </thead>
+                            <tbody id="clubs-tbody">
+                                <tr><td colspan="6" style="text-align:center; padding:30px;">로딩 중...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
             
-            <script>
                 function openTab(tabName) {{
-                    // Hide all tab content
-                    document.querySelectorAll('.tab-content').forEach(el => {{
-                        el.style.display = 'none';
-                    }});
-                    // Remove active class from all buttons
-                    document.querySelectorAll('.tab-btn').forEach(btn => {{
-                        btn.classList.remove('active');
-                    }});
-                    // Show current tab content and make button active
+                    document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+                    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
                     document.getElementById('tab-' + tabName).style.display = 'block';
                     event.currentTarget.classList.add('active');
                 }}
+                
+                // --- Clubs Management Logic ---
+                let clubsData = [];
+                async function loadClubs() {{
+                    try {{
+                        const res = await fetch('/api/admin/clubs');
+                        clubsData = await res.json();
+                        renderClubs();
+                    }} catch (e) {{
+                        document.getElementById('clubs-tbody').innerHTML = '<tr><td colspan="6" style="text-align:center;color:red;">데이터 로딩 실패</td></tr>';
+                    }}
+                }}
+                
+                function renderClubs() {{
+                    const tbody = document.getElementById('clubs-tbody');
+                    tbody.innerHTML = '';
+                    if (clubsData.length === 0) {{
+                        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">구장 데이터가 없습니다.</td></tr>';
+                        return;
+                    }}
+                    clubsData.forEach((club, index) => {{
+                        const tr = document.createElement('tr');
+                        const tsBadge = club.status.ts ? '<span style="color:green;font-weight:bold;">✅ TS</span>' : '<span style="color:red;font-weight:bold;">❌ TS</span>';
+                        const gpBadge = club.status.gp ? '<span style="color:green;font-weight:bold;">✅ GP</span>' : '<span style="color:red;font-weight:bold;">❌ GP</span>';
+                        const statusHtml = `${{tsBadge}} / ${{gpBadge}}`;
+                        
+                        tr.innerHTML = `
+                            <td>${{club.name}}</td>
+                            <td><span style="font-size:0.8rem;color:#666;">${{club.address || ''}}</span></td>
+                            <td style="text-align:center;">${{club.seq || '-'}}</td>
+                            <td style="text-align:center;">${{club.Golpang_code || '-'}}</td>
+                            <td style="text-align:center;">${{statusHtml}}</td>
+                            <td style="text-align:center;">
+                                <button onclick="editClub(${{index}})" style="padding:4px 8px;cursor:pointer;">수정</button>
+                                <button onclick="deleteClub('${{club.name}}')" style="padding:4px 8px;cursor:pointer;color:red;">삭제</button>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    }});
+                }}
+                
+                function editClub(index) {{
+                    const club = clubsData[index];
+                    const tbody = document.getElementById('clubs-tbody');
+                    const tr = tbody.children[index];
+                    tr.innerHTML = `
+                        <td><input type="text" id="edit-name-${{index}}" value="${{club.name}}" style="width:100px;"></td>
+                        <td><input type="text" id="edit-address-${{index}}" value="${{club.address || ''}}" style="width:150px;"></td>
+                        <td style="text-align:center;"><input type="text" id="edit-seq-${{index}}" value="${{club.seq || ''}}" style="width:60px;text-align:center;"></td>
+                        <td style="text-align:center;"><input type="text" id="edit-gp-${{index}}" value="${{club.Golpang_code || ''}}" style="width:80px;text-align:center;"></td>
+                        <td style="text-align:center;">-</td>
+                        <td style="text-align:center;">
+                            <button onclick="saveClub(${{index}}, '${{club.name}}')" style="padding:4px 8px;cursor:pointer;background:#0969da;color:white;border:none;">저장</button>
+                            <button onclick="renderClubs()" style="padding:4px 8px;cursor:pointer;">취소</button>
+                        </td>
+                    `;
+                }}
+                
+                async function saveClub(index, oldName) {{
+                    const data = {{
+                        old_name: oldName,
+                        name: document.getElementById(`edit-name-${{index}}`).value,
+                        address: document.getElementById(`edit-address-${{index}}`).value,
+                        seq: document.getElementById(`edit-seq-${{index}}`).value,
+                        Golpang_code: document.getElementById(`edit-gp-${{index}}`).value
+                    }};
+                    const method = oldName ? 'PUT' : 'POST';
+                    await fetch('/api/admin/clubs', {{
+                        method: method,
+                        headers: {{'Content-Type': 'application/json'}},
+                        body: JSON.stringify(data)
+                    }});
+                    loadClubs();
+                }}
+                
+                async function deleteClub(name) {{
+                    if(confirm(`정말 '${{name}}' 구장을 삭제하시겠습니까?`)) {{
+                        await fetch('/api/admin/clubs', {{
+                            method: 'DELETE',
+                            headers: {{'Content-Type': 'application/json'}},
+                            body: JSON.stringify({{name: name}})
+                        }});
+                        loadClubs();
+                    }}
+                }}
+                
+                function addClubRow() {{
+                    const tbody = document.getElementById('clubs-tbody');
+                    const tr = document.createElement('tr');
+                    const index = 'new';
+                    tr.innerHTML = `
+                        <td><input type="text" id="edit-name-${{index}}" placeholder="구장명" style="width:100px;"></td>
+                        <td><input type="text" id="edit-address-${{index}}" placeholder="주소" style="width:150px;"></td>
+                        <td style="text-align:center;"><input type="text" id="edit-seq-${{index}}" placeholder="SEQ" style="width:60px;text-align:center;"></td>
+                        <td style="text-align:center;"><input type="text" id="edit-gp-${{index}}" placeholder="골팡코드" style="width:80px;text-align:center;"></td>
+                        <td style="text-align:center;">-</td>
+                        <td style="text-align:center;">
+                            <button onclick="saveClub('${{index}}', '')" style="padding:4px 8px;cursor:pointer;background:#2da44e;color:white;border:none;">추가</button>
+                            <button onclick="renderClubs()" style="padding:4px 8px;cursor:pointer;">취소</button>
+                        </td>
+                    `;
+                    tbody.insertBefore(tr, tbody.firstChild);
+                }}
+                
+                // Initialize
+                window.onload = function() {{
+                    loadClubs();
+                }};
             </script>
         </body>
         </html>
