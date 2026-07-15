@@ -847,7 +847,7 @@ def admin_stats():
                         tr.innerHTML = `
                             <td>${{club.name}}</td>
                             <td><span style="font-size:0.8rem;color:#666;">${{club.address || ''}}</span></td>
-                            <td style="text-align:center;">${{club.seq || '-'}}</td>
+                            <td style="text-align:center;">${{club.seq ? `<a href="https://www.teescanner.com/booking/detail?golfclub_seq=${{club.seq}}" target="_blank" style="color:#0969da; text-decoration:underline;">${{club.seq}}</a>` : '-'}}</td>
                             <td style="text-align:center;">${{club.Golpang_code || '-'}}</td>
                             <td style="text-align:center;">${{statusHtml}}</td>
                             <td style="text-align:center;">${{alertHtml}}</td>

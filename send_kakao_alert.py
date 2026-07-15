@@ -138,9 +138,8 @@ def get_lowest_prices(db):
             info = club_mins[club]
             source_kr = "골팡" if info['source'] == 'golfpang' else ("티스캐너" if info['source'] == 'teescan' else info['source'])
             msg_lines.append(f"⛳ {club}: {info['time']} / {format_price(info['price'])} / {source_kr}")
-        else:
-            msg_lines.append(f"⛳ {club}: 마감")
             
+    # If no clubs had times, we already returned early above, so we don't need to handle it again here.
     return "\n".join(msg_lines)
 
 def send_kakao_message(access_token, text):
@@ -156,8 +155,7 @@ def send_kakao_message(access_token, text):
         "link": {
             "web_url": "https://golf-ai-480805.du.r.appspot.com",
             "mobile_web_url": "https://golf-ai-480805.du.r.appspot.com"
-        },
-        "button_title": "관리자 페이지 열기"
+        }
     }
     
     data = {
