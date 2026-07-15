@@ -809,6 +809,7 @@ def admin_stats():
                 </div>
             </div>
             
+            <script>
                 function openTab(tabName) {{
                     document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
                     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
