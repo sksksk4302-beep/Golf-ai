@@ -147,25 +147,17 @@ def pickups():
                 'source': data.get('source', '')
             }
         elif price == group_data[group_key][club]['price']:
-            if time_str < group_data[group_key][club]['time']:
+            # 시간대 그룹 내에서는 빠른시간 무시하고 무조건 티스캐너 우선
+            if data.get('source', '') == 'teescan' and group_data[group_key][club]['source'] != 'teescan':
                 group_data[group_key][club] = {
                     'price': price,
                     'time': time_str,
                     'is_tomorrow': (date_str == tomorrow_str),
-                    'source': data.get('source', '')
+                    'source': 'teescan'
                 }
-            elif time_str == group_data[group_key][club]['time']:
-                if data.get('source', '') == 'teescan' and group_data[group_key][club]['source'] != 'teescan':
-                    group_data[group_key][club] = {
-                        'price': price,
-                        'time': time_str,
-                        'is_tomorrow': (date_str == tomorrow_str),
-                        'source': 'teescan'
-                    }
             
     def format_price(p):
-        if p >= 1000: return f"{p // 1000}k"
-        return str(p)
+        return f"{p:,}"
         
     titles = [
         ('today_part2', "오늘 2부 줍줍 (12-15)"),
