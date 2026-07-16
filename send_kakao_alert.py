@@ -150,18 +150,22 @@ def get_lowest_prices(db):
                     }
             
     # 3. Format message
-    if not club_mins:
-        return f"🚀 [오늘의 구장별 최저가 줍줍]\n조건에 맞는 잔여 티타임이 없습니다.\n\n👉 상세보기: https://golf-ai-480805.web.app/pickups"
+    
+    # Filter clubs under 100,000 won
+    affordable_clubs = {c: info for c, info in club_mins.items() if info['price'] < 100000}
+    
+    if not affordable_clubs:
+        return f"🚀 [오늘의 구장별 10만원 미만 최저가 줍줍]\n조건에 맞는 10만원 미만 잔여 티타임이 없습니다.\n\n👉 상세보기: https://golf-ai-480805.web.app/pickups"
         
     msg_lines = [
-        f"🚀 [오늘의 구장별 최저가 줍줍]",
+        f"🚀 [오늘의 구장별 10만원 미만 최저가 줍줍]",
         ""
     ]
     
     # Sort clubs by price (lowest first)
-    sorted_clubs = sorted(club_mins.keys(), key=lambda c: club_mins[c]['price'])
+    sorted_clubs = sorted(affordable_clubs.keys(), key=lambda c: affordable_clubs[c]['price'])
     for club in sorted_clubs:
-        info = club_mins[club]
+        info = affordable_clubs[club]
         source_kr = "G" if info['source'] == 'golfpang' else ("T" if info['source'] == 'teescan' else info['source'])
         msg_lines.append(f"⛳ {club}: {info['time']} / {format_price(info['price'])} / {source_kr}")
         
