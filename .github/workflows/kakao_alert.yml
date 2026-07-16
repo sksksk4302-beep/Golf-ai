@@ -1,9 +1,9 @@
-name: Send Kakao Alert (09:30 KST)
+name: Send Kakao Alert (09:10 KST)
 
 on:
   schedule:
-    # 00:30 UTC = 09:30 KST
-    - cron: '30 0 * * *'
+    # 00:10 UTC = 09:10 KST
+    - cron: '10 0 * * *'
   workflow_dispatch:
 
 jobs:
