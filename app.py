@@ -86,11 +86,19 @@ def index():
     proxy_url = get_proxy_worker_url()
     return render_template("index.html", proxy_url=proxy_url)
 
+_pickups_cache = {'html': None, 'timestamp': None}
+
 @app.route("/pickups")
 def pickups():
     from datetime import timezone
     KST = timezone(timedelta(hours=9))
     now_kst = datetime.now(KST)
+    
+    global _pickups_cache
+    if _pickups_cache['html'] and _pickups_cache['timestamp']:
+        if (now_kst - _pickups_cache['timestamp']).total_seconds() < 600: # 10 minutes
+            return _pickups_cache['html']
+            
     today_str = now_kst.strftime("%Y-%m-%d")
     tomorrow_str = (now_kst + timedelta(days=1)).strftime("%Y-%m-%d")
     current_time_str = now_kst.strftime("%H:%M")
@@ -188,7 +196,11 @@ def pickups():
             })
         groups_out.append({'title': title, 'items': items})
         
-    return render_template("pickups.html", groups=groups_out, has_data=has_data)
+    rendered_html = render_template("pickups.html", groups=groups_out, has_data=has_data)
+    _pickups_cache['html'] = rendered_html
+    _pickups_cache['timestamp'] = now_kst
+    
+    return rendered_html
 
 @app.route("/api/clubs", methods=["GET"])
 def get_clubs():
