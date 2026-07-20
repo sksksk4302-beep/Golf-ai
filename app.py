@@ -42,7 +42,7 @@ def init_firestore():
 db = init_firestore()
 
 # IP Access Logger
-def log_access(ip):
+def log_access(ip, is_pickup=False):
     try:
         from datetime import timezone
         KST = timezone(timedelta(hours=9))
@@ -51,12 +51,17 @@ def log_access(ip):
         doc_id = f"{date_str}_{ip.replace('.', '_')}"
         
         doc_ref = db.collection('access_logs').document(doc_id)
-        doc_ref.set({
+        update_data = {
             "date": date_str,
             "ip": ip,
-            "hits": google_firestore.Increment(1),
             "last_active": google_firestore.SERVER_TIMESTAMP
-        }, merge=True)
+        }
+        if is_pickup:
+            update_data["pickup_hits"] = google_firestore.Increment(1)
+        else:
+            update_data["hits"] = google_firestore.Increment(1)
+            
+        doc_ref.set(update_data, merge=True)
     except Exception as e:
         print(f"Failed to log access: {e}")
 
@@ -90,6 +95,14 @@ _pickups_cache = {'html': None, 'timestamp': None}
 
 @app.route("/pickups")
 def pickups():
+    try:
+        ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+        if ip:
+            client_ip = ip.split(",")[0].strip()
+            log_access(client_ip, is_pickup=True)
+    except Exception as e:
+        pass
+
     from datetime import timezone
     KST = timezone(timedelta(hours=9))
     now_kst = datetime.now(KST)
@@ -572,6 +585,7 @@ def admin_stats():
                 <td style="padding: 14px 16px; font-weight: bold; color: #24292f;">{data.get('date')}</td>
                 <td style="padding: 14px 16px; font-family: monospace; color: #0969da; font-weight: 600;">{data.get('ip')}</td>
                 <td style="padding: 14px 16px; font-weight: bold; text-align: center; color: #1f2328;">{data.get('hits', 0):,} 회</td>
+                <td style="padding: 14px 16px; font-weight: bold; text-align: center; color: #cf222e;">{data.get('pickup_hits', 0):,} 회</td>
                 <td style="padding: 14px 16px; color: #57606a; font-size: 0.9rem;">{last_active_str}</td>
             </tr>
             """
@@ -888,7 +902,8 @@ def admin_stats():
                                 <tr>
                                     <th>날짜</th>
                                     <th>사용자 IP</th>
-                                    <th style="text-align: center;">조회 횟수</th>
+                                    <th style="text-align: center;">메인 조회 횟수</th>
+                                    <th style="text-align: center;">상세보기(Pickup) 횟수</th>
                                     <th>마지막 활동 시간 (KST)</th>
                                 </tr>
                             </thead>
