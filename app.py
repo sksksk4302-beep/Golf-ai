@@ -73,18 +73,31 @@ def get_region(address):
     if "강원" in address: return "강원"
     return "기타"
 
+# Cached proxy URL (avoids Firestore read on every page load)
+_proxy_cache = {'url': None, 'timestamp': None}
 def get_proxy_worker_url():
+    from datetime import timezone
+    KST = timezone(timedelta(hours=9))
+    now = datetime.now(KST)
+    if _proxy_cache['url'] and _proxy_cache['timestamp']:
+        if (now - _proxy_cache['timestamp']).total_seconds() < 3600:  # 1 hour
+            return _proxy_cache['url']
     try:
         doc = db.collection('config').document('proxy').get()
         if doc.exists:
             url = doc.to_dict().get('url', '')
             if url:
+                _proxy_cache['url'] = url
+                _proxy_cache['timestamp'] = now
                 return url
     except Exception as e:
         print(f"Failed to fetch proxy from Firestore: {e}")
     
     # Fallback to env variables
-    return os.environ.get("GPANG_PROXY_WORKER") or os.environ.get("TEESCAN_PROXY_URL") or ""
+    fallback = os.environ.get("GPANG_PROXY_WORKER") or os.environ.get("TEESCAN_PROXY_URL") or ""
+    _proxy_cache['url'] = fallback
+    _proxy_cache['timestamp'] = now
+    return fallback
 
 @app.route("/")
 def index():
@@ -108,9 +121,19 @@ def pickups():
     now_kst = datetime.now(KST)
     
     global _pickups_cache
+    
+    # 하루 최대 2번만 갱신 (0시~09:10 첫 접속 시 1회, 09:10 이후 첫 접속 시 1회)
     if _pickups_cache['html'] and _pickups_cache['timestamp']:
-        if (now_kst - _pickups_cache['timestamp']).total_seconds() < 600: # 10 minutes
-            return _pickups_cache['html']
+        cache_time = _pickups_cache['timestamp']
+        # 같은 날짜인 경우에만 캐시 유효성 검사
+        if cache_time.date() == now_kst.date():
+            threshold = now_kst.replace(hour=9, minute=10, second=0, microsecond=0)
+            if now_kst >= threshold and cache_time >= threshold:
+                # 9시 10분 이후이고, 캐시도 9시 10분 이후에 만들어졌다면 하루 종일 유지
+                return _pickups_cache['html']
+            elif now_kst < threshold:
+                # 9시 10분 이전 접속이면 오늘 만들어진 캐시 유지
+                return _pickups_cache['html']
             
     today_str = now_kst.strftime("%Y-%m-%d")
     tomorrow_str = (now_kst + timedelta(days=1)).strftime("%Y-%m-%d")

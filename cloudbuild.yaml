@@ -26,9 +26,7 @@ steps:
       - '--task-timeout'
       - '15m'
       - '--set-env-vars'
-      - 'PROJECT_ID=golf-ai-480805,CRAWL_START_DAY=0,CRAWL_END_DAY=1'
-      - '--set-secrets'
-      - 'TEESCAN_PROXY_URL=teescan-proxy-url:latest,GPANG_PROXY_WORKER=teescan-proxy-url:latest'
+      - 'PROJECT_ID=golf-ai-480805,CRAWL_START_DAY=0,CRAWL_END_DAY=1,TEESCAN_PROXY_URL=https://teescan-proxy.sksksk4302.workers.dev,GPANG_PROXY_WORKER=https://teescan-proxy.sksksk4302.workers.dev'
       - '--command'
       - 'python'
       - '--args'
@@ -56,6 +54,29 @@ steps:
       - 'python'
       - '--args'
       - 'archive_history.py'
+
+  # 5.5 Deploy Cloud Run Job (Kakao Alert)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'jobs'
+      - 'deploy'
+      - 'kakao-alert-job'
+      - '--image'
+      - 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/golf-repo/golf-app'
+      - '--region'
+      - 'asia-northeast3'
+      - '--tasks'
+      - '1'
+      - '--max-retries'
+      - '0'
+      - '--task-timeout'
+      - '5m'
+      - '--command'
+      - 'python'
+      - '--args'
+      - 'send_kakao_alert.py'
 
   # 6. Deploy to Cloud Run Service (Web App)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
