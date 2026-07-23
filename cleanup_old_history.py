@@ -47,13 +47,54 @@ def cleanup_old_data():
             batch.commit()
             batch = db.batch()
             count = 0
-            print(f"Deleted {deleted_count} docs...")
+            print(f"Deleted {deleted_count} price_history docs...")
             
     if count > 0:
         batch.commit()
-        print(f"Deleted {deleted_count} docs...")
         
-    print(f"Cleanup complete. Total documents deleted: {deleted_count}")
+    print(f"Cleanup finished. Total {deleted_count} price_history documents deleted.")
+
+    # 2. Cleanup access_logs (older than 7 days)
+    print(f"Deleting access_logs older than {cutoff_date}...")
+    access_docs = db.collection('access_logs').where('date', '<', cutoff_date).stream()
+    
+    batch = db.batch()
+    count = 0
+    deleted_access = 0
+    for doc in access_docs:
+        batch.delete(doc.reference)
+        count += 1
+        deleted_access += 1
+        if count >= 400:
+            batch.commit()
+            batch = db.batch()
+            count = 0
+            
+    if count > 0:
+        batch.commit()
+    print(f"Cleanup finished. Total {deleted_access} access_logs deleted.")
+
+    # 3. Cleanup crawl_stats (older than 7 days)
+    print(f"Deleting crawl_stats older than {cutoff_date}...")
+    crawl_docs = db.collection('crawl_stats').where('date', '<', cutoff_date).stream()
+    
+    batch = db.batch()
+    count = 0
+    deleted_crawl = 0
+    for doc in crawl_docs:
+        batch.delete(doc.reference)
+        count += 1
+        deleted_crawl += 1
+        if count >= 400:
+            batch.commit()
+            batch = db.batch()
+            count = 0
+            
+    if count > 0:
+        batch.commit()
+    print(f"Cleanup finished. Total {deleted_crawl} crawl_stats deleted.")
+        
+    print(f"Cleanup complete. Total documents deleted: {deleted_count + deleted_access + deleted_crawl}")
 
 if __name__ == "__main__":
     cleanup_old_data()
