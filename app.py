@@ -104,37 +104,18 @@ def index():
     proxy_url = get_proxy_worker_url()
     return render_template("index.html", proxy_url=proxy_url)
 
-_pickups_cache = {'html': None, 'timestamp': None}
+INTERNAL_CRON_TOKEN = "nawabari-sync-2026"
 
-@app.route("/pickups")
-def pickups():
-    try:
-        ip = request.headers.get("X-Forwarded-For", request.remote_addr)
-        if ip:
-            client_ip = ip.split(",")[0].strip()
-            log_access(client_ip, is_pickup=True)
-    except Exception as e:
-        pass
+@app.route("/api/internal/refresh_pickup")
+def refresh_pickup_internal():
+    token = request.args.get("token")
+    if token != INTERNAL_CRON_TOKEN:
+        return "Unauthorized", 401
 
     from datetime import timezone
     KST = timezone(timedelta(hours=9))
     now_kst = datetime.now(KST)
     
-    global _pickups_cache
-    
-    # 하루 최대 2번만 갱신 (0시~09:10 첫 접속 시 1회, 09:10 이후 첫 접속 시 1회)
-    if _pickups_cache['html'] and _pickups_cache['timestamp']:
-        cache_time = _pickups_cache['timestamp']
-        # 같은 날짜인 경우에만 캐시 유효성 검사
-        if cache_time.date() == now_kst.date():
-            threshold = now_kst.replace(hour=9, minute=10, second=0, microsecond=0)
-            if now_kst >= threshold and cache_time >= threshold:
-                # 9시 10분 이후이고, 캐시도 9시 10분 이후에 만들어졌다면 하루 종일 유지
-                return _pickups_cache['html']
-            elif now_kst < threshold:
-                # 9시 10분 이전 접속이면 오늘 만들어진 캐시 유지
-                return _pickups_cache['html']
-            
     today_str = now_kst.strftime("%Y-%m-%d")
     tomorrow_str = (now_kst + timedelta(days=1)).strftime("%Y-%m-%d")
     current_time_str = now_kst.strftime("%H:%M")
@@ -233,10 +214,30 @@ def pickups():
         groups_out.append({'title': title, 'items': items})
         
     rendered_html = render_template("pickups.html", groups=groups_out, has_data=has_data)
-    _pickups_cache['html'] = rendered_html
-    _pickups_cache['timestamp'] = now_kst
     
-    return rendered_html
+    # 캐시 DB에 저장
+    db.collection('system_cache').document('pickup_html').set({
+        'html': rendered_html,
+        'updated_at': now_kst
+    })
+    
+    return "OK", 200
+
+@app.route("/pickups")
+def pickups():
+    try:
+        ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+        if ip:
+            client_ip = ip.split(",")[0].strip()
+            log_access(client_ip, is_pickup=True)
+    except Exception as e:
+        pass
+
+    doc = db.collection('system_cache').document('pickup_html').get()
+    if doc.exists:
+        return doc.to_dict().get('html', "Cache generation error.")
+    else:
+        return "데이터 갱신 중입니다. 잠시 후 다시 시도해주세요.", 404
 
 @app.route("/api/clubs", methods=["GET"])
 def get_clubs():
