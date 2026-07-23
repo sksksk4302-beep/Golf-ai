@@ -27,93 +27,84 @@ def init_firestore():
         return firestore.Client(project=PROJECT_ID, credentials=credentials, database="teetime")
 
 def save_tee_times(db, tee_times, target_date, sources_with_data=None):
-    # 이번 업데이트의 고유 ID (예: 202602031950)
-    sync_id = datetime.datetime.now().strftime("%Y%m%d%H%M")
-    
-    # Determine which sources actually returned data
     if sources_with_data is None:
         sources_with_data = set(item.get('source', 'golfpang') for item in tee_times)
     
-    print(f"Starting sync for {target_date} with sync_id={sync_id}, active sources: {sources_with_data}")
+    print(f"Starting diff & sync for {target_date}, active sources: {sources_with_data}")
 
-    # 1. Upsert new data (Write all current data with new sync_id)
-    # This avoids reading all documents first.
+    # 1. Fetch existing data for the target_date to minimize writes
+    existing_docs = {}
+    docs = db.collection('tee_times').where('date', '==', target_date).stream()
+    for doc in docs:
+        data = doc.to_dict()
+        if data.get('source', 'golfpang') in sources_with_data:
+            existing_docs[doc.id] = data
+            
     batch = db.batch()
-    count = 0
-    ops_count = 0
+    upsert_count = 0
+    skip_count = 0
+    delete_count = 0
     
+    # 2. Process scraped data
     for item in tee_times:
         club_safe = item['golf'].replace(" ", "").replace("/", "_")
         doc_id = f"{item['date'].replace('-', '')}_{club_safe}_{item['time'].replace(':', '')}"
         doc_ref = db.collection('tee_times').document(doc_id)
         
+        new_price = item['price']
+        new_benefit = item.get('benefit', '')
+        
+        # Check if identical record already exists
+        if doc_id in existing_docs:
+            old_data = existing_docs[doc_id]
+            if old_data.get('price') == new_price and old_data.get('benefit', '') == new_benefit:
+                # No change needed, skip write to save cost
+                skip_count += 1
+                del existing_docs[doc_id]
+                continue
+            # Data changed, will upsert
+            del existing_docs[doc_id]
+            
+        # Needs upsert
         item_data = {
             "club_name": item['golf'],
             "date": item['date'],
             "time": item['time'],
             "hour": item['hour_num'],
-            "price": item['price'],
-            "benefit": item.get('benefit', ''),  # 티스캐너 benefit 필드
+            "price": new_price,
+            "benefit": new_benefit,
             "source": item.get('source', 'Golfpang'),
             "url": item.get('url', ''),
             "source_idx": item.get('source_idx', ''),
             "weekday": datetime.datetime.strptime(item['date'], "%Y-%m-%d").weekday(),
-            "sync_id": sync_id,  # Save current session ID
             "updated_at": firestore.SERVER_TIMESTAMP
         }
 
         batch.set(doc_ref, item_data, merge=True)
-        count += 1
-        ops_count += 1
+        upsert_count += 1
         
-        if count % 400 == 0:
+        if upsert_count % 400 == 0:
             batch.commit()
             batch = db.batch()
-            print(f"Processed {count} valid items (upserts)...")
             
-    if count % 400 != 0:
+    if upsert_count % 400 != 0:
         batch.commit()
-        
-    print(f"Upsert complete. Now clearing stale data for {target_date}...")
+        batch = db.batch()
 
-    # Only delete stale data for sources that actually returned results.
-    # This prevents wiping teescan data when teescan crawl fails/returns 0.
-    stale_docs = db.collection('tee_times') \
-        .where('date', '==', target_date) \
-        .stream()
-        
-    delete_batch = db.batch()
-    delete_count = 0
-    skip_count = 0
-    
-    for doc in stale_docs:
-        doc_data = doc.to_dict()
-        
-        # In-memory filter to avoid composite index requirement
-        if str(doc_data.get('sync_id', '999999999999')) >= sync_id:
-            continue
-            
-        doc_source = doc_data.get('source', 'golfpang')
-        
-        # Only delete if this source had data in current sync
-        if doc_source in sources_with_data:
-            delete_batch.delete(doc.reference)
-            delete_count += 1
-            ops_count += 1
-        else:
-            skip_count += 1
+    # 3. Any remaining documents in existing_docs were not in the new scraped data, so they are stale
+    for doc_id, old_data in existing_docs.items():
+        doc_ref = db.collection('tee_times').document(doc_id)
+        batch.delete(doc_ref)
+        delete_count += 1
         
         if delete_count > 0 and delete_count % 400 == 0:
-            delete_batch.commit()
-            delete_batch = db.batch()
-            print(f"Processed {delete_count} stale items (deletes)...")
+            batch.commit()
+            batch = db.batch()
             
     if delete_count % 400 != 0:
-        delete_batch.commit()
+        batch.commit()
 
-    if skip_count > 0:
-        print(f"⚠️ Preserved {skip_count} items from inactive sources (not in {sources_with_data})")
-    print(f"Sync complete for {target_date}. Total ops: {ops_count} (Upserts: {count}, Deletes: {delete_count}, Preserved: {skip_count}).")
+    print(f"Sync complete for {target_date}. Upserts: {upsert_count}, Deletes: {delete_count}, Skipped(Unchanged): {skip_count}")
 
 def cleanup_past_teetimes(db):
     """
