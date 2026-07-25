@@ -66,6 +66,11 @@
             {% endfor %}
         {% endif %}
 
+        {% if updated_at %}
+        <div style="text-align: center; color: #8c959f; font-size: 0.8rem; margin-top: 30px; margin-bottom: 20px;">
+            최신 업데이트: {{ updated_at }}
+        </div>
+        {% endif %}
     </div>
 </body>
 </html>
