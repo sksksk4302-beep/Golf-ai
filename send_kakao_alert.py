@@ -71,7 +71,7 @@ def format_price(price):
     except:
         return str(price)
 
-def get_lowest_prices(db):
+def get_lowest_prices(db, time_str_msg=""):
     from datetime import timezone, timedelta
     import datetime
     KST = timezone(timedelta(hours=9))
@@ -155,10 +155,10 @@ def get_lowest_prices(db):
     affordable_clubs = {c: info for c, info in club_mins.items() if info['price'] < 100000}
     
     if not affordable_clubs:
-        return f"🚀 [오늘의 구장별 10만원 미만 최저가 줍줍]\n조건에 맞는 10만원 미만 잔여 티타임이 없습니다.\n\n👉 상세보기: https://golf-ai-480805.web.app/pickups"
+        return f"🚀 [오늘의 구장별 10만원 미만 최저가 줍줍]{time_str_msg}\n조건에 맞는 10만원 미만 잔여 티타임이 없습니다.\n\n👉 상세보기: https://golf-ai-480805.web.app/pickups"
         
     msg_lines = [
-        f"🚀 [오늘의 구장별 10만원 미만 최저가 줍줍]",
+        f"🚀 [오늘의 구장별 10만원 미만 최저가 줍줍]{time_str_msg}",
         ""
     ]
     
@@ -208,16 +208,89 @@ def send_kakao_message(access_token, text):
             print(f"Failed to send KakaoTalk message: {response.status_code}")
         print(response.text)
 
+def is_crawler_completed(db, today_str):
+    from datetime import timezone, timedelta
+    import datetime
+    KST = timezone(timedelta(hours=9))
+    now_kst = datetime.datetime.now(KST)
+    target_time = now_kst.replace(hour=9, minute=0, second=0, microsecond=0)
+    
+    docs = db.collection('crawl_stats') \
+             .where('date', '==', today_str) \
+             .where('tier', '==', 'Hot-A') \
+             .where('status', '==', 'success') \
+             .where('completed_at', '>=', target_time) \
+             .limit(1) \
+             .stream()
+    return any(docs)
+
+def get_crawler_completed_time(db, today_str):
+    from datetime import timezone, timedelta
+    import datetime
+    KST = timezone(timedelta(hours=9))
+    now_kst = datetime.datetime.now(KST)
+    target_time = now_kst.replace(hour=9, minute=0, second=0, microsecond=0)
+    
+    docs = db.collection('crawl_stats') \
+             .where('date', '==', today_str) \
+             .where('tier', '==', 'Hot-A') \
+             .where('status', '==', 'success') \
+             .where('completed_at', '>=', target_time) \
+             .order_by('completed_at', direction=google_firestore.Query.DESCENDING) \
+             .limit(1) \
+             .stream()
+    for doc in docs:
+        data = doc.to_dict()
+        comp = data.get('completed_at')
+        if comp:
+            if hasattr(comp, 'astimezone'):
+                return comp.astimezone(KST)
+    return None
+
+def wait_for_crawler(db, today_str, timeout_minutes=20, check_interval_seconds=60):
+    import time
+    print(f"Checking if today's Hot-A crawler is completed for {today_str}...")
+    start_time = time.time()
+    while True:
+        if is_crawler_completed(db, today_str):
+            print("✅ Today's Hot-A crawler is completed!")
+            return True
+        
+        elapsed_minutes = (time.time() - start_time) / 60
+        if elapsed_minutes >= timeout_minutes:
+            print(f"❌ Timeout ({timeout_minutes} mins) reached. Hot-A crawler not completed.")
+            return False
+            
+        print(f"⏳ Crawler not completed yet. Waiting {check_interval_seconds} seconds... (Elapsed: {elapsed_minutes:.1f} mins)")
+        time.sleep(check_interval_seconds)
+
 def main():
     db = init_firestore()
     if not db:
+        return
+        
+    from datetime import timezone, timedelta
+    import datetime
+    KST = timezone(timedelta(hours=9))
+    now_kst = datetime.datetime.now(KST)
+    today_str = now_kst.strftime("%Y-%m-%d")
+    
+    # Wait for the crawler to complete before proceeding
+    if not wait_for_crawler(db, today_str):
+        print("❌ Cancelling Kakao alert sending because the crawler did not complete successfully in time.")
         return
         
     access_token = refresh_kakao_token(db)
     if not access_token:
         return
         
-    message_text = get_lowest_prices(db)
+    comp_time = get_crawler_completed_time(db, today_str)
+    time_str_msg = ""
+    if comp_time:
+        # Format: (데이터 기준: 07/25 09:14)
+        time_str_msg = f"\n(데이터 기준: {comp_time.strftime('%m/%d %H:%M')})"
+        
+    message_text = get_lowest_prices(db, time_str_msg)
     if not message_text:
         return
         
