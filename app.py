@@ -213,7 +213,7 @@ def refresh_pickup_internal():
             })
         groups_out.append({'title': title, 'items': items})
         
-    rendered_html = render_template("pickups.html", groups=groups_out, has_data=has_data)
+    rendered_html = render_template("pickups.html", groups=groups_out, has_data=has_data, last_updated=now_kst.strftime("%Y-%m-%d %H:%M"))
     
     # 캐시 DB에 저장
     db.collection('system_cache').document('pickup_html').set({

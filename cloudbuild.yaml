@@ -25,6 +25,7 @@ steps:
       - '0'
       - '--task-timeout'
       - '15m'
+      - '--clear-secrets'
       - '--set-env-vars'
       - 'PROJECT_ID=golf-ai-480805,CRAWL_START_DAY=0,CRAWL_END_DAY=1,TEESCAN_PROXY_URL=https://teescan-proxy.sksksk4302.workers.dev,GPANG_PROXY_WORKER=https://teescan-proxy.sksksk4302.workers.dev'
       - '--command'
@@ -50,6 +51,7 @@ steps:
       - '0'
       - '--task-timeout'
       - '30m'
+      - '--clear-secrets'
       - '--command'
       - 'python'
       - '--args'
@@ -73,6 +75,7 @@ steps:
       - '0'
       - '--task-timeout'
       - '5m'
+      - '--clear-secrets'
       - '--command'
       - 'python'
       - '--args'
@@ -94,6 +97,7 @@ steps:
       - '--allow-unauthenticated'
       - '--port'
       - '5000'
+      - '--clear-secrets'
 
   # 7. Deploy to Firebase Hosting
   - name: 'node:20'

@@ -209,22 +209,33 @@ def send_kakao_message(access_token, text):
         print(response.text)
 
 def main():
+    import sys
     db = init_firestore()
     if not db:
-        return
+        print("❌ CRITICAL: Failed to initialize Firestore.")
+        sys.exit(1)
         
     access_token = refresh_kakao_token(db)
     if not access_token:
-        return
+        print("❌ CRITICAL: Failed to refresh Kakao access token.")
+        sys.exit(1)
         
     message_text = get_lowest_prices(db)
     if not message_text:
-        return
+        print("❌ CRITICAL: No message text generated (no alert clubs found).")
+        sys.exit(1)
         
     try:
         print("Sending message:\n" + message_text)
     except UnicodeEncodeError:
         print("Sending message: (Contains emoji, skipped printing to Windows console)")
+        
+    print("Refreshing web pickup cache...")
+    try:
+        requests.get("https://nawabari.golf/api/internal/refresh_pickup?token=nawabari-sync-2026", timeout=15)
+        print("✅ Web pickup cache refreshed.")
+    except Exception as e:
+        print(f"Warning: Failed to refresh pickup cache: {e}")
         
     send_kakao_message(access_token, message_text)
 
