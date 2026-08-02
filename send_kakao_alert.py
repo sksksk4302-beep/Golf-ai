@@ -230,12 +230,7 @@ def main():
     except UnicodeEncodeError:
         print("Sending message: (Contains emoji, skipped printing to Windows console)")
         
-    print("Refreshing web pickup cache...")
-    try:
-        requests.get("https://nawabari.golf/api/internal/refresh_pickup?token=nawabari-sync-2026", timeout=15)
-        print("✅ Web pickup cache refreshed.")
-    except Exception as e:
-        print(f"Warning: Failed to refresh pickup cache: {e}")
+    print("Web pickup HTML is now generated during export_static_data.py execution.")
         
     send_kakao_message(access_token, message_text)
 

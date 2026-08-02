@@ -29,6 +29,9 @@
             .club-price { font-size: 0.95rem; }
             .club-source { font-size: 0.85rem; }
         }
+        .diff-badge { font-size: 0.7rem; margin-left: 2px; font-weight: 500; }
+        .diff-badge.up { color: #E57373; }
+        .diff-badge.down { color: #64B5F6; }
     </style>
 </head>
 <body>
@@ -56,7 +59,14 @@
                                 {{ item.time }}
                             </div>
                             <div class="club-name">{{ item.club }}</div>
-                            <div class="club-price">{{ item.formatted_price }}원</div>
+                            <div class="club-price">
+                                {{ item.formatted_price }}원
+                                {% if item.diff and item.diff > 0 %}
+                                    <span class="diff-badge up">▲{{ "{:,}".format(item.diff) }}</span>
+                                {% elif item.diff and item.diff < 0 %}
+                                    <span class="diff-badge down">▼{{ "{:,}".format(item.diff|abs) }}</span>
+                                {% endif %}
+                            </div>
                             <div class="club-source">{{ item.source_kr }}</div>
                         </li>
                         {% endfor %}

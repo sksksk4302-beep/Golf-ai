@@ -15,5 +15,11 @@
         }
       }
     ]
-  }
+  },
+  "firestore": [
+    {
+      "database": "teetime",
+      "rules": "firestore.rules"
+    }
+  ]
 }

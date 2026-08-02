@@ -192,6 +192,33 @@ def refresh_pickup_internal():
         ('tomorrow_late1', "내일 늦은 1부 줍줍 (8-10)")
     ]
     
+    selected_clubs = set()
+    for key, title in titles:
+        club_mins = group_data[key]
+        if club_mins:
+            selected_clubs.update(club_mins.keys())
+
+    history_map = {}
+    if selected_clubs:
+        history_date_obj = now_kst - timedelta(days=7)
+        history_date_str = history_date_obj.strftime("%Y-%m-%d")
+        clubs_list = list(selected_clubs)
+        
+        # Firestore 'in' query supports up to 30 items, so chunk them
+        CHUNKS_SIZE = 30
+        club_chunks = [clubs_list[i:i + CHUNKS_SIZE] for i in range(0, len(clubs_list), CHUNKS_SIZE)]
+        
+        for chunk in club_chunks:
+            chunk_tuple = tuple(chunk)
+            h_data_list = _get_history(history_date_str, chunk_tuple)
+            for h_data in h_data_list:
+                h_club = h_data.get('club_name')
+                h_hour = h_data.get('hour')
+                h_price = h_data.get('min_price')
+                if h_club and h_hour is not None:
+                    history_map[(h_club, str(h_hour))] = h_price
+                    history_map[(h_club, int(h_hour))] = h_price
+
     groups_out = []
     has_data = False
     
@@ -204,12 +231,19 @@ def refresh_pickup_internal():
         for club in sorted(club_mins.keys(), key=lambda c: club_mins[c]['price']):
             info = club_mins[club]
             source_kr = "골팡" if info['source'] == 'golfpang' else ("티스캐너" if info['source'] == 'teescan' else info['source'])
+            
+            # diff 계산
+            hour_str = str(int(info['time'].split(':')[0]))
+            hist_price = history_map.get((club, hour_str))
+            diff = (info['price'] - hist_price) if hist_price else 0
+            
             items.append({
                 'club': club,
                 'time': info['time'],
                 'is_tomorrow': info['is_tomorrow'],
                 'formatted_price': format_price(info['price']),
-                'source_kr': source_kr
+                'source_kr': source_kr,
+                'diff': diff
             })
         groups_out.append({'title': title, 'items': items})
         
@@ -238,6 +272,15 @@ def pickups():
         return doc.to_dict().get('html', "Cache generation error.")
     else:
         return "데이터 갱신 중입니다. 잠시 후 다시 시도해주세요.", 404
+
+@app.route("/api/static_data")
+def get_static_data():
+    """정적 데이터 캐시 반환 — 프론트엔드가 초기 로딩 시 1회만 호출"""
+    doc = db.collection('system_cache').document('static_data').get()
+    if doc.exists:
+        return jsonify(doc.to_dict())
+    else:
+        return jsonify({"error": "Data not ready. Run export_static_data.py first."}), 404
 
 @app.route("/api/clubs", methods=["GET"])
 def get_clubs():
@@ -603,12 +646,20 @@ def admin_stats():
                     last_active_str = kst_time.strftime('%Y-%m-%d %H:%M:%S')
                 else:
                     last_active_str = str(last_active)
+            
+            uid_str = data.get('uid') or data.get('ip') or 'Unknown'
+            # 익명 로그인 UID는 보통 28자입니다. 앞 6자리만 보여줘도 유저 구분에 충분합니다.
+            short_uid = uid_str[:6] + ".." if len(uid_str) > 15 else uid_str
+            
+            os_info = data.get('os', '')
+            if os_info:
+                short_uid += f" <span style='color:#6e7781; font-size:0.8rem;'>({os_info})</span>"
                     
             rows_html += f"""
             <tr style="border-bottom: 1px solid #e1e4e8;">
                 <td style="padding: 14px 16px; font-weight: bold; color: #24292f;">{data.get('date')}</td>
-                <td style="padding: 14px 16px; font-family: monospace; color: #0969da; font-weight: 600;">{data.get('ip')}</td>
-                <td style="padding: 14px 16px; font-weight: bold; text-align: center; color: #1f2328;">{data.get('hits', 0):,} 회</td>
+                <td style="padding: 14px 16px; font-family: monospace; color: #0969da; font-weight: 600;">{short_uid}</td>
+                <td style="padding: 14px 16px; font-weight: bold; text-align: center; color: #1f2328;">-</td>
                 <td style="padding: 14px 16px; font-weight: bold; text-align: center; color: #cf222e;">{data.get('pickup_hits', 0):,} 회</td>
                 <td style="padding: 14px 16px; color: #57606a; font-size: 0.9rem;">{last_active_str}</td>
             </tr>

@@ -283,6 +283,15 @@ def main():
         print("=====================================================")
         import sys
         sys.exit(1)
+        
+    print("\n=====================================================")
+    print("🚀 [Step 2] 정적 데이터(Cloud Storage) Export 시작...")
+    print("=====================================================")
+    import export_static_data
+    try:
+        export_static_data.main()
+    except Exception as e:
+        print(f"❌ 정적 데이터 Export 중 오류 발생: {e}")
 
 if __name__ == "__main__":
     main()
