@@ -533,14 +533,7 @@
                 </div>
                 <div class="club-grid" id="clubList"></div>
                 
-                <!-- Proxy Settings (Developer option) -->
-                <div style="margin-top: 25px; border-top: 1px dashed #e0e0e0; padding-top: 15px;">
-                    <h3 style="font-size: 0.95rem; margin: 0 0 8px 0; color: #555; display: flex; align-items: center; gap: 6px;">
-                        <i class="fa-solid fa-network-wired" style="color: var(--primary);"></i> 프록시 워커 주소 설정
-                    </h3>
-                    <input type="text" id="proxyWorkerInput" placeholder="https://teescan-proxy.xxxxx.workers.dev" style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 10px; font-size: 0.85rem; box-sizing: border-box;" />
-                    <p style="font-size: 0.75rem; color: #888; margin: 6px 0 0 0; line-height: 1.3;">골팡 예약 상세페이지 우회 조회를 위해 등록된 Cloudflare Worker 주소입니다. (비어 있는 경우 서버를 거쳐 조회합니다.)</p>
-                </div>
+
             </div>
             <div class="modal-footer">
                 <button class="action-btn" onclick="saveSettings()">저장하고 시작하기</button>
@@ -648,7 +641,7 @@
 
     <div class="loading" id="loading">
         <i class="fa-solid fa-spinner fa-spin fa-2x"></i>
-        <p>최저가를 찾고 있습니다...</p>
+        <p>데이터를 가져오고 있습니다...</p>
     </div>
 
     <div class="card-list" id="cardList">
@@ -668,6 +661,43 @@
         let weatherCache = {}; // {clubName: {date: weatherData}}
         let availableDates = [];
 
+        // --- Static Data (정적 구조) ---
+        let staticData = null; // /api/static_data에서 1회 로드
+        let allTeeTimes = []; // 전체 티타임 데이터
+        let allDailyStats = []; // 전체 히스토리 데이터
+        let historyMap = {}; // (club_name, hour, historyDate) -> min_price
+
+        // 필터 상태 저장/복원 함수
+        function saveFilterState() {
+            sessionStorage.setItem('selectedDates', JSON.stringify(selectedDates));
+            sessionStorage.setItem('selectedTimes', JSON.stringify([...selectedTimes]));
+        }
+
+        function restoreFilterState() {
+            const savedDates = sessionStorage.getItem('selectedDates');
+            const savedTimes = sessionStorage.getItem('selectedTimes');
+            if (savedDates) {
+                try { selectedDates = JSON.parse(savedDates); } catch(e) {}
+            }
+            if (savedTimes) {
+                try { selectedTimes = new Set(JSON.parse(savedTimes)); } catch(e) {}
+            }
+        }
+
+        window.addEventListener('pageshow', (event) => {
+            if (event.persisted) {
+                restoreFilterState();
+                updateDateBtn();
+                const btnText = selectedTimes.size > 0 ? `${selectedTimes.size}개 시간대` : "전체 시간";
+                document.getElementById('timeBtnText').innerText = btnText;
+                renderTimeGrid();
+            }
+        });
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') saveFilterState();
+        });
+
         // --- Init ---
         document.addEventListener('DOMContentLoaded', async () => {
             if ('serviceWorker' in navigator) navigator.serviceWorker.register('/static/service-worker.js');
@@ -683,7 +713,11 @@
             }
 
             renderTimeGrid(); // Render time chips (Mobile & Desktop)
-            await Promise.all([fetchClubs(), fetchAvailableDates()]);
+            
+            // 정적 데이터 1회 로드 → clubs, available_dates, tee_times, weather 모두 포함
+            await fetchStaticData();
+            fetchClubs();
+            fetchAvailableDates();
 
             flatpickr("#datePickerBtn", {
                 mode: "multiple",
@@ -694,6 +728,7 @@
                 locale: "ko",
                 onChange: (dates, dateStr) => {
                     selectedDates = dateStr.split(', ').filter(d => d);
+                    saveFilterState();
                     updateDateBtn();
                 }
             });
@@ -702,9 +737,15 @@
             if (saved) {
                 selectedClubs = new Set(JSON.parse(saved));
                 if (availableDates.length > 0) {
-                    // availableDates already excludes today if no future tee times exist
-                    // Just pick the first available date (today with future tee times, or next day)
-                    selectedDates = [availableDates[0]];
+                    restoreFilterState();
+                    // 저장된 날짜가 현재 유효한 날짜인지 검증
+                    selectedDates = selectedDates.filter(d => availableDates.includes(d));
+                    if (selectedDates.length === 0) {
+                        selectedDates = [availableDates[0]];
+                    }
+                    const btnText = selectedTimes.size > 0 ? `${selectedTimes.size}개 시간대` : "전체 시간";
+                    document.getElementById('timeBtnText').innerText = btnText;
+                    
                     updateDateBtn();
                     loadData();
                 }
@@ -720,11 +761,87 @@
             document.getElementById('dateBtnText').innerText = text;
         }
 
-        // --- API ---
-        async function fetchClubs() {
+        // --- API (정적 데이터 기반) ---
+        async function fetchStaticData() {
+            document.getElementById('loading').style.display = 'block';
+            try {
+                // Cloud Storage 버킷에서 정적 JSON 파일 로드 (가장 빠름, CDN 캐시)
+                const res = await fetch('https://storage.googleapis.com/golf-ai-480805.firebasestorage.app/static_data.json?t=' + new Date().getTime());
+                if (!res.ok) throw new Error('Static data not ready');
+                staticData = await res.json();
+                
+                // 전역 변수에 데이터 분배
+                allTeeTimes = staticData.tee_times || [];
+                allDailyStats = staticData.daily_stats || [];
+                
+                // 히스토리 맵 빌드 (diff 계산용)
+                historyMap = {};
+                allDailyStats.forEach(ds => {
+                    const key1 = `${ds.club_name}_${ds.hour}_${ds.date}`;
+                    const key2 = `${ds.club_name}_${String(ds.hour)}_${ds.date}`;
+                    historyMap[key1] = ds.min_price;
+                    historyMap[key2] = ds.min_price;
+                });
+                
+                // 날씨 캐시 빌드
+                if (staticData.weather) {
+                    Object.keys(staticData.weather).forEach(key => {
+                        // key: "YYYYMMDD_clubname"
+                        const idx = key.indexOf('_');
+                        if (idx < 0) return;
+                        const dateRaw = key.substring(0, idx);
+                        const clubName = key.substring(idx + 1);
+                        const dateFormatted = `${dateRaw.substring(0,4)}-${dateRaw.substring(4,6)}-${dateRaw.substring(6,8)}`;
+                        // MM/DD 형식도 대응
+                        const dateMmDd = `${dateRaw.substring(4,6)}/${dateRaw.substring(6,8)}`;
+                        if (!weatherCache[clubName]) weatherCache[clubName] = {};
+                        weatherCache[clubName][dateFormatted] = staticData.weather[key];
+                        weatherCache[clubName][dateMmDd] = staticData.weather[key];
+                    });
+                }
+                
+                console.log(`✅ 정적 데이터 로드 완료: ${allTeeTimes.length}개 티타임, ${allDailyStats.length}개 히스토리`);
+            } catch (e) {
+                console.error('❌ 정적 데이터 로드 실패, 폴백 사용:', e);
+                // 폴백: 기존 API 호출
+                await fetchClubsFallback();
+                await fetchAvailableDatesFallback();
+                return;
+            } finally {
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        function fetchClubs() {
+            // 정적 데이터에서 clubs 읽기
+            if (staticData && staticData.clubs) {
+                allClubs = staticData.clubs;
+            }
+            renderSettings();
+        }
+
+        function fetchAvailableDates() {
+            // 정적 데이터에서 available_dates 읽기
+            if (staticData && staticData.available_dates) {
+                // 오늘 날짜에 대해 미래 티타임만 있는지 확인
+                const todayStr = new Date().toISOString().split('T')[0];
+                const now = new Date();
+                const currentTimeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+                
+                availableDates = staticData.available_dates.filter(d => {
+                    if (d === todayStr) {
+                        // 오늘이면 미래 티타임이 있는지 확인
+                        return allTeeTimes.some(tt => tt.date === d && tt.time > currentTimeStr);
+                    }
+                    return true;
+                });
+            }
+        }
+
+        // 폴백 함수 (정적 데이터 로드 실패 시)
+        async function fetchClubsFallback() {
             const res = await fetch('/api/clubs');
             let rawClubs = await res.json();
-            
             let publicClubs = [];
             Object.keys(rawClubs).forEach(region => {
                 let filtered = [];
@@ -748,7 +865,7 @@
             renderSettings();
         }
 
-        async function fetchAvailableDates() {
+        async function fetchAvailableDatesFallback() {
             try {
                 const res = await fetch('/api/available_dates');
                 availableDates = await res.json();
@@ -795,29 +912,89 @@
             document.getElementById('cardList').innerHTML = '';
 
             try {
-                // For today's date, pass current time so server can filter past tee times
-                const todayStr = new Date().toISOString().split('T')[0];
-                const now = new Date();
-                const minTime = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+                let data;
 
-                const res = await fetch('/api/prices', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        dates: selectedDates,
-                        times: Array.from(selectedTimes),
-                        clubs: Array.from(selectedClubs),
-                        today: todayStr,
-                        min_time: minTime  // Only applied to today's date
-                    })
-                });
-                const data = await res.json();
+                if (staticData && allTeeTimes.length > 0) {
+                    // === 정적 데이터 모드: 클라이언트 사이드 필터링 ===
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    const now = new Date();
+                    const minTime = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+                    const clubsSet = selectedClubs;
+                    const timesArr = Array.from(selectedTimes);
+                    const normalizedTimes = timesArr.map(t => String(parseInt(t)));
 
-                // Fetch weather data for all clubs/dates
-                await fetchWeatherData(Array.from(selectedClubs), selectedDates);
+                    data = [];
+                    for (const item of allTeeTimes) {
+                        // 날짜 필터
+                        if (!selectedDates.includes(item.date)) continue;
+                        // 구장 필터
+                        if (!clubsSet.has(item.club_name)) continue;
+                        // 오늘 날짜: 지나간 시간 필터
+                        if (item.date === todayStr && item.time <= minTime) continue;
+                        // 시간대 필터
+                        if (timesArr.length > 0) {
+                            const itemHourNorm = String(parseInt(item.hour));
+                            if (!normalizedTimes.includes(itemHourNorm)) continue;
+                        }
+
+                        // diff 계산 (7일 전 히스토리)
+                        let diff = 0;
+                        try {
+                            // 타임존 문제 해결을 위해 수동으로 파싱
+                            const parts = item.date.split('-');
+                            const dateObj = new Date(parts[0], parts[1]-1, parts[2]);
+                            dateObj.setDate(dateObj.getDate() - 7);
+                            const y = dateObj.getFullYear();
+                            const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+                            const d = String(dateObj.getDate()).padStart(2, '0');
+                            const histDate = `${y}-${m}-${d}`;
+                            
+                            const hKey = `${item.club_name}_${item.hour}_${histDate}`;
+                            const histPrice = historyMap[hKey];
+                            if (histPrice) {
+                                diff = item.price - histPrice;
+                            }
+                        } catch(e) {}
+
+                        data.push({
+                            club_name: item.club_name,
+                            date: item.date,
+                            time: item.time,
+                            price: item.price,
+                            diff: diff,
+                            source: item.source || 'Unknown',
+                            benefit: item.benefit || '',
+                            url: item.url || '',
+                            source_idx: item.source_idx || '',
+                            history_price: null
+                        });
+                    }
+                    // 가격순 정렬
+                    data.sort((a, b) => a.price - b.price);
+
+                } else {
+                    // === 폴백 모드: 기존 서버 API 호출 ===
+                    const todayStr = new Date().toISOString().split('T')[0];
+                    const now = new Date();
+                    const minTime = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+                    const res = await fetch('/api/prices', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            dates: selectedDates,
+                            times: Array.from(selectedTimes),
+                            clubs: Array.from(selectedClubs),
+                            today: todayStr,
+                            min_time: minTime
+                        })
+                    });
+                    data = await res.json();
+                }
 
                 renderCards(data);
             } catch (e) {
+                console.error('loadData error:', e);
                 alert("데이터 로드 실패");
             } finally {
                 document.getElementById('loading').style.display = 'none';
@@ -826,11 +1003,7 @@
 
         // --- UI Rendering ---
         function renderSettings() {
-            // Load proxy setting
-            const proxyInput = document.getElementById('proxyWorkerInput');
-            if (proxyInput) {
-                proxyInput.value = localStorage.getItem('gpang_proxy_worker') || '';
-            }
+
 
             const tabs = document.getElementById('regionTabs');
             tabs.innerHTML = '';
@@ -896,6 +1069,7 @@
                 chip.onclick = () => {
                     if (selectedTimes.has(hour)) selectedTimes.delete(hour);
                     else selectedTimes.add(hour);
+                    saveFilterState();
                     renderTimeGrid(); // Re-render both to sync
                 };
                 container.appendChild(chip);
@@ -1101,11 +1275,7 @@
         function saveSettings() {
             localStorage.setItem('favoriteClubs', JSON.stringify(Array.from(selectedClubs)));
             
-            // Save proxy worker URL
-            const proxyInput = document.getElementById('proxyWorkerInput');
-            if (proxyInput) {
-                localStorage.setItem('gpang_proxy_worker', proxyInput.value.trim());
-            }
+
 
             // Auto-select date if none selected
             if (selectedDates.length === 0 && availableDates.length > 0) {
@@ -1123,6 +1293,7 @@
         function saveTimeSettings() {
             const btnText = selectedTimes.size > 0 ? `${selectedTimes.size}개 시간대` : "전체 시간";
             document.getElementById('timeBtnText').innerText = btnText;
+            saveFilterState();
             closeTimeSettings();
             loadData(); // Auto reload? Or wait for search btn? User prefers explicit search usually.
             // Let's NOT auto reload to match Date Picker behavior.
@@ -1228,6 +1399,8 @@
         }
 
         function handleBookingClick(clubName, date, time, price, source, sourceIdx, url) {
+            if (window.logPickupClick) window.logPickupClick();
+            
             if (source.toLowerCase().includes('teescan')) {
                 handleTeescanClick(null, url);
             } else if (source.toLowerCase().includes('golfpang')) {
@@ -1375,6 +1548,81 @@
         }
     </style>
     -->
+    <!-- Firebase SDK (익명 로그인 및 Firestore 로깅용) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+        import { getFirestore, doc, setDoc, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDYlwChfJwltwtmu6MduHzbRF73-K3S3HY",
+            authDomain: "golf-ai-480805.firebaseapp.com",
+            projectId: "golf-ai-480805",
+            storageBucket: "golf-ai-480805.firebasestorage.app",
+            messagingSenderId: "349807690414",
+            appId: "1:349807690414:web:3383375ce505c1e092633f",
+            measurementId: "G-VJLXFM1X5Q"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        const auth = getAuth(app);
+        const db = getFirestore(app, "teetime");
+
+        function getKSTDateString() {
+            const now = new Date();
+            const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+            const kst = new Date(utc + (9 * 3600000));
+            return kst.toISOString().split('T')[0];
+        }
+
+        // 1. 익명 로그인 실행
+        signInAnonymously(auth).catch((error) => {
+            console.error("Anonymous auth failed:", error);
+        });
+
+        // 2. 로그인 상태가 확인되면 Firestore에 접속 로그 남기기
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                const uid = user.uid;
+                window.currentUserUid = uid;
+                
+                const dateStr = getKSTDateString();
+                const docId = `${dateStr}_${uid}`;
+                
+                let os = "Unknown";
+                const ua = navigator.userAgent;
+                if (ua.indexOf("Win") !== -1) os = "Windows";
+                else if (ua.indexOf("Mac") !== -1 && !/iPhone|iPad|iPod/i.test(ua)) os = "MacOS";
+                else if (ua.indexOf("Linux") !== -1 && !/Android/i.test(ua)) os = "Linux";
+                else if (/Android/i.test(ua)) os = "Android";
+                else if (/iPhone|iPad|iPod/i.test(ua)) os = "iOS";
+                
+                const logRef = doc(db, 'access_logs', docId);
+                setDoc(logRef, {
+                    date: dateStr,
+                    uid: uid,
+                    os: os,
+                    userAgent: ua,
+                    last_active: serverTimestamp()
+                }, { merge: true }).catch(err => console.error("Log error", err));
+            }
+        });
+        
+        // 픽업(예약) 클릭 시 로그 업데이트용 전역 함수
+        window.logPickupClick = function() {
+            if (!window.currentUserUid) return;
+            const uid = window.currentUserUid;
+            const dateStr = getKSTDateString();
+            const docId = `${dateStr}_${uid}`;
+            
+            const logRef = doc(db, 'access_logs', docId);
+            setDoc(logRef, {
+                pickup_hits: increment(1),
+                last_active: serverTimestamp()
+            }, { merge: true }).catch(err => console.error("Pickup log error", err));
+        };
+    </script>
 </body>
 
 </html>
