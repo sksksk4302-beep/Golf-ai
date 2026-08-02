@@ -273,6 +273,24 @@ def main():
     except Exception as e:
         print(f"Failed to record crawl statistics in Firestore: {e}")
 
+    # Trigger pickup cache refresh after Hot crawl (D+0) completes
+    # This ensures the pickup page always reflects the latest crawled data,
+    # eliminating the race condition with the cron-based refresh_pickup.yml
+    if start_day_env == "0":
+        try:
+            import requests as req
+            refresh_url = "https://golf-ai-480805.web.app/api/internal/refresh_pickup?token=nawabari-sync-2026"
+            print("\n=====================================================")
+            print("Triggering pickup cache refresh after Hot crawl...")
+            print("=====================================================")
+            resp = req.get(refresh_url, timeout=30)
+            if resp.status_code == 200:
+                print("✅ Pickup cache refreshed successfully!")
+            else:
+                print(f"⚠️ Pickup cache refresh returned status {resp.status_code}")
+        except Exception as e:
+            print(f"⚠️ Pickup cache refresh failed (non-fatal): {e}")
+
     # If either source returned 0 results, fail the Action to trigger GitHub notification
     if total_gp_items == 0 or total_ts_items == 0:
         print("\n=====================================================")
