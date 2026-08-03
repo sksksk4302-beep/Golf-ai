@@ -306,10 +306,39 @@ def main():
     print("🚀 [Step 2] 정적 데이터(Cloud Storage) Export 시작...")
     print("=====================================================")
     import export_static_data
+    export_success = True
     try:
         export_static_data.main()
+        export_success = True
     except Exception as e:
         print(f"❌ 정적 데이터 Export 중 오류 발생: {e}")
+        export_success = False
+
+
+    # ---------------------------------------------------------
+    # [Step 3] Send Kakao Alert (System Status Report)
+    # ---------------------------------------------------------
+    print("\n=====================================================")
+    print("🚀 [Step 3] 시스템 갱신 상태 카카오톡 보고 발송...")
+    print("=====================================================")
+    try:
+        from send_kakao_alert import refresh_kakao_token, send_kakao_message
+        access_token = refresh_kakao_token(db)
+        if access_token:
+            msg = (
+                f"[시스템 갱신 보고]\n"
+                f"⛳ 수집 대상: {crawl_tier} (D+{start_day_env}~D+{end_day})\n"
+                f"✅ 크롤링: 정상 (골팡 {total_gp_items}건, 티스캐너 {total_ts_items}건)\n"
+            )
+            if export_success:
+                msg += f"✅ 정적 파일 생성 및 업로드: 정상"
+            else:
+                msg += f"❌ 정적 파일 생성 및 업로드: 실패"
+            send_kakao_message(access_token, msg)
+        else:
+            print("⚠️ Kakao token refresh failed. Skipping alert.")
+    except Exception as e:
+        print(f"⚠️ 카카오톡 발송 중 오류 발생: {e}")
 
 if __name__ == "__main__":
     main()
