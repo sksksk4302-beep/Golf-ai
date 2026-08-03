@@ -105,25 +105,25 @@ def export_data(db=None):
             except:
                 price = 0
                 
-            all_tee_times.append({
-                "club_name": data.get("club_name", ""),
-                "date": data.get("date", ""),
-                "time": data.get("time", ""),
-                "hour": data.get("hour", 0),
-                "price": price,
-                "source": data.get("source", ""),
-                "benefit": data.get("benefit", ""),
-                "url": data.get("url", ""),
-                "source_idx": data.get("source_idx", ""),
-            })
+            all_tee_times.append([
+                data.get("club_name", ""),
+                data.get("date", ""),
+                data.get("time", ""),
+                data.get("hour", 0),
+                price,
+                data.get("source", ""),
+                data.get("benefit", ""),
+                data.get("url", ""),
+                data.get("source_idx", "")
+            ])
     
     print(f"    → {len(all_tee_times)}개 티타임")
     
     # available_dates 계산 (데이터가 존재하는 날짜)
     dates_with_data = set()
     for tt in all_tee_times:
-        if tt["date"]:
-            dates_with_data.add(tt["date"])
+        if tt[1]: # date is index 1
+            dates_with_data.add(tt[1])
     available_dates = sorted(list(dates_with_data))
     
     # =========================================
@@ -152,12 +152,12 @@ def export_data(db=None):
             except:
                 min_price = 0
                 
-            all_daily_stats.append({
-                "club_name": data.get("club_name", ""),
-                "date": data.get("date", ""),
-                "hour": data.get("hour", 0),
-                "min_price": min_price,
-            })
+            all_daily_stats.append([
+                data.get("club_name", ""),
+                data.get("date", ""),
+                data.get("hour", 0),
+                min_price
+            ])
     
     print(f"    → {len(all_daily_stats)}개 히스토리 레코드")
     
@@ -166,7 +166,7 @@ def export_data(db=None):
     # =========================================
     print("  [4/5] weather_forecast 읽기...")
     # 구장별, 날짜별 날씨 문서 배치 조회
-    club_names = set(tt["club_name"] for tt in all_tee_times)
+    club_names = set(tt[0] for tt in all_tee_times) # club_name is index 0
     weather_doc_refs = []
     weather_doc_keys = []
     for d_str in sorted(dates_with_data):
@@ -201,9 +201,26 @@ def export_data(db=None):
     # =========================================
     print("  [5/5] JSON 빌드 및 Firestore 저장...")
     
+    # 5-1. 날짜별 티타임 분할
+    tee_times_by_date = {}
+    for tt in all_tee_times:
+        date_str = tt[1] # date is index 1
+        if date_str not in tee_times_by_date:
+            tee_times_by_date[date_str] = []
+        tee_times_by_date[date_str].append(tt)
+    
+    # 5-2. 오늘/내일 데이터 식별
+    today_str = now_kst.strftime("%Y-%m-%d")
+    tomorrow_str = (now_kst + timedelta(days=1)).strftime("%Y-%m-%d")
+    initial_tee_times = []
+    if today_str in tee_times_by_date:
+        initial_tee_times.extend(tee_times_by_date[today_str])
+    if tomorrow_str in tee_times_by_date:
+        initial_tee_times.extend(tee_times_by_date[tomorrow_str])
+    
     static_data = {
         "clubs": dict(grouped_clubs),
-        "tee_times": all_tee_times,
+        "tee_times": initial_tee_times, # 오늘/내일 데이터만 기본 포함
         "daily_stats": all_daily_stats,
         "weather": weather_data,
         "available_dates": available_dates,
@@ -214,7 +231,7 @@ def export_data(db=None):
     
     # Cloud Storage에 업로드 (Firebase Hosting/CDN 캐싱용)
     bucket_name = "golf-ai-480805.firebasestorage.app"
-    print(f"    → Cloud Storage 버킷({bucket_name})에 업로드 시도...")
+    print(f"    → Cloud Storage 버킷({bucket_name})에 메타데이터 업로드 시도...")
     
     try:
         if os.path.exists(CRED_PATH):
@@ -239,8 +256,22 @@ def export_data(db=None):
         blob.cache_control = "public, max-age=60"
         blob.patch()
         blob.make_public()
-        
         print(f"    → gs://{bucket_name}/static_data.json 업로드 및 공개 완료")
+        
+        # 5-3. 날짜별 티타임 파일 업로드
+        print("    → 날짜별 티타임 분할 파일 업로드 중...")
+        for date_str, times in tee_times_by_date.items():
+            if date_str == today_str or date_str == tomorrow_str:
+                continue # 오늘, 내일은 기본 파일에 있으므로 생략
+            
+            date_blob = bucket.blob(f"static_data_{date_str}.json")
+            date_json = json.dumps(times, ensure_ascii=False)
+            date_blob.upload_from_string(date_json, content_type="application/json")
+            date_blob.cache_control = "public, max-age=60"
+            date_blob.patch()
+            date_blob.make_public()
+            
+        print(f"    → 총 {len(tee_times_by_date)}개의 날짜별 파일 분할 업로드 완료")
         
         # version.json 업로드 (캐시 체크용)
         version_data = {"generated_at": static_data["generated_at"]}

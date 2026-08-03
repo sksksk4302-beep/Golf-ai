@@ -657,8 +657,10 @@
         let selectedClubs = new Set();
         let selectedDates = [];
         let selectedTimes = new Set(); // Empty means ALL
-        let currentRegion = "경기";
-        let weatherCache = {}; // {clubName: {date: weatherData}}
+        let currentRegion = '수도권';
+        let weatherCache = {};
+        let loadedDates = new Set(); // lazy loading tracking
+        let dataVersion = new Date().getTime(); // versioning for fetch // {clubName: {date: weatherData}}
         let availableDates = [];
 
         // --- Static Data (정적 구조) ---
@@ -773,6 +775,7 @@
                     const vRes = await fetch('https://storage.googleapis.com/golf-ai-480805.firebasestorage.app/version.json?t=' + new Date().getTime());
                     if (vRes.ok) {
                         const vData = await vRes.json();
+                        dataVersion = vData.generated_at; // Update global version
                         const cachedVersion = localStorage.getItem('static_data_version');
                         
                         // 버전이 같고 캐시된 데이터가 있으면 캐시 사용
@@ -811,9 +814,23 @@
                     }
                 }
                 
-                // 전역 변수에 데이터 분배
-                allTeeTimes = staticData.tee_times || [];
-                allDailyStats = staticData.daily_stats || [];
+                // 전역 변수에 데이터 분배 (Deminification)
+                allTeeTimes = (staticData.tee_times || []).map(item => {
+                    if (Array.isArray(item)) {
+                        return { club_name: item[0], date: item[1], time: item[2], hour: item[3], price: item[4], source: item[5], benefit: item[6], url: item[7], source_idx: item[8] };
+                    }
+                    return item; // 혹시 딕셔너리면 그대로
+                });
+                
+                // 로드된 날짜 기록 (오늘/내일 기본 포함)
+                allTeeTimes.forEach(tt => loadedDates.add(tt.date));
+
+                allDailyStats = (staticData.daily_stats || []).map(item => {
+                    if (Array.isArray(item)) {
+                        return { club_name: item[0], date: item[1], hour: item[2], min_price: item[3] };
+                    }
+                    return item;
+                });
                 
                 // 히스토리 맵 빌드 (diff 계산용)
                 historyMap = {};
@@ -893,12 +910,42 @@
 
 
 
+        async function ensureDatesLoaded(dates) {
+            let promises = [];
+            for (const d of dates) {
+                if (!loadedDates.has(d)) {
+                    promises.push(fetchTeeTimesForDate(d));
+                    loadedDates.add(d); // 중복 호출 방지
+                }
+            }
+            await Promise.all(promises);
+        }
+
+        async function fetchTeeTimesForDate(dateStr) {
+            try {
+                const res = await fetch(`https://storage.googleapis.com/golf-ai-480805.firebasestorage.app/static_data_${dateStr}.json?v=${dataVersion}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    const deminified = data.map(item => ({
+                        club_name: item[0], date: item[1], time: item[2], hour: item[3], 
+                        price: item[4], source: item[5], benefit: item[6], url: item[7], source_idx: item[8]
+                    }));
+                    allTeeTimes = allTeeTimes.concat(deminified);
+                }
+            } catch (e) {
+                console.warn(`Failed to fetch tee times for ${dateStr}`, e);
+            }
+        }
+
         async function loadData() {
             if (selectedDates.length === 0 || selectedClubs.size === 0) return;
             document.getElementById('loading').style.display = 'block';
             document.getElementById('cardList').innerHTML = '';
 
             try {
+                // 선택된 날짜들의 데이터가 없으면 비동기 다운로드 (Lazy Fetching)
+                await ensureDatesLoaded(selectedDates);
+                
                 let data;
 
                 if (staticData && allTeeTimes.length > 0) {
