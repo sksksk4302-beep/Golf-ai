@@ -93,7 +93,6 @@ def fetch_weather_batch(latitudes: List[float], longitudes: List[float], days: i
         params = {
             "latitude": ",".join(str(lat) for lat in latitudes),
             "longitude": ",".join(str(lng) for lng in longitudes),
-            "hourly": "temperature_2m,precipitation_probability,weathercode",
             "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weathercode",
             "timezone": "Asia/Tokyo",
             "forecast_days": days
@@ -113,16 +112,14 @@ def fetch_weather_batch(latitudes: List[float], longitudes: List[float], days: i
 
 def parse_weather_data(raw_data: Dict[str, Any]) -> List[Dict[str, Any]]:
     """
-    Parses raw Open-Meteo response into a list of daily records,
-    each containing hourly details.
+    Parses raw Open-Meteo response into a list of daily records.
     """
     parsed_days = []
     
-    if not raw_data or "daily" not in raw_data or "hourly" not in raw_data:
+    if not raw_data or "daily" not in raw_data:
         return []
         
     daily = raw_data["daily"]
-    hourly = raw_data["hourly"]
     
     # Iterate through days
     for i, date in enumerate(daily["time"]):
@@ -132,27 +129,8 @@ def parse_weather_data(raw_data: Dict[str, Any]) -> List[Dict[str, Any]]:
             "temp_min": daily["temperature_2m_min"][i],
             "precipitation_sum": daily["precipitation_sum"][i],
             "precip_prob_max": daily["precipitation_probability_max"][i],
-            "weather_code_daily": daily["weathercode"][i],
-            "hourly": []
+            "weather_code_daily": daily["weathercode"][i]
         }
-        
-        # Extract hourly data for this date (24 hours)
-        start_idx = i * 24
-        end_idx = start_idx + 24
-        
-        # Safety check for index bounds
-        if end_idx <= len(hourly["time"]):
-            for h in range(24):
-                idx = start_idx + h
-                hour_time = hourly["time"][idx] # e.g., "2025-01-21T00:00"
-                hour_only = int(hour_time.split("T")[1].split(":")[0])
-                
-                day_record["hourly"].append({
-                    "hour": hour_only,
-                    "temp": hourly["temperature_2m"][idx],
-                    "precip_prob": hourly["precipitation_probability"][idx],
-                    "code": hourly["weathercode"][idx]
-                })
         
         parsed_days.append(day_record)
         
