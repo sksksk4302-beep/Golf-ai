@@ -226,11 +226,12 @@ def export_data(db=None):
         blob = bucket.blob("static_data.json")
         blob.upload_from_string(json_str, content_type="application/json")
         
-        # public 서빙을 위해 캐시 컨트롤 설정
+        # public 서빙을 위해 캐시 컨트롤 설정 및 접근 권한 공개
         blob.cache_control = "public, max-age=60"
         blob.patch()
+        blob.make_public()
         
-        print(f"    → gs://{bucket_name}/static_data.json 업로드 완료")
+        print(f"    → gs://{bucket_name}/static_data.json 업로드 및 공개 완료")
     except Exception as e:
         print(f"    ❌ Cloud Storage 업로드 실패: {e}")
         # 실패 시 로컬 파일 백업
