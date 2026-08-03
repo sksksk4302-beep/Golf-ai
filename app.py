@@ -101,6 +101,14 @@ def get_proxy_worker_url():
 
 @app.route("/")
 def index():
+    try:
+        ip = request.headers.get("X-Forwarded-For", request.remote_addr)
+        if ip:
+            client_ip = ip.split(",")[0].strip()
+            log_access(client_ip, is_pickup=False)
+    except Exception as e:
+        print(f"Index access logging failed: {e}")
+        
     proxy_url = get_proxy_worker_url()
     return render_template("index.html", proxy_url=proxy_url)
 
