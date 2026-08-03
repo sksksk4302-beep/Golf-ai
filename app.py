@@ -516,7 +516,7 @@ def admin_stats():
             <tr style="border-bottom: 1px solid #e1e4e8;">
                 <td style="padding: 14px 16px; font-weight: bold; color: #24292f;">{data.get('date')}</td>
                 <td style="padding: 14px 16px; font-family: monospace; color: #0969da; font-weight: 600;">{short_uid}</td>
-                <td style="padding: 14px 16px; font-weight: bold; text-align: center; color: #1f2328;">-</td>
+                <td style="padding: 14px 16px; font-weight: bold; text-align: center; color: #1f2328;">{data.get('hits', 0):,} 회</td>
                 <td style="padding: 14px 16px; font-weight: bold; text-align: center; color: #cf222e;">{data.get('pickup_hits', 0):,} 회</td>
                 <td style="padding: 14px 16px; color: #57606a; font-size: 0.9rem;">{last_active_str}</td>
             </tr>
