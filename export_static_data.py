@@ -322,13 +322,13 @@ def _generate_pickup_html(db, now_kst, all_tee_times, alert_clubs, all_daily_sta
     ]
     
     for tt in all_tee_times:
-        club = tt.get('club_name')
+        club = tt[0] # club_name
         if club not in alert_clubs:
             continue
         
-        date_str = tt.get('date')
-        time_str = tt.get('time', '')
-        price = tt.get('price', float('inf'))
+        date_str = tt[1] # date
+        time_str = tt[2] # time
+        price = tt[4] # price
         try:
             price = int(price)
         except:
@@ -359,23 +359,21 @@ def _generate_pickup_html(db, now_kst, all_tee_times, alert_clubs, all_daily_sta
         if not group_key:
             continue
         
-        current = group_data[group_key].get(club)
-        if not current or price < current['price'] or \
-           (price == current['price'] and tt.get('source') == 'teescan' and current.get('source') != 'teescan'):
+        if club not in group_data[group_key] or price < group_data[group_key][club]['price']:
             group_data[group_key][club] = {
-                'price': price,
                 'time': time_str,
-                'source': tt.get('source', ''),
-                'is_tomorrow': is_tomorrow,
+                'price': price,
+                'source': tt[5], # source
+                'is_tomorrow': (date_str == tomorrow_str)
             }
     
     # 히스토리 맵 구축 (diff 계산용)
     history_map = {}
-    for ds in all_daily_stats:
-        h_club = ds.get('club_name')
-        h_hour = ds.get('hour')
-        h_price = ds.get('min_price')
-        h_date = ds.get('date', '')
+    for s in all_daily_stats:
+        h_club = s[0]
+        h_date = s[1]
+        h_hour = s[2]
+        h_price = s[3]
         if h_club and h_hour is not None:
             history_map[(h_club, str(h_hour), h_date)] = h_price
             history_map[(h_club, int(h_hour), h_date)] = h_price
