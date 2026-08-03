@@ -182,12 +182,11 @@ def export_data(db=None):
         BATCH_SIZE = 500
         for i in range(0, len(weather_doc_refs), BATCH_SIZE):
             batch_refs = weather_doc_refs[i:i+BATCH_SIZE]
-            batch_keys = weather_doc_keys[i:i+BATCH_SIZE]
             docs = db.get_all(batch_refs)
-            for j, doc in enumerate(docs):
+            for doc in docs:
                 if doc.exists:
                     w = doc.to_dict()
-                    weather_data[batch_keys[j]] = {
+                    weather_data[doc.id] = {
                         "temp_min": w.get("temp_min"),
                         "temp_max": w.get("temp_max"),
                         "precipitation_sum": w.get("precipitation_sum"),
