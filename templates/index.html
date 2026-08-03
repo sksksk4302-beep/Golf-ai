@@ -765,9 +765,18 @@
         async function fetchStaticData() {
             document.getElementById('loading').style.display = 'block';
             try {
-                // Cloud Storage 버킷에서 정적 JSON 파일 로드 (가장 빠름, CDN 캐시)
-                const res = await fetch('https://storage.googleapis.com/golf-ai-480805.firebasestorage.app/static_data.json?t=' + new Date().getTime());
-                if (!res.ok) throw new Error('Static data not ready');
+                let res;
+                try {
+                    // 메인 정적 파일 시도
+                    res = await fetch('https://storage.googleapis.com/golf-ai-480805.firebasestorage.app/static_data.json?t=' + new Date().getTime());
+                    if (!res.ok) throw new Error('Main static data failed');
+                } catch (e) {
+                    console.warn('❌ 메인 데이터 로드 실패, 이전 백업 데이터(폴백)를 시도합니다...', e);
+                    // 폴백 정적 파일 시도
+                    res = await fetch('https://storage.googleapis.com/golf-ai-480805.firebasestorage.app/static_data_fallback.json?t=' + new Date().getTime());
+                    if (!res.ok) throw new Error('Fallback static data failed');
+                }
+                
                 staticData = await res.json();
                 
                 // 전역 변수에 데이터 분배

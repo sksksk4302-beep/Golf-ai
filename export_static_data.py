@@ -224,6 +224,15 @@ def export_data(db=None):
             
         bucket = storage_client.bucket(bucket_name)
         blob = bucket.blob("static_data.json")
+        
+        # v1 백업 (폴백용)
+        if blob.exists():
+            backup_blob = bucket.copy_blob(blob, bucket, "static_data_fallback.json")
+            backup_blob.cache_control = "public, max-age=60"
+            backup_blob.patch()
+            backup_blob.make_public()
+            print(f"    → 이전 데이터를 static_data_fallback.json으로 백업 완료")
+
         blob.upload_from_string(json_str, content_type="application/json")
         
         # public 서빙을 위해 캐시 컨트롤 설정 및 접근 권한 공개
