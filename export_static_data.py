@@ -233,14 +233,26 @@ def export_data(db=None):
             backup_blob.make_public()
             print(f"    → 이전 데이터를 static_data_fallback.json으로 백업 완료")
 
-        blob.upload_from_string(json_str, content_type="application/json")
+        import gzip
+        compressed_json = gzip.compress(json_str.encode('utf-8'))
+        blob.upload_from_string(compressed_json, content_type="application/json")
         
-        # public 서빙을 위해 캐시 컨트롤 설정 및 접근 권한 공개
+        # public 서빙을 위해 캐시 컨트롤 설정 및 접근 권한 공개, gzip 인코딩 명시
         blob.cache_control = "public, max-age=60"
+        blob.content_encoding = "gzip"
         blob.patch()
         blob.make_public()
         
-        print(f"    → gs://{bucket_name}/static_data.json 업로드 및 공개 완료")
+        print(f"    → gs://{bucket_name}/static_data.json 압로드(GZIP 압축) 및 공개 완료")
+        
+        # version.json 업로드 (캐시 체크용)
+        version_data = {"generated_at": static_data["generated_at"]}
+        version_blob = bucket.blob("version.json")
+        version_blob.upload_from_string(json.dumps(version_data), content_type="application/json")
+        version_blob.cache_control = "public, max-age=60"
+        version_blob.patch()
+        version_blob.make_public()
+        print(f"    → gs://{bucket_name}/version.json 업로드 및 공개 완료")
     except Exception as e:
         print(f"    ❌ Cloud Storage 업로드 실패: {e}")
         # 실패 시 로컬 파일 백업
