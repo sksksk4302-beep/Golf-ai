@@ -802,10 +802,8 @@
                 
                 console.log(`✅ 정적 데이터 로드 완료: ${allTeeTimes.length}개 티타임, ${allDailyStats.length}개 히스토리`);
             } catch (e) {
-                console.error('❌ 정적 데이터 로드 실패, 폴백 사용:', e);
-                // 폴백: 기존 API 호출
-                await fetchClubsFallback();
-                await fetchAvailableDatesFallback();
+                console.error('❌ 정적 데이터 로드 실패. 서버 오류이거나 데이터가 생성 중입니다:', e);
+                alert("시스템 데이터를 불러오지 못했습니다. 잠시 후 새로고침 해주세요.");
                 return;
             } finally {
                 document.getElementById('loading').style.display = 'none';
@@ -838,39 +836,7 @@
             }
         }
 
-        // 폴백 함수 (정적 데이터 로드 실패 시)
-        async function fetchClubsFallback() {
-            const res = await fetch('/api/clubs');
-            let rawClubs = await res.json();
-            let publicClubs = [];
-            Object.keys(rawClubs).forEach(region => {
-                let filtered = [];
-                rawClubs[region].forEach(c => {
-                    if (c.name.includes('(9)') || c.name.includes('(9*2)')) {
-                        publicClubs.push(c);
-                    } else {
-                        filtered.push(c);
-                    }
-                });
-                if (filtered.length > 0) {
-                    rawClubs[region] = filtered;
-                } else {
-                    delete rawClubs[region];
-                }
-            });
-            if (publicClubs.length > 0) {
-                rawClubs["퍼블릭"] = publicClubs;
-            }
-            allClubs = rawClubs;
-            renderSettings();
-        }
 
-        async function fetchAvailableDatesFallback() {
-            try {
-                const res = await fetch('/api/available_dates');
-                availableDates = await res.json();
-            } catch (e) { console.error(e); }
-        }
 
         // Weather icon based on WMO weather code
         function getWeatherIcon(code) {
@@ -884,27 +850,7 @@
             return '☁️';
         }
 
-        // Fetch weather data for clubs and dates
-        async function fetchWeatherData(clubs, dates) {
-            console.log("🌦️ 날씨 데이터 요청:", { clubs, dates });
-            try {
-                const res = await fetch('/get_weather', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ clubs: clubs, dates: dates })
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    console.log("✅ 날씨 데이터 수신:", data);
-                    data.forEach(item => {
-                        if (!weatherCache[item.club_name]) weatherCache[item.club_name] = {};
-                        weatherCache[item.club_name][item.date] = item;
-                    });
-                } else {
-                    console.warn("❌ 날씨 API 응답 오류:", res.status);
-                }
-            } catch (e) { console.warn('❌ 날씨 데이터 조회 실패:', e); }
-        }
+
 
         async function loadData() {
             if (selectedDates.length === 0 || selectedClubs.size === 0) return;
@@ -973,23 +919,9 @@
                     data.sort((a, b) => a.price - b.price);
 
                 } else {
-                    // === 폴백 모드: 기존 서버 API 호출 ===
-                    const todayStr = new Date().toISOString().split('T')[0];
-                    const now = new Date();
-                    const minTime = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-
-                    const res = await fetch('/api/prices', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            dates: selectedDates,
-                            times: Array.from(selectedTimes),
-                            clubs: Array.from(selectedClubs),
-                            today: todayStr,
-                            min_time: minTime
-                        })
-                    });
-                    data = await res.json();
+                    // === 폴백 제거: 비용 발생 방지를 위해 정적 데이터 실패 시 오류 메시지만 표시 ===
+                    alert("데이터를 갱신 중이거나 네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+                    data = [];
                 }
 
                 renderCards(data);
