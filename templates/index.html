@@ -696,8 +696,66 @@
             }
         });
 
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'hidden') saveFilterState();
+        function showUpdateToast() {
+            let toast = document.getElementById('updateToast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'updateToast';
+                toast.innerHTML = '새로운 줍줍 티타임이 업데이트 되었습니다! <span style="text-decoration: underline; margin-left:10px;">새로고침 🔄</span>';
+                Object.assign(toast.style, {
+                    position: 'fixed',
+                    top: '20px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: '#88B04B',
+                    color: 'white',
+                    padding: '12px 20px',
+                    borderRadius: '25px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                    zIndex: '10000',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    animation: 'slideDown 0.3s ease-out'
+                });
+                
+                if (!document.getElementById('toastStyle')) {
+                    const style = document.createElement('style');
+                    style.id = 'toastStyle';
+                    style.innerHTML = `
+                        @keyframes slideDown {
+                            from { top: -50px; opacity: 0; }
+                            to { top: 20px; opacity: 1; }
+                        }
+                    `;
+                    document.head.appendChild(style);
+                }
+                
+                toast.onclick = () => location.reload();
+                document.body.appendChild(toast);
+            }
+        }
+
+        document.addEventListener('visibilitychange', async () => {
+            if (document.visibilityState === 'hidden') {
+                saveFilterState();
+            } else if (document.visibilityState === 'visible') {
+                // 화면 복귀 시 50바이트 버전 파일만 체크하여 업데이트 유도
+                try {
+                    const vRes = await fetch('https://storage.googleapis.com/golf-ai-480805.firebasestorage.app/version.json?t=' + new Date().getTime());
+                    if (vRes.ok) {
+                        const vData = await vRes.json();
+                        if (dataVersion && vData.generated_at !== dataVersion) {
+                            showUpdateToast();
+                        }
+                    }
+                } catch(e) {
+                    console.warn('Visibility version check failed', e);
+                }
+            }
         });
 
         // --- Init ---
