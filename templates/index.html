@@ -663,6 +663,21 @@
         let dataVersion = new Date().getTime(); // versioning for fetch // {clubName: {date: weatherData}}
         let availableDates = [];
 
+        function getKSTDateString() {
+            const now = new Date();
+            const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+            const kst = new Date(utc + (9 * 3600000));
+            return kst.toISOString().split('T')[0];
+        }
+
+        function getKSTTimeStr() {
+            const now = new Date();
+            const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+            const kst = new Date(utc + (9 * 3600000));
+            return `${String(kst.getHours()).padStart(2,'0')}:${String(kst.getMinutes()).padStart(2,'0')}`;
+        }
+
+
         // --- Static Data (정적 구조) ---
         let staticData = null; // /api/static_data에서 1회 로드
         let allTeeTimes = []; // 전체 티타임 데이터
@@ -938,9 +953,8 @@
             // 정적 데이터에서 available_dates 읽기
             if (staticData && staticData.available_dates) {
                 // 오늘 날짜에 대해 미래 티타임만 있는지 확인
-                const todayStr = new Date().toISOString().split('T')[0];
-                const now = new Date();
-                const currentTimeStr = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+                const todayStr = getKSTDateString();
+                const currentTimeStr = getKSTTimeStr();
                 
                 availableDates = staticData.available_dates.filter(d => {
                     if (d === todayStr) {
@@ -1008,9 +1022,8 @@
 
                 if (staticData && allTeeTimes.length > 0) {
                     // === 정적 데이터 모드: 클라이언트 사이드 필터링 ===
-                    const todayStr = new Date().toISOString().split('T')[0];
-                    const now = new Date();
-                    const minTime = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+                    const todayStr = getKSTDateString();
+                    const minTime = getKSTTimeStr();
                     const clubsSet = selectedClubs;
                     const timesArr = Array.from(selectedTimes);
                     const normalizedTimes = timesArr.map(t => String(parseInt(t)));
@@ -1646,13 +1659,6 @@
         const analytics = getAnalytics(app);
         const auth = getAuth(app);
         const db = getFirestore(app, "teetime");
-
-        function getKSTDateString() {
-            const now = new Date();
-            const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-            const kst = new Date(utc + (9 * 3600000));
-            return kst.toISOString().split('T')[0];
-        }
 
         // 1. 익명 로그인 실행
         signInAnonymously(auth).catch((error) => {
