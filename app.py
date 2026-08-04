@@ -41,12 +41,28 @@ def init_firestore():
 
 db = init_firestore()
 
-# IP Access Logger
+# Memory cache for IP log debouncing (60s cooldown per IP)
+_ip_log_cooldown = {}
+
 def log_access(ip, is_pickup=False):
     try:
         from datetime import timezone
         KST = timezone(timedelta(hours=9))
         now = datetime.now(KST)
+        
+        # Debounce check: skip if logged within last 60 seconds
+        cache_key = f"{ip}_{is_pickup}"
+        last_logged = _ip_log_cooldown.get(cache_key)
+        if last_logged and (now - last_logged).total_seconds() < 60:
+            return  # Skip duplicate write within 60s
+            
+        _ip_log_cooldown[cache_key] = now
+        
+        # Clean up old keys from cooldown dict if it gets too large
+        if len(_ip_log_cooldown) > 5000:
+            cutoff = now - timedelta(seconds=120)
+            _ip_log_cooldown.clear()
+        
         date_str = now.strftime('%Y-%m-%d')
         doc_id = f"{date_str}_{ip.replace('.', '_')}"
         

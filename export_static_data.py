@@ -455,8 +455,8 @@ def export_data(db=None):
 
         blob.upload_from_string(json_str, content_type="application/json")
         
-        # public 서빙을 위해 캐시 컨트롤 설정 및 접근 권한 공개
-        blob.cache_control = "public, max-age=60"
+        # public 서빙을 위해 캐시 컨트롤 설정 및 접근 권한 공개 (5분 캐시)
+        blob.cache_control = "public, max-age=300, s-maxage=300"
         blob.patch()
         blob.make_public()
         print(f"    → gs://{BUCKET_NAME}/static_data.json 업로드 및 공개 완료")
@@ -483,7 +483,7 @@ def export_data(db=None):
             date_blob = bucket.blob(f"static_data_{date_str}.json")
             date_json = json.dumps(times, ensure_ascii=False)
             date_blob.upload_from_string(date_json, content_type="application/json")
-            date_blob.cache_control = "public, max-age=60"
+            date_blob.cache_control = "public, max-age=300, s-maxage=300"
             date_blob.patch()
             date_blob.make_public()
             upload_count += 1
@@ -494,7 +494,7 @@ def export_data(db=None):
         version_data = {"generated_at": static_data["generated_at"]}
         version_blob = bucket.blob("version.json")
         version_blob.upload_from_string(json.dumps(version_data), content_type="application/json")
-        version_blob.cache_control = "public, max-age=60"
+        version_blob.cache_control = "public, max-age=300, s-maxage=300"
         version_blob.patch()
         version_blob.make_public()
         print(f"    → gs://{BUCKET_NAME}/version.json 업로드 및 공개 완료")
