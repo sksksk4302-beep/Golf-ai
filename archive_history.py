@@ -63,11 +63,8 @@ def archive_history():
                 min_price = min(prices)
                 avg_price = sum(prices) / len(prices)
                 
-                # Document ID: YYYYMMDD_Club_Hour_SnapshotTime
-                # We use a simplified snapshot ID to allow multiple snapshots per day
-                # e.g. 20251211_Plaza_08_1400
-                snapshot_str = snapshot_time.strftime("%H%M")
-                doc_id = f"{date.replace('-', '')}_{club}_{hour}_{snapshot_str}"
+                # Document ID: YYYYMMDD_Club_Hour (Overwrites daily stats to prevent infinite doc accumulation)
+                doc_id = f"{date.replace('-', '')}_{club}_{hour}"
                 
                 doc_ref = db.collection('price_history').document(doc_id)
                 
@@ -82,11 +79,10 @@ def archive_history():
                     },
                     "snapshot_at": snapshot_time,
                     "weekday": datetime.datetime.strptime(date, "%Y-%m-%d").weekday(),
-                    # Add TTL field: Expire after 7 days
                     "expire_at": snapshot_time + datetime.timedelta(days=7)
                 }
                 
-                batch.set(doc_ref, data)
+                batch.set(doc_ref, data, merge=True)
                 batch_count += 1
                 
                 if batch_count >= 400:
@@ -97,6 +93,15 @@ def archive_history():
 
     if batch_count > 0:
         batch.commit()
+        
+    print("Archive history finished.")
+    
+    # Automatically clean up data older than 7 days
+    try:
+        print("Running automatic cleanup for data older than 7 days...")
+        cleanup_old_data()
+    except Exception as e:
+        print(f"Cleanup failed (non-fatal): {e}")
         
     print("History archiving completed.")
 
