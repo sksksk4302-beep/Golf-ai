@@ -657,7 +657,7 @@
         let selectedClubs = new Set();
         let selectedDates = [];
         let selectedTimes = new Set(); // Empty means ALL
-        let currentRegion = '수도권';
+        let currentRegion = '';  // 데이터 로드 후 동적 설정
         let weatherCache = {};
         let loadedDates = new Set(); // lazy loading tracking
         let dataVersion = new Date().getTime(); // versioning for fetch // {clubName: {date: weatherData}}
@@ -952,17 +952,27 @@
         function fetchAvailableDates() {
             // 정적 데이터에서 available_dates 읽기
             if (staticData && staticData.available_dates) {
-                // 오늘 날짜에 대해 미래 티타임만 있는지 확인
                 const todayStr = getKSTDateString();
                 const currentTimeStr = getKSTTimeStr();
                 
+                // 1. 과거 날짜 제거 + 오늘 미래 티타임 체크
                 availableDates = staticData.available_dates.filter(d => {
+                    if (d < todayStr) return false; // 과거 날짜 제외
                     if (d === todayStr) {
                         // 오늘이면 미래 티타임이 있는지 확인
                         return allTeeTimes.some(tt => tt.date === d && tt.time > currentTimeStr);
                     }
                     return true;
                 });
+                
+                // 2. availableDates가 비었으면 내일을 기본으로 추가
+                if (availableDates.length === 0) {
+                    const tomorrow = new Date();
+                    const utc = tomorrow.getTime() + (tomorrow.getTimezoneOffset() * 60000);
+                    const kstTomorrow = new Date(utc + (9 * 3600000) + 86400000);
+                    const tomorrowStr = kstTomorrow.toISOString().split('T')[0];
+                    availableDates = [tomorrowStr];
+                }
             }
         }
 
@@ -1094,7 +1104,11 @@
 
         // --- UI Rendering ---
         function renderSettings() {
-
+            // currentRegion이 유효하지 않으면 첫 번째 지역으로 자동 설정
+            const regions = Object.keys(allClubs);
+            if (regions.length > 0 && !regions.includes(currentRegion)) {
+                currentRegion = regions[0];
+            }
 
             const tabs = document.getElementById('regionTabs');
             tabs.innerHTML = '';

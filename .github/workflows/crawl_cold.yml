@@ -63,9 +63,3 @@ jobs:
         GPANG_PROXY_WORKER: ${{ secrets.TEESCAN_PROXY_URL }}
       run: |
         python ingest_data.py
-
-    
-      env:
-        PROJECT_ID: "golf-ai-480805"
-      run: |
-        python export_static_data.py

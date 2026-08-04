@@ -2,8 +2,8 @@ name: Crawl Warm (D+4~7)
 
 on:
   schedule:
-    # Run twice a day
-    - cron: '41 0,7 * * *'  # KST 09:41, 16:41
+    # Run once a day
+    - cron: '41 7 * * *'  # KST 16:41
   workflow_dispatch:
 
 jobs:
@@ -62,9 +62,3 @@ jobs:
         GPANG_PROXY_WORKER: ${{ secrets.TEESCAN_PROXY_URL }}
       run: |
         python ingest_data.py
-
-    
-      env:
-        PROJECT_ID: "golf-ai-480805"
-      run: |
-        python export_static_data.py
