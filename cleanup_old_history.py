@@ -93,8 +93,30 @@ def cleanup_old_data():
     if count > 0:
         batch.commit()
     print(f"Cleanup finished. Total {deleted_crawl} crawl_stats deleted.")
+
+    # 4. Cleanup daily_stats (older than 10 days, max 5000 docs per run)
+    cutoff_10days = (datetime.date.today() - datetime.timedelta(days=10)).strftime("%Y-%m-%d")
+    print(f"Deleting daily_stats older than {cutoff_10days} (max 5000 docs per run)...")
+    daily_stats_docs = db.collection('daily_stats').where('date', '<', cutoff_10days).limit(5000).stream()
+
+    batch = db.batch()
+    count = 0
+    deleted_daily = 0
+    for doc in daily_stats_docs:
+        batch.delete(doc.reference)
+        count += 1
+        deleted_daily += 1
+        if count >= 400:
+            batch.commit()
+            batch = db.batch()
+            count = 0
+            print(f"Deleted {deleted_daily} daily_stats docs...")
+
+    if count > 0:
+        batch.commit()
+    print(f"Cleanup finished. Total {deleted_daily} daily_stats deleted.")
         
-    print(f"Cleanup complete. Total documents deleted: {deleted_count + deleted_access + deleted_crawl}")
+    print(f"Cleanup complete. Total documents deleted: {deleted_count + deleted_access + deleted_crawl + deleted_daily}")
 
 if __name__ == "__main__":
     cleanup_old_data()
