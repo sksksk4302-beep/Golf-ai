@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory, redirect
 from flask_cors import CORS
 from datetime import datetime, timedelta
 import os
@@ -24,9 +24,10 @@ CRED_PATH = "service-account.json"
 
 @app.after_request
 def add_header(response):
-    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0, max-age=0'
-    response.headers['Pragma'] = 'no-cache'
-    response.headers['Expires'] = '-1'
+    if not request.path.endswith('.json'):
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, post-check=0, pre-check=0, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '-1'
     return response
 
 # Initialize Firestore
@@ -145,6 +146,43 @@ def pickups():
         return doc.to_dict().get('html', "Cache generation error.")
     else:
         return "데이터 갱신 중입니다. 잠시 후 다시 시도해주세요.", 404
+
+@app.route("/version.json")
+def serve_version_json():
+    public_dir = os.path.join(app.root_path, "public")
+    if os.path.exists(os.path.join(public_dir, "version.json")):
+        res = send_from_directory(public_dir, "version.json", mimetype="application/json")
+        res.headers["Cache-Control"] = "public, max-age=300"
+        return res
+    return redirect("https://storage.googleapis.com/golf-ai-480805.firebasestorage.app/version.json")
+
+@app.route("/static_data.json")
+def serve_static_data_json():
+    public_dir = os.path.join(app.root_path, "public")
+    if os.path.exists(os.path.join(public_dir, "static_data.json")):
+        res = send_from_directory(public_dir, "static_data.json", mimetype="application/json")
+        res.headers["Cache-Control"] = "public, max-age=300"
+        return res
+    return redirect("https://storage.googleapis.com/golf-ai-480805.firebasestorage.app/static_data.json")
+
+@app.route("/static_data_fallback.json")
+def serve_static_data_fallback_json():
+    public_dir = os.path.join(app.root_path, "public")
+    if os.path.exists(os.path.join(public_dir, "static_data.json")):
+        res = send_from_directory(public_dir, "static_data.json", mimetype="application/json")
+        res.headers["Cache-Control"] = "public, max-age=300"
+        return res
+    return redirect("https://storage.googleapis.com/golf-ai-480805.firebasestorage.app/static_data_fallback.json")
+
+@app.route("/static_data_<date_str>.json")
+def serve_static_data_date_json(date_str):
+    filename = f"static_data_{date_str}.json"
+    public_dir = os.path.join(app.root_path, "public")
+    if os.path.exists(os.path.join(public_dir, filename)):
+        res = send_from_directory(public_dir, filename, mimetype="application/json")
+        res.headers["Cache-Control"] = "public, max-age=300"
+        return res
+    return redirect(f"https://storage.googleapis.com/golf-ai-480805.firebasestorage.app/{filename}")
 
 @app.route("/api/static_data")
 def get_static_data():

@@ -760,7 +760,7 @@
             } else if (document.visibilityState === 'visible') {
                 // 화면 복귀 시 50바이트 버전 파일만 체크하여 업데이트 유도
                 try {
-                    const vRes = await fetch('https://storage.googleapis.com/golf-ai-480805.firebasestorage.app/version.json?t=' + new Date().getTime());
+                    const vRes = await fetchWithFallback('version.json', '?t=' + new Date().getTime());
                     if (vRes.ok) {
                         const vData = await vRes.json();
                         if (dataVersion && vData.generated_at !== dataVersion) {
@@ -836,6 +836,50 @@
             document.getElementById('dateBtnText').innerText = text;
         }
 
+        // --- IndexedDB Caching (No 5MB quota limits) ---
+        const IDB_NAME = 'GolfAICacheDB';
+        const IDB_STORE = 'cacheStore';
+
+        function getIDB(key) {
+            return new Promise((resolve) => {
+                const req = indexedDB.open(IDB_NAME, 1);
+                req.onupgradeneeded = () => req.result.createObjectStore(IDB_STORE);
+                req.onsuccess = () => {
+                    const db = req.result;
+                    const tx = db.transaction(IDB_STORE, 'readonly');
+                    const getReq = tx.objectStore(IDB_STORE).get(key);
+                    getReq.onsuccess = () => resolve(getReq.result || null);
+                    getReq.onerror = () => resolve(null);
+                };
+                req.onerror = () => resolve(null);
+            });
+        }
+
+        function setIDB(key, val) {
+            return new Promise((resolve) => {
+                const req = indexedDB.open(IDB_NAME, 1);
+                req.onupgradeneeded = () => req.result.createObjectStore(IDB_STORE);
+                req.onsuccess = () => {
+                    const db = req.result;
+                    const tx = db.transaction(IDB_STORE, 'readwrite');
+                    tx.objectStore(IDB_STORE).put(val, key);
+                    tx.oncomplete = () => resolve(true);
+                    tx.onerror = () => resolve(false);
+                };
+                req.onerror = () => resolve(false);
+            });
+        }
+
+        async function fetchWithFallback(filename, cacheParam = '') {
+            const relativeUrl = `/${filename}${cacheParam}`;
+            const gcsUrl = `https://storage.googleapis.com/golf-ai-480805.firebasestorage.app/${filename}${cacheParam}`;
+            try {
+                const res = await fetch(relativeUrl);
+                if (res.ok) return res;
+            } catch(e) {}
+            return await fetch(gcsUrl);
+        }
+
         // --- API (정적 데이터 기반) ---
         async function fetchStaticData() {
             document.getElementById('loading').style.display = 'block';
@@ -846,17 +890,20 @@
                 try {
                     // 1. 버전 파일 먼저 확인 (5분 캐시 윈도우 적용하여 HTTP 캐시 최대 활용)
                     const cacheWindow = Math.floor(Date.now() / 300000); // 5분 단위
-                    const vRes = await fetch('https://storage.googleapis.com/golf-ai-480805.firebasestorage.app/version.json?t=' + cacheWindow);
+                    const vRes = await fetchWithFallback('version.json', '?t=' + cacheWindow);
                     if (vRes.ok) {
                         const vData = await vRes.json();
                         dataVersion = vData.generated_at; // Update global version
-                        const cachedVersion = localStorage.getItem('static_data_version');
+                        const cachedVersion = await getIDB('static_data_version');
                         
-                        // 버전이 같고 캐시된 데이터가 있으면 캐시 사용 (GCS 다운로드 0원)
-                        if (cachedVersion === vData.generated_at && localStorage.getItem('static_data_cache')) {
-                            staticData = JSON.parse(localStorage.getItem('static_data_cache'));
-                            isCached = true;
-                            console.log('✅ 로컬 캐시 데이터 사용 (트래픽 0원)');
+                        // 버전이 같고 IndexedDB에 캐시된 데이터가 있으면 캐시 사용 (트래픽 0원)
+                        if (cachedVersion === vData.generated_at) {
+                            const cachedData = await getIDB('static_data_cache');
+                            if (cachedData) {
+                                staticData = cachedData;
+                                isCached = true;
+                                console.log('✅ IndexedDB 로컬 캐시 데이터 사용 (트래픽 0원)');
+                            }
                         }
                     }
                 } catch(e) {
@@ -866,26 +913,25 @@
                 if (!isCached) {
                     try {
                         const cacheWindow = Math.floor(Date.now() / 300000);
-                        // 메인 정적 파일 시도 (압축된 파일 다운로드됨)
-                        res = await fetch('https://storage.googleapis.com/golf-ai-480805.firebasestorage.app/static_data.json?t=' + cacheWindow);
+                        // 메인 정적 파일 시도 (Gzip 압축 파일)
+                        res = await fetchWithFallback('static_data.json', '?t=' + cacheWindow);
                         if (!res.ok) throw new Error('Main static data failed');
                     } catch (e) {
                         console.warn('❌ 메인 데이터 로드 실패, 이전 백업 데이터(폴백)를 시도합니다...', e);
-                        // 폴백 정적 파일 시도
-                        res = await fetch('https://storage.googleapis.com/golf-ai-480805.firebasestorage.app/static_data_fallback.json?t=' + new Date().getTime());
+                        res = await fetchWithFallback('static_data_fallback.json', '?t=' + new Date().getTime());
                         if (!res.ok) throw new Error('Fallback static data failed');
                     }
                     
                     staticData = await res.json();
                     
-                    // 로컬 스토리지에 새로 저장
+                    // IndexedDB에 새로 저장 (용량 제한 없이 저장 성공)
                     try {
-                        localStorage.setItem('static_data_cache', JSON.stringify(staticData));
+                        await setIDB('static_data_cache', staticData);
                         if (staticData.generated_at) {
-                            localStorage.setItem('static_data_version', staticData.generated_at);
+                            await setIDB('static_data_version', staticData.generated_at);
                         }
                     } catch (e) {
-                        console.warn('로컬스토리지 저장 실패 (용량 부족 등):', e);
+                        console.warn('IndexedDB 저장 실패:', e);
                     }
                 }
                 
@@ -1007,7 +1053,7 @@
 
         async function fetchTeeTimesForDate(dateStr) {
             try {
-                const res = await fetch(`https://storage.googleapis.com/golf-ai-480805.firebasestorage.app/static_data_${dateStr}.json?v=${dataVersion}`);
+                const res = await fetchWithFallback(`static_data_${dateStr}.json`, `?v=${dataVersion}`);
                 if (res.ok) {
                     const data = await res.json();
                     const deminified = data.map(item => ({
