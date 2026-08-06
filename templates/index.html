@@ -877,6 +877,19 @@
                 const res = await fetch(gcsUrl);
                 if (res.ok) return res;
             } catch(e) {}
+            
+            // GCS 실패 시 Cloud Run 폴백 & 서버에 실패 로그 전송 (세션당 1회 제한으로 비용/트래픽 방지)
+            if (!sessionStorage.getItem('cdn_fallback_logged_' + filename)) {
+                try {
+                    sessionStorage.setItem('cdn_fallback_logged_' + filename, 'true');
+                    fetch('/api/admin/cdn_fallback_log', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ filename })
+                    });
+                } catch(e) {}
+            }
+            
             // GCS 실패 시 Cloud Run 폴백
             return await fetch(`/${filename}${cacheParam}`);
         }

@@ -299,11 +299,26 @@ def api_admin_clubs():
                 
             db.collection('golf_clubs').document(name).delete()
             get_golf_clubs(db, force_refresh=True) # refresh cache
-            return jsonify({"success": True, "message": "Deleted successfully"})
-            
+            return jsonify({"status": "success", "message": "Updated successfully"})
     except Exception as e:
         print(f"Admin API Error: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/api/admin/cdn_fallback_log", methods=["POST"])
+def log_cdn_fallback():
+    try:
+        data = request.get_json() or {}
+        filename = data.get("filename", "unknown")
+        
+        db.collection('system_logs').document('cdn_status').set({
+            'filename': filename,
+            'timestamp': firestore.SERVER_TIMESTAMP,
+            'ip_prefix': request.remote_addr[:9] if request.remote_addr else 'unknown'
+        }, merge=True)
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        print(f"CDN log error: {e}")
+        return jsonify({"status": "error"}), 500
 
 @app.route("/admin/status")
 @app.route("/admin/stats")
@@ -431,6 +446,22 @@ def admin_stats():
         elif last_crawl_status == "partial_fail":
             status_card_class = "warning"
             status_text = "오류 감지"
+
+        # 5. Check CDN Fallback Status
+        cdn_status_doc = db.collection('system_logs').document('cdn_status').get()
+        cdn_status_html = '<span class="badge success">정상 (GCS CDN)</span>'
+        if cdn_status_doc.exists:
+            cdn_data = cdn_status_doc.to_dict()
+            last_fallback = cdn_data.get('timestamp')
+            if last_fallback:
+                # If there was a fallback in the last 2 hours, show warning
+                if hasattr(last_fallback, 'astimezone'):
+                    time_diff = datetime.now(timezone.utc) - last_fallback
+                else:
+                    time_diff = timedelta(days=99) # fallback if timezone naive
+                    
+                if time_diff.total_seconds() < 7200:
+                    cdn_status_html = f'<span class="badge fail">오류 (Cloud Run 폴백 중)</span> <span style="font-size:0.8rem;color:#cf222e;">마지막 발생: {last_fallback.astimezone(KST).strftime("%H:%M")}</span>'
 
         html = f"""
         <!DOCTYPE html>
