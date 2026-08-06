@@ -871,13 +871,14 @@
         }
 
         async function fetchWithFallback(filename, cacheParam = '') {
-            const relativeUrl = `/${filename}${cacheParam}`;
+            // GCS CDN 직접 접근 우선 (Cloud Run 비용 절감 + 최신 데이터 보장)
             const gcsUrl = `https://storage.googleapis.com/golf-ai-480805.firebasestorage.app/${filename}${cacheParam}`;
             try {
-                const res = await fetch(relativeUrl);
+                const res = await fetch(gcsUrl);
                 if (res.ok) return res;
             } catch(e) {}
-            return await fetch(gcsUrl);
+            // GCS 실패 시 Cloud Run 폴백
+            return await fetch(`/${filename}${cacheParam}`);
         }
 
         // --- API (정적 데이터 기반) ---

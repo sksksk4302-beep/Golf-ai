@@ -4,11 +4,41 @@
     "ignore": [
       "firebase.json",
       "**/.*",
-      "**/node_modules/**"
+      "**/node_modules/**",
+      "static_data*.json",
+      "version.json"
     ],
     "rewrites": [
       {
-        "source": "**",
+        "source": "/",
+        "run": {
+          "serviceId": "golf-ai-web",
+          "region": "asia-northeast3"
+        }
+      },
+      {
+        "source": "/pickups",
+        "run": {
+          "serviceId": "golf-ai-web",
+          "region": "asia-northeast3"
+        }
+      },
+      {
+        "source": "/admin/**",
+        "run": {
+          "serviceId": "golf-ai-web",
+          "region": "asia-northeast3"
+        }
+      },
+      {
+        "source": "/api/**",
+        "run": {
+          "serviceId": "golf-ai-web",
+          "region": "asia-northeast3"
+        }
+      },
+      {
+        "source": "/static/**",
         "run": {
           "serviceId": "golf-ai-web",
           "region": "asia-northeast3"
