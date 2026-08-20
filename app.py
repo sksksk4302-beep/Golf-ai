@@ -45,14 +45,14 @@ db = init_firestore()
 # Memory cache for IP log debouncing (60s cooldown per IP)
 _ip_log_cooldown = {}
 
-def log_access(ip, is_pickup=False):
+def log_access(ip):
     try:
         from datetime import timezone
         KST = timezone(timedelta(hours=9))
         now = datetime.now(KST)
         
         # Debounce check: skip if logged within last 60 seconds
-        cache_key = f"{ip}_{is_pickup}"
+        cache_key = ip
         last_logged = _ip_log_cooldown.get(cache_key)
         if last_logged and (now - last_logged).total_seconds() < 60:
             return  # Skip duplicate write within 60s
@@ -71,12 +71,9 @@ def log_access(ip, is_pickup=False):
         update_data = {
             "date": date_str,
             "ip": ip,
-            "last_active": google_firestore.SERVER_TIMESTAMP
+            "last_active": google_firestore.SERVER_TIMESTAMP,
+            "hits": google_firestore.Increment(1)
         }
-        if is_pickup:
-            update_data["pickup_hits"] = google_firestore.Increment(1)
-        else:
-            update_data["hits"] = google_firestore.Increment(1)
             
         doc_ref.set(update_data, merge=True)
     except Exception as e:
@@ -122,7 +119,7 @@ def index():
         ip = request.headers.get("X-Forwarded-For", request.remote_addr)
         if ip:
             client_ip = ip.split(",")[0].strip()
-            log_access(client_ip, is_pickup=False)
+            log_access(client_ip)
     except Exception as e:
         print(f"Index access logging failed: {e}")
         
@@ -131,21 +128,6 @@ def index():
 
 
 
-@app.route("/pickups")
-def pickups():
-    try:
-        ip = request.headers.get("X-Forwarded-For", request.remote_addr)
-        if ip:
-            client_ip = ip.split(",")[0].strip()
-            log_access(client_ip, is_pickup=True)
-    except Exception as e:
-        pass
-
-    doc = db.collection('system_cache').document('pickup_html').get()
-    if doc.exists:
-        return doc.to_dict().get('html', "Cache generation error.")
-    else:
-        return "데이터 갱신 중입니다. 잠시 후 다시 시도해주세요.", 404
 
 @app.route("/version.json")
 def serve_version_json():
@@ -355,7 +337,6 @@ def admin_stats():
                 <td style="padding: 14px 16px; font-weight: bold; color: #24292f;">{data.get('date')}</td>
                 <td style="padding: 14px 16px; font-family: monospace; color: #0969da; font-weight: 600;">{short_uid}</td>
                 <td style="padding: 14px 16px; font-weight: bold; text-align: center; color: #1f2328;">{data.get('hits', 0):,} 회</td>
-                <td style="padding: 14px 16px; font-weight: bold; text-align: center; color: #cf222e;">{data.get('pickup_hits', 0):,} 회</td>
                 <td style="padding: 14px 16px; color: #57606a; font-size: 0.9rem;">{last_active_str}</td>
             </tr>
             """
@@ -392,6 +373,7 @@ def admin_stats():
                 <td style="padding: 14px 16px; font-weight: bold; text-align: center; color: #0969da;">{c_data.get('golfpang_total', 0):,} 건</td>
                 <td style="padding: 14px 16px; font-weight: bold; text-align: center; color: #1a7f37;">{c_data.get('teescan_total', 0):,} 건</td>
                 <td style="padding: 14px 16px; text-align: center;">{status_badge}</td>
+                <td style="padding: 14px 16px; font-weight: bold; text-align: center; color: #8250df;">{'{:,}'.format(c_data['data_changes']) if 'data_changes' in c_data else '-'}</td>
             </tr>
             """
 
@@ -642,14 +624,19 @@ def admin_stats():
                         <div class="card-desc">최근 1시간 내 이상 여부 점검</div>
                     </div>
                     <div class="card success">
-                        <div class="card-title">골팡 오늘 수집</div>
-                        <div class="card-value">{today_gp_sum:,} 건</div>
-                        <div class="card-desc">금일 총 {today_crawls_count}회 수집 동작 완료</div>
+                        <div class="card-title">정적 데이터 CDN (GCS)</div>
+                        <div class="card-value" style="font-size:1.3rem;">{cdn_status_html}</div>
+                        <div class="card-desc">최근 2시간 내 사용자 요청 경로</div>
                     </div>
                     <div class="card success">
-                        <div class="card-title">티스캐너 오늘 수집</div>
+                        <div class="card-title">골팡 오늘 수집</div>
+                        <div class="card-value">{today_gp_sum:,} 건</div>
+                        <div class="card-desc">금일 총 {today_crawls_count}회 동작</div>
+                    </div>
+                    <div class="card success">
+                        <div class="card-title">티스캐너 수집</div>
                         <div class="card-value">{today_ts_sum:,} 건</div>
-                        <div class="card-desc">최근 수집: {last_crawl_time_str.split(' ')[0]}</div>
+                        <div class="card-desc">최근: {last_crawl_time_str.split(' ')[0]}</div>
                     </div>
                 </div>
                 
@@ -672,10 +659,11 @@ def admin_stats():
                                     <th style="text-align: center;">골팡 수집</th>
                                     <th style="text-align: center;">티스캐너 수집</th>
                                     <th style="text-align: center;">최종 상태</th>
+                                    <th style="text-align: center;">변경건수</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {crawl_rows_html if crawl_rows_html else '<tr><td colspan="6" style="text-align:center; padding:30px; color:#888;">크롤링 수집 기록이 없습니다.</td></tr>'}
+                                {crawl_rows_html if crawl_rows_html else '<tr><td colspan="7" style="text-align:center; padding:30px; color:#888;">크롤링 수집 기록이 없습니다.</td></tr>'}
                             </tbody>
                         </table>
                     </div>
@@ -689,7 +677,6 @@ def admin_stats():
                                     <th>날짜</th>
                                     <th>사용자 IP</th>
                                     <th style="text-align: center;">메인 조회 횟수</th>
-                                    <th style="text-align: center;">상세보기(Pickup) 횟수</th>
                                     <th>마지막 활동 시간 (KST)</th>
                                 </tr>
                             </thead>

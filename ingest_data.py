@@ -105,6 +105,7 @@ def save_tee_times(db, tee_times, target_date, sources_with_data=None):
         batch.commit()
 
     print(f"Sync complete for {target_date}. Upserts: {upsert_count}, Deletes: {delete_count}, Skipped(Unchanged): {skip_count}")
+    return upsert_count, delete_count, skip_count
 
 def cleanup_past_teetimes(db):
     """
@@ -142,7 +143,7 @@ def cleanup_past_teetimes(db):
 def process_date(target_date, db):
     """
     Crawls data for a single date and saves it to Firestore.
-    Returns the count of items saved (or found).
+    Returns (gp_count, ts_count, upserts, deletes, skipped).
     """
     print(f"\n>>> [Start] Crawling for {target_date}...")
     try:
@@ -168,16 +169,16 @@ def process_date(target_date, db):
         data = data_gp + data_ts
         if data:
             print(f"[{target_date}] Found {len(data)} tee times (GP:{len(data_gp)}, TS:{len(data_ts)}). Syncing...")
-            save_tee_times(db, data, target_date, sources_with_data)
-            return len(data_gp), len(data_ts)
+            upserts, deletes, skipped = save_tee_times(db, data, target_date, sources_with_data)
+            return len(data_gp), len(data_ts), upserts, deletes, skipped
         else:
             print(f"[{target_date}] No data found from any source. Clearing...")
-            save_tee_times(db, [], target_date, sources_with_data)
-            return 0, 0
+            upserts, deletes, skipped = save_tee_times(db, [], target_date, sources_with_data)
+            return 0, 0, upserts, deletes, skipped
             
     except Exception as e:
         print(f"Error processing {target_date}: {e}")
-        return 0, 0
+        return 0, 0, 0, 0, 0
 
 def main():
     db = init_firestore()
@@ -197,7 +198,9 @@ def main():
         else:
             print("Skipping cleanup_past_teetimes() because it's not the morning (06:00~08:00 KST).")
 
-    today = datetime.date.today()
+    # Use KST date as base to prevent UTC midnight causing D+0 to be "yesterday" in KST
+    KST = timezone(timedelta(hours=9))
+    today = datetime.datetime.now(KST).date()
     
     # Support tiered crawling via environment variables
     start_day = int(os.environ.get("CRAWL_START_DAY", 0))
@@ -217,16 +220,23 @@ def main():
     
     total_gp_items = 0
     total_ts_items = 0
+    total_upserts = 0
+    total_deletes = 0
+    total_skipped = 0
     for date in dates_to_crawl:
         try:
-            gp_count, ts_count = process_date(date, db)
+            gp_count, ts_count, upserts, deletes, skipped = process_date(date, db)
             total_gp_items += gp_count
             total_ts_items += ts_count
-            print(f">>> [Done] {date} finished. Items: GP={gp_count}, TS={ts_count}")
+            total_upserts += upserts
+            total_deletes += deletes
+            total_skipped += skipped
+            print(f">>> [Done] {date} finished. Items: GP={gp_count}, TS={ts_count}, Changes: +{upserts} -{deletes} ={skipped}")
         except Exception as e:
             print(f">>> [Error] {date} failed: {e}")
 
     print(f"\nAll crawling tasks completed. Total GP: {total_gp_items}, Total TS: {total_ts_items}")
+    print(f"Total changes: Upserts={total_upserts}, Deletes={total_deletes}, Skipped={total_skipped}")
 
     # Verification Logic for ALL workflows
     if start_day_env == "0":
@@ -250,46 +260,8 @@ def main():
         except Exception as e:
             print(f"⚠️ Weather ingestion failed (non-fatal): {e}")
     
-    # Write crawl execution stats to Firestore
-    try:
-        from google.cloud import firestore as gc_firestore
-        KST = timezone(timedelta(hours=9))
-        now_kst = datetime.datetime.now(KST)
-        
-        crawl_stat = {
-            "date": now_kst.strftime("%Y-%m-%d"), # KST Date
-            "tier": crawl_tier,
-            "crawl_range": f"D+{start_day}~D+{end_day}",
-            "golfpang_total": total_gp_items,
-            "teescan_total": total_ts_items,
-            "dates_crawled": len(dates_to_crawl),
-            "status": "success" if (total_gp_items > 0 and total_ts_items > 0) else "partial_fail",
-            "completed_at": gc_firestore.SERVER_TIMESTAMP
-        }
-        # Doc ID: YYYYMMDDHHMM_Tier
-        doc_id = f"{now_kst.strftime('%Y%m%d%H%M')}_{crawl_tier}"
-        db.collection('crawl_stats').document(doc_id).set(crawl_stat)
-        print(f"Successfully recorded crawl statistics in Firestore: {doc_id}")
-    except Exception as e:
-        print(f"Failed to record crawl statistics in Firestore: {e}")
 
-    # Trigger pickup cache refresh after Hot crawl (D+0) completes
-    # This ensures the pickup page always reflects the latest crawled data,
-    # eliminating the race condition with the cron-based refresh_pickup.yml
-    if start_day_env == "0":
-        try:
-            import requests as req
-            refresh_url = "https://golf-ai-480805.web.app/api/internal/refresh_pickup?token=nawabari-sync-2026"
-            print("\n=====================================================")
-            print("Triggering pickup cache refresh after Hot crawl...")
-            print("=====================================================")
-            resp = req.get(refresh_url, timeout=30)
-            if resp.status_code == 200:
-                print("✅ Pickup cache refreshed successfully!")
-            else:
-                print(f"⚠️ Pickup cache refresh returned status {resp.status_code}")
-        except Exception as e:
-            print(f"⚠️ Pickup cache refresh failed (non-fatal): {e}")
+
 
     # If either source returned 0 results, fail the Action to trigger GitHub notification
     if total_gp_items == 0 or total_ts_items == 0:
@@ -313,6 +285,32 @@ def main():
     except Exception as e:
         print(f"❌ 정적 데이터 Export 중 오류 발생: {e}")
         export_success = False
+
+    # Write crawl execution stats to Firestore (After CDN upload is complete)
+    try:
+        from google.cloud import firestore as gc_firestore
+        now_kst = datetime.datetime.now(KST)
+        
+        crawl_stat = {
+            "date": now_kst.strftime("%Y-%m-%d"), # KST Date
+            "tier": crawl_tier,
+            "crawl_range": f"D+{start_day}~D+{end_day}",
+            "golfpang_total": total_gp_items,
+            "teescan_total": total_ts_items,
+            "dates_crawled": len(dates_to_crawl),
+            "data_changes": total_upserts + total_deletes,
+            "data_upserts": total_upserts,
+            "data_deletes": total_deletes,
+            "data_skipped": total_skipped,
+            "status": "success" if (total_gp_items > 0 and total_ts_items > 0) else "partial_fail",
+            "completed_at": gc_firestore.SERVER_TIMESTAMP
+        }
+        # Doc ID: YYYYMMDDHHMM_Tier
+        doc_id = f"{now_kst.strftime('%Y%m%d%H%M')}_{crawl_tier}"
+        db.collection('crawl_stats').document(doc_id).set(crawl_stat)
+        print(f"Successfully recorded crawl statistics in Firestore: {doc_id}")
+    except Exception as e:
+        print(f"Failed to record crawl statistics in Firestore: {e}")
 
 
     # ---------------------------------------------------------
