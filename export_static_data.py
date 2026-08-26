@@ -78,6 +78,18 @@ def _fetch_tee_times_from_firestore(db, target_dates):
             ])
     return tee_times
 
+def _download_gcs_json(blob):
+    """GCS blob을 다운로드하고 gzip 압축 여부를 자동으로 처리하여 json 파싱."""
+    if not blob.exists():
+        return None
+    raw_bytes = blob.download_as_bytes()
+    try:
+        decompressed = gzip.decompress(raw_bytes)
+        return json.loads(decompressed.decode('utf-8'))
+    except Exception:
+        # Gzip 압축되지 않은 일반 텍스트인 경우
+        return json.loads(raw_bytes.decode('utf-8'))
+
 def _fetch_tee_times_from_gcs(storage_client, dates, today_str, tomorrow_str):
     """GCS에서 기존 날짜별 파일을 다운로드하여 티타임 데이터를 재사용한다."""
     tee_times = []
@@ -92,8 +104,8 @@ def _fetch_tee_times_from_gcs(storage_client, dates, today_str, tomorrow_str):
     if main_dates:
         try:
             main_blob = bucket.blob("static_data.json")
-            if main_blob.exists():
-                main_data = json.loads(main_blob.download_as_text())
+            main_data = _download_gcs_json(main_blob)
+            if main_data:
                 main_tee_times = main_data.get("tee_times", [])
                 for tt in main_tee_times:
                     if tt[1] in main_dates:
@@ -109,9 +121,8 @@ def _fetch_tee_times_from_gcs(storage_client, dates, today_str, tomorrow_str):
     for date_str in file_dates:
         blob = bucket.blob(f"static_data_{date_str}.json")
         try:
-            if blob.exists():
-                content = blob.download_as_text()
-                date_data = json.loads(content)
+            date_data = _download_gcs_json(blob)
+            if date_data is not None:
                 tee_times.extend(date_data)
                 print(f"      ✅ GCS 재사용: static_data_{date_str}.json ({len(date_data)}건)")
             else:
@@ -204,15 +215,7 @@ def export_data(db=None):
     if public_clubs:
         grouped_clubs["퍼블릭"] = public_clubs
     
-    # alert_enabled 구장 목록 (픽업용)
-    alert_clubs = set()
-    for club in all_clubs_raw:
-        if club.get('alert_enabled'):
-            name = club.get('name')
-            if name:
-                alert_clubs.add(name)
-    
-    print(f"    → {len(all_clubs_raw)}개 구장, alert_enabled: {len(alert_clubs)}개")
+    print(f"    → {len(all_clubs_raw)}개 구장")
     
     # =========================================
     # 2. 티타임 데이터 (tee_times) — Incremental 지원
@@ -297,8 +300,7 @@ def export_data(db=None):
         try:
             bucket = storage_client.bucket(BUCKET_NAME)
             main_blob = bucket.blob("static_data.json")
-            if main_blob.exists():
-                existing_data = json.loads(main_blob.download_as_text())
+            existing_data = _download_gcs_json(main_blob)
         except Exception as e:
             print(f"    ⚠️ GCS 기존 데이터 읽기 실패: {e}")
         
@@ -518,229 +520,9 @@ def export_data(db=None):
     except Exception as e:
         print(f"    ❌ Cloud Storage 업로드 실패: {e}")
     
-    # =========================================
-    # 6. 픽업 HTML 생성 (기존 refresh_pickup 대체)
-    # =========================================
-    print("  [6] 픽업 HTML 생성...")
-    _generate_pickup_html(db, now_kst, all_tee_times, alert_clubs, all_daily_stats)
-    
+
     print(f"[export_static_data] 완료!")
     return static_data
-
-def _generate_pickup_html(db, now_kst, all_tee_times, alert_clubs, all_daily_stats):
-    """픽업 페이지 HTML을 생성하여 system_cache/pickup_html에 저장"""
-    today_str = now_kst.strftime("%Y-%m-%d")
-    tomorrow_str = (now_kst + timedelta(days=1)).strftime("%Y-%m-%d")
-    current_time_str = now_kst.strftime("%H:%M")
-    
-    # 픽업 그룹 분류
-    group_data = {
-        'today_part2': {},
-        'today_part3': {},
-        'tomorrow_part1': {},
-        'tomorrow_part2': {},
-    }
-    
-    titles = [
-        ('today_part2', f'오늘 2부 줍줍 (11-13)'),
-        ('today_part3', f'오늘 3부 줍줍 (14-17)'),
-        ('tomorrow_part1', f'내일 1부 줍줍 (07-10)'),
-        ('tomorrow_part2', f'내일 2부 줍줍 (11-13)'),
-    ]
-    
-    for tt in all_tee_times:
-        club = tt[0] # club_name
-        if club not in alert_clubs:
-            continue
-        
-        date_str = tt[1] # date
-        time_str = tt[2] # time
-        price = tt[4] # price
-        try:
-            price = int(price)
-        except:
-            continue
-        
-        try:
-            hour = int(time_str.split(':')[0])
-        except:
-            continue
-        
-        group_key = None
-        is_tomorrow = False
-        
-        if date_str == today_str:
-            if time_str < current_time_str:
-                continue
-            if 11 <= hour <= 13:
-                group_key = 'today_part2'
-            elif 14 <= hour <= 17:
-                group_key = 'today_part3'
-        elif date_str == tomorrow_str:
-            is_tomorrow = True
-            if 7 <= hour <= 10:
-                group_key = 'tomorrow_part1'
-            elif 11 <= hour <= 13:
-                group_key = 'tomorrow_part2'
-        
-        if not group_key:
-            continue
-        
-        if club not in group_data[group_key] or price < group_data[group_key][club]['price']:
-            group_data[group_key][club] = {
-                'time': time_str,
-                'price': price,
-                'source': tt[5], # source
-                'is_tomorrow': (date_str == tomorrow_str)
-            }
-    
-    # 히스토리 맵 구축 (diff 계산용)
-    history_map = {}
-    for s in all_daily_stats:
-        h_club = s[0]
-        h_date = s[1]
-        h_hour = s[2]
-        h_price = s[3]
-        if h_club and h_hour is not None:
-            history_map[(h_club, str(h_hour), h_date)] = h_price
-            history_map[(h_club, int(h_hour), h_date)] = h_price
-    
-    # 그룹별 아이템 빌드
-    groups_out = []
-    has_data = False
-    
-    for key, title in titles:
-        club_mins = group_data[key]
-        if not club_mins:
-            continue
-        
-        has_data = True
-        items = []
-        for club in sorted(club_mins.keys(), key=lambda c: club_mins[c]['price']):
-            info = club_mins[club]
-            source_kr = "골팡" if info['source'] == 'golfpang' else ("티스캐너" if info['source'] == 'teescan' else info['source'])
-            
-            # diff 계산 — 해당 티타임 날짜의 7일 전 히스토리 조회
-            hour_str = str(int(info['time'].split(':')[0]))
-            tt_date = today_str if not info['is_tomorrow'] else tomorrow_str
-            try:
-                history_date = (datetime.datetime.strptime(tt_date, "%Y-%m-%d").date() - timedelta(days=7)).strftime("%Y-%m-%d")
-            except:
-                history_date = ""
-            
-            hist_price = history_map.get((club, hour_str, history_date))
-            if hist_price is None:
-                hist_price = history_map.get((club, int(hour_str), history_date))
-            diff = (info['price'] - hist_price) if hist_price else 0
-            
-            items.append({
-                'club': club,
-                'time': info['time'],
-                'is_tomorrow': info['is_tomorrow'],
-                'formatted_price': format_price(info['price']),
-                'source_kr': source_kr,
-                'diff': diff,
-            })
-        groups_out.append({'title': title, 'items': items})
-    
-    # HTML 생성
-    html = _build_pickup_html(groups_out, has_data, now_kst.strftime("%Y-%m-%d %H:%M"))
-    
-    # Firestore에 저장
-    db.collection('system_cache').document('pickup_html').set({
-        'html': html,
-        'updated_at': now_kst,
-    })
-    print(f"    → pickup_html 저장 완료 (갱신시간: {now_kst.strftime('%H:%M')})")
-
-def _build_pickup_html(groups, has_data, last_updated):
-    """픽업 페이지 HTML을 문자열로 직접 생성"""
-    
-    items_html = ""
-    if not has_data:
-        items_html = '<div class="group-card"><div class="empty-msg">조건에 맞는 잔여 티타임이 없습니다.</div></div>'
-    else:
-        for group in groups:
-            if not group['items']:
-                continue
-            rows = ""
-            for item in group['items']:
-                tomorrow_html = '<span class="tomorrow">[내일]</span>' if item['is_tomorrow'] else ''
-                
-                diff_html = ""
-                if item['diff'] and item['diff'] > 0:
-                    diff_html = f'<span class="diff-badge up">▲{item["diff"]:,}</span>'
-                elif item['diff'] and item['diff'] < 0:
-                    diff_html = f'<span class="diff-badge down">▼{abs(item["diff"]):,}</span>'
-                
-                rows += f"""
-                        <li class="club-item">
-                            <div class="club-time">
-                                {tomorrow_html}
-                                {item['time']}
-                            </div>
-                            <div class="club-name">{item['club']}</div>
-                            <div class="club-price">
-                                {item['formatted_price']}원
-                                {diff_html}
-                            </div>
-                            <div class="club-source">{item['source_kr']}</div>
-                        </li>"""
-            
-            items_html += f"""
-                <div class="group-card">
-                    <h2 class="group-title"><span>🚀</span> {group['title']}</h2>
-                    <ul class="club-list">{rows}
-                    </ul>
-                </div>"""
-    
-    return f"""<!DOCTYPE html>
-<html lang="ko">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>시간대별 티타임 줍줍</title>
-    <style>
-        body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 0; background-color: #f6f8fa; color: #24292f; }}
-        .header {{ background-color: #24292f; color: white; padding: 15px 20px; text-align: center; }}
-        .header h1 {{ margin: 0; font-size: 1.2rem; }}
-        .container {{ max-width: 600px; margin: 0 auto; padding: 15px; }}
-        .group-card {{ background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.12); margin-bottom: 20px; overflow: hidden; }}
-        .group-title {{ background: #f6f8fa; border-bottom: 1px solid #d0d7de; padding: 12px 15px; font-weight: 600; font-size: 1.05rem; margin: 0; display: flex; align-items: center; }}
-        .group-title span {{ margin-right: 8px; }}
-        .club-list {{ list-style: none; margin: 0; padding: 0; }}
-        .club-item {{ border-bottom: 1px solid #e1e4e8; padding: 12px 15px; display: grid; grid-template-columns: 60px 1fr auto 60px; gap: 10px; align-items: center; }}
-        .club-item:last-child {{ border-bottom: none; }}
-        .club-time {{ font-size: 1.15rem; font-weight: 700; color: #24292f; text-align: left; }}
-        .club-time .tomorrow {{ font-size: 0.75rem; color: #d29922; display: block; margin-bottom: 2px; line-height: 1; }}
-        .club-name {{ font-weight: 600; color: #0969da; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 1.05rem; }}
-        .club-price {{ font-weight: 700; font-size: 1.05rem; color: #cf222e; text-align: right; }}
-        .club-source {{ font-size: 0.95rem; font-weight: 500; color: #57606a; text-align: right; }}
-        .empty-msg {{ padding: 20px; text-align: center; color: #57606a; font-size: 0.9rem; }}
-        @media (max-width: 480px) {{
-            .club-item {{ grid-template-columns: 55px 1fr auto 55px; gap: 6px; padding: 12px 10px; }}
-            .club-time {{ font-size: 1.05rem; }}
-            .club-name {{ font-size: 0.95rem; }}
-            .club-price {{ font-size: 0.95rem; }}
-            .club-source {{ font-size: 0.85rem; }}
-        }}
-        .diff-badge {{ font-size: 0.7rem; margin-left: 2px; font-weight: 500; }}
-        .diff-badge.up {{ color: #E57373; }}
-        .diff-badge.down {{ color: #64B5F6; }}
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>🚀 시간대별 최저가 티타임 줍줍</h1>
-    </div>
-    <div class="container">
-        <div style="background-color: #fff3cd; color: #856404; padding: 12px; border-radius: 6px; margin-bottom: 20px; text-align: center; font-size: 0.95rem; font-weight: 600; border: 1px solid #ffeeba;">
-            [안내] 본 페이지의 데이터는 카카오톡 발송 시점 데이터로 고정됩니다. (최종 갱신: {last_updated})
-        </div>
-        {items_html}
-    </div>
-</body>
-</html>"""
 
 
 def main():

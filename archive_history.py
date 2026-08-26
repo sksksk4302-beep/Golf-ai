@@ -29,45 +29,85 @@ def archive_history():
     if not db:
         return
 
-    print("Fetching current tee times for aggregation...")
-    
-    # Query all tee times (or filter by date range if dataset is huge)
-    # For now, we fetch all valid future tee times
-    today_str = datetime.date.today().strftime("%Y-%m-%d")
-    docs = db.collection('tee_times').where('date', '>=', today_str).stream()
-    
-    # Aggregation structure: data[club][date][hour] = [prices...]
+    today = datetime.date.today()
+    today_str = today.strftime("%Y-%m-%d")
+
+    # =========================================
+    # 1. 오늘 실제로 크롤링된 날짜 범위 파악
+    # =========================================
+    print("Checking today's crawl_stats to determine changed dates...")
+    crawled_dates = set()
+    try:
+        crawl_docs = db.collection('crawl_stats') \
+            .where('date', '==', today_str) \
+            .where('status', '==', 'success') \
+            .stream()
+        for doc in crawl_docs:
+            data = doc.to_dict()
+            crawl_range = data.get('crawl_range', '')  # e.g., "D+0~D+1"
+            try:
+                parts = crawl_range.replace('D+', '').split('~')
+                start_d = int(parts[0])
+                end_d = int(parts[1]) if len(parts) > 1 else start_d
+                for i in range(start_d, end_d + 1):
+                    d = (today + datetime.timedelta(days=i)).strftime("%Y-%m-%d")
+                    crawled_dates.add(d)
+            except (ValueError, IndexError):
+                pass
+    except Exception as e:
+        print(f"  ⚠️ crawl_stats 조회 실패: {e}")
+
+    if not crawled_dates:
+        # Fallback: crawl_stats가 없으면 D+0~D+3 기본값 사용
+        print("  ⚠️ crawl_stats에서 정보를 찾지 못함. D+0~D+3 기본값 사용")
+        for i in range(4):
+            d = (today + datetime.timedelta(days=i)).strftime("%Y-%m-%d")
+            crawled_dates.add(d)
+
+    crawled_dates_sorted = sorted(crawled_dates)
+    print(f"  → Incremental archive 대상: {len(crawled_dates_sorted)}일 ({crawled_dates_sorted})")
+
+    # =========================================
+    # 2. 변경된 날짜의 tee_times만 읽기
+    # =========================================
+    print("Fetching tee times for changed dates only...")
     aggregated = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
-    
     count = 0
-    for doc in docs:
-        d = doc.to_dict()
-        club = d.get('club_name')
-        date = d.get('date')
-        hour = d.get('hour')
-        price = d.get('price')
-        
-        if club and date and hour is not None and price:
-            aggregated[club][date][hour].append(price)
-            count += 1
-            
-    print(f"Processed {count} tee times. Creating snapshots...")
-    
+
+    DATE_CHUNK = 10
+    dates_list = list(crawled_dates_sorted)
+    for i in range(0, len(dates_list), DATE_CHUNK):
+        date_chunk = dates_list[i:i+DATE_CHUNK]
+        docs = db.collection('tee_times').where('date', 'in', date_chunk).stream()
+        for doc in docs:
+            d = doc.to_dict()
+            club = d.get('club_name')
+            date = d.get('date')
+            hour = d.get('hour')
+            price = d.get('price')
+
+            if club and date and hour is not None and price:
+                aggregated[club][date][hour].append(price)
+                count += 1
+
+    print(f"  → {count}건 티타임 처리 완료. price_history 스냅샷 생성 중...")
+
+    # =========================================
+    # 3. 변경된 날짜의 price_history만 쓰기
+    # =========================================
     batch = db.batch()
     batch_count = 0
     snapshot_time = datetime.datetime.now()
-    
+
     for club, dates in aggregated.items():
         for date, hours in dates.items():
             for hour, prices in hours.items():
                 min_price = min(prices)
                 avg_price = sum(prices) / len(prices)
-                
-                # Document ID: YYYYMMDD_Club_Hour (Overwrites daily stats to prevent infinite doc accumulation)
+
                 doc_id = f"{date.replace('-', '')}_{club}_{hour}"
-                
                 doc_ref = db.collection('price_history').document(doc_id)
-                
+
                 data = {
                     "club_name": club,
                     "date": date,
@@ -81,38 +121,36 @@ def archive_history():
                     "weekday": datetime.datetime.strptime(date, "%Y-%m-%d").weekday(),
                     "expire_at": snapshot_time + datetime.timedelta(days=7)
                 }
-                
+
                 batch.set(doc_ref, data, merge=True)
                 batch_count += 1
-                
+
                 if batch_count >= 400:
                     batch.commit()
                     batch = db.batch()
                     batch_count = 0
-                    print("Committed batch...")
+                    print("  Committed batch...")
 
     if batch_count > 0:
         batch.commit()
-        
-    print("Archive history finished.")
-    
-    # Automatically clean up data older than 7 days
+
+    print(f"  → price_history 스냅샷 완료 ({batch_count}건)")
+
+    # =========================================
+    # 4. 오래된 데이터 정리 (1회만 실행)
+    # =========================================
     try:
-        print("Running automatic cleanup for data older than 7 days...")
+        print("Running cleanup for data older than 7 days...")
         cleanup_old_data()
     except Exception as e:
         print(f"Cleanup failed (non-fatal): {e}")
-        
-    print("History archiving completed.")
 
-    # Cleanup old history (older than 7 days)
-    try:
-        cleanup_old_data()
-    except Exception as e:
-        print(f"Error during history cleanup: {e}")
-    
-    # Perform aggregation for yesterday (or past dates)
+    # =========================================
+    # 5. 어제 날짜 daily_stats 집계
+    # =========================================
     aggregate_daily_stats(db)
+
+    print("History archiving completed.")
 
 def aggregate_daily_stats(db):
     """
