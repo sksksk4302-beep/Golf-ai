@@ -88,7 +88,6 @@ def ingest_weather():
                 "precipitation_sum": day.get("precipitation_sum"),
                 "precip_prob_max": day["precip_prob_max"],
                 "weather_code_daily": day["weather_code_daily"],
-                "hourly": day["hourly"], # List of 24 dicts
                 "sync_id": sync_id,
                 "updated_at": firestore.SERVER_TIMESTAMP
             }
