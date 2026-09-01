@@ -58,6 +58,7 @@ jobs:
         PROJECT_ID: "golf-ai-480805"
         CRAWL_START_DAY: "0"
         CRAWL_END_DAY: "3"
+        CRAWL_WEATHER: "true"
         TEESCAN_PROXY_URL: ${{ secrets.TEESCAN_PROXY_URL }}
         GPANG_PROXY_WORKER: ${{ secrets.TEESCAN_PROXY_URL }}
       run: |
