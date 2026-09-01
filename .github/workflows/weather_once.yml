@@ -1,6 +1,8 @@
-name: Weather Ingestion (One-shot)
+name: Weather Ingestion (Daily 05:00 KST)
 
 on:
+  schedule:
+    - cron: '0 20 * * *'  # KST 05:00 = UTC 20:00
   workflow_dispatch:
 
 jobs:
