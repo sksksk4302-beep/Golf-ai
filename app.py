@@ -131,40 +131,31 @@ def index():
 
 @app.route("/version.json")
 def serve_version_json():
-    public_dir = os.path.join(app.root_path, "public")
-    if os.path.exists(os.path.join(public_dir, "version.json")):
-        res = send_from_directory(public_dir, "version.json", mimetype="application/json")
-        res.headers["Cache-Control"] = "public, max-age=300"
-        return res
-    return redirect("https://storage.googleapis.com/golf-ai-480805.firebasestorage.app/version.json")
+    """항상 GCS로 redirect — Cloud Run 비용 방어"""
+    cb = request.args.get('t', '')
+    bust = f"?t={cb}&_r={int(__import__('time').time())}" if cb else f"?_r={int(__import__('time').time())}"
+    return redirect(f"https://storage.googleapis.com/golf-ai-480805.firebasestorage.app/version.json{bust}")
 
 @app.route("/static_data.json")
 def serve_static_data_json():
-    public_dir = os.path.join(app.root_path, "public")
-    if os.path.exists(os.path.join(public_dir, "static_data.json")):
-        res = send_from_directory(public_dir, "static_data.json", mimetype="application/json")
-        res.headers["Cache-Control"] = "public, max-age=300"
-        return res
-    return redirect("https://storage.googleapis.com/golf-ai-480805.firebasestorage.app/static_data.json")
+    """항상 GCS로 redirect — Cloud Run에서 1MB+ JSON 직접 서빙 방지"""
+    cb = request.args.get('t', '')
+    bust = f"?t={cb}&_r={int(__import__('time').time())}" if cb else f"?_r={int(__import__('time').time())}"
+    return redirect(f"https://storage.googleapis.com/golf-ai-480805.firebasestorage.app/static_data.json{bust}")
 
 @app.route("/static_data_fallback.json")
 def serve_static_data_fallback_json():
-    public_dir = os.path.join(app.root_path, "public")
-    if os.path.exists(os.path.join(public_dir, "static_data.json")):
-        res = send_from_directory(public_dir, "static_data.json", mimetype="application/json")
-        res.headers["Cache-Control"] = "public, max-age=300"
-        return res
-    return redirect("https://storage.googleapis.com/golf-ai-480805.firebasestorage.app/static_data_fallback.json")
+    """항상 GCS로 redirect — 폴백 파일도 GCS에서 직접 서빙"""
+    bust = f"?_r={int(__import__('time').time())}"
+    return redirect(f"https://storage.googleapis.com/golf-ai-480805.firebasestorage.app/static_data_fallback.json{bust}")
 
 @app.route("/static_data_<date_str>.json")
 def serve_static_data_date_json(date_str):
+    """항상 GCS로 redirect — 날짜별 파일도 Cloud Run 서빙 방지"""
     filename = f"static_data_{date_str}.json"
-    public_dir = os.path.join(app.root_path, "public")
-    if os.path.exists(os.path.join(public_dir, filename)):
-        res = send_from_directory(public_dir, filename, mimetype="application/json")
-        res.headers["Cache-Control"] = "public, max-age=300"
-        return res
-    return redirect(f"https://storage.googleapis.com/golf-ai-480805.firebasestorage.app/{filename}")
+    cb = request.args.get('t', '')
+    bust = f"?t={cb}&_r={int(__import__('time').time())}" if cb else f"?_r={int(__import__('time').time())}"
+    return redirect(f"https://storage.googleapis.com/golf-ai-480805.firebasestorage.app/{filename}{bust}")
 
 @app.route("/api/static_data")
 def get_static_data():
@@ -292,15 +283,65 @@ def log_cdn_fallback():
         data = request.get_json() or {}
         filename = data.get("filename", "unknown")
         
-        db.collection('system_logs').document('cdn_status').set({
+        doc_ref = db.collection('system_logs').document('cdn_status')
+        status_doc = doc_ref.get()
+        last_alert_at = None
+        if status_doc.exists:
+            last_alert_at = status_doc.to_dict().get('last_alert_at')
+        
+        from datetime import timezone
+        now_utc = datetime.now(timezone.utc)
+        should_alert = True
+        if last_alert_at and hasattr(last_alert_at, 'astimezone'):
+            if (now_utc - last_alert_at).total_seconds() < 3600: # 1시간 디바운스
+                should_alert = False
+        elif last_alert_at:
+            should_alert = False
+            
+        doc_ref.set({
             'filename': filename,
             'timestamp': firestore.SERVER_TIMESTAMP,
+            'resolved': False,
             'ip_prefix': request.remote_addr[:9] if request.remote_addr else 'unknown'
         }, merge=True)
+        
+        if should_alert:
+            try:
+                from send_kakao_alert import refresh_kakao_token, send_kakao_message
+                token = refresh_kakao_token(db)
+                if token:
+                    send_kakao_message(token, f"🚨 [나와바리 골프 긴급 알림]\nGCS 정적 CDN 접근 실패로 Cloud Run 폴백 발생!\n대상 파일: {filename}\n확인이 필요합니다.")
+                    doc_ref.set({'last_alert_at': firestore.SERVER_TIMESTAMP}, merge=True)
+            except Exception as alert_err:
+                print(f"Kakao fallback alert error: {alert_err}")
+                
         return jsonify({"status": "ok"})
     except Exception as e:
         print(f"CDN log error: {e}")
         return jsonify({"status": "error"}), 500
+
+@app.route("/api/admin/cdn_status_check", methods=["POST"])
+def api_cdn_status_check():
+    """GCS CDN 실시간 진단 및 상태 리셋"""
+    import urllib.request, ssl
+    try:
+        ctx = ssl._create_unverified_context()
+        req = urllib.request.Request(
+            'https://storage.googleapis.com/golf-ai-480805.firebasestorage.app/version.json',
+            headers={'Origin': 'https://golf-ai-480805.web.app'}
+        )
+        res = urllib.request.urlopen(req, context=ctx, timeout=5)
+        acao = res.headers.get('Access-Control-Allow-Origin')
+        if res.status == 200 and acao:
+            db.collection('system_logs').document('cdn_status').set({
+                'resolved': True,
+                'verified_at': firestore.SERVER_TIMESTAMP
+            }, merge=True)
+            return jsonify({"status": "success", "message": f"GCS CDN 정상 검증 완료 (CORS: {acao})"})
+        else:
+            return jsonify({"status": "warning", "message": f"비정상 응답: {res.status}, CORS: {acao}"}), 502
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route("/admin/status")
 @app.route("/admin/stats")
@@ -435,15 +476,18 @@ def admin_stats():
         if cdn_status_doc.exists:
             cdn_data = cdn_status_doc.to_dict()
             last_fallback = cdn_data.get('timestamp')
-            if last_fallback:
-                # If there was a fallback in the last 2 hours, show warning
+            is_resolved = cdn_data.get('resolved', False)
+            if is_resolved:
+                cdn_status_html = '<span class="badge success">정상 (GCS CDN 검증완료)</span>'
+            elif last_fallback:
+                # If there was an unresolved fallback in the last 2 hours, show warning
                 if hasattr(last_fallback, 'astimezone'):
                     time_diff = datetime.now(timezone.utc) - last_fallback
                 else:
                     time_diff = timedelta(days=99) # fallback if timezone naive
                     
                 if time_diff.total_seconds() < 7200:
-                    cdn_status_html = f'<span class="badge fail">오류 (Cloud Run 폴백 중)</span> <span style="font-size:0.8rem;color:#cf222e;">마지막 발생: {last_fallback.astimezone(KST).strftime("%H:%M")}</span>'
+                    cdn_status_html = f'<span class="badge fail">오류 (Cloud Run 폴백 감지)</span> <span style="font-size:0.8rem;color:#cf222e;">발생: {last_fallback.astimezone(KST).strftime("%H:%M")}</span>'
 
         html = f"""
         <!DOCTYPE html>
@@ -624,7 +668,10 @@ def admin_stats():
                         <div class="card-desc">최근 1시간 내 이상 여부 점검</div>
                     </div>
                     <div class="card success">
-                        <div class="card-title">정적 데이터 CDN (GCS)</div>
+                        <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+                            <span>정적 데이터 CDN (GCS)</span>
+                            <button onclick="checkCdnStatus(event)" style="font-size:0.75rem; padding:2px 8px; cursor:pointer; border:1px solid #d0d7de; border-radius:4px; background:#fff; font-weight:normal;">즉시 진단/리셋</button>
+                        </div>
                         <div class="card-value" style="font-size:1.3rem;">{cdn_status_html}</div>
                         <div class="card-desc">최근 2시간 내 사용자 요청 경로</div>
                     </div>
@@ -855,6 +902,22 @@ def admin_stats():
                         </td>
                     `;
                     tbody.insertBefore(tr, tbody.firstChild);
+                }}
+                
+                async function checkCdnStatus(evt) {{
+                    const btn = evt.target;
+                    btn.disabled = true;
+                    btn.innerText = '진단 중...';
+                    try {{
+                        const res = await fetch('/api/admin/cdn_status_check', {{ method: 'POST' }});
+                        const data = await res.json();
+                        alert(data.message || '검증 완료');
+                        location.reload();
+                    }} catch(e) {{
+                        alert('진단 실패: ' + e);
+                        btn.disabled = false;
+                        btn.innerText = '즉시 진단/리셋';
+                    }}
                 }}
                 
                 // Initialize

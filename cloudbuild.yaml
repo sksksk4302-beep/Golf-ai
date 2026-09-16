@@ -75,6 +75,8 @@ steps:
       - '--allow-unauthenticated'
       - '--port'
       - '5000'
+      - '--max-instances'
+      - '1'
       - '--clear-secrets'
 
   # 7. Deploy to Firebase Hosting

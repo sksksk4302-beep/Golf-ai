@@ -455,8 +455,8 @@ def export_data(db=None):
     with open(os.path.join(public_dir, 'version.json'), 'w', encoding='utf-8') as f:
         f.write(version_json_str)
 
-    # Cloud Storage에 업로드 (Gzip 압축 적용으로 네트워크 대역폭 97% 절감)
-    print(f"    → Cloud Storage 버킷({BUCKET_NAME})에 Gzip 압축 메타데이터 업로드 시도 (원시: {len(json_bytes)/1024/1024:.2f}MB, Gzip: {len(compressed_bytes)/1024:.1f}KB)...")
+    # Cloud Storage에 업로드 (GCS 투명 압축 사용 — Vary:Origin만 남겨 CORS 캐시 안정성 확보)
+    print(f"    → Cloud Storage 버킷({BUCKET_NAME})에 업로드 시도 ({len(json_bytes)/1024/1024:.2f}MB, GCS 자동 gzip 압축)...")
     
     try:
         bucket = storage_client.bucket(BUCKET_NAME)
@@ -466,16 +466,14 @@ def export_data(db=None):
         if blob.exists():
             backup_blob = bucket.copy_blob(blob, bucket, "static_data_fallback.json")
             backup_blob.cache_control = "public, max-age=60"
-            backup_blob.content_encoding = "gzip"
             backup_blob.patch()
             backup_blob.make_public()
 
-        blob.upload_from_string(compressed_bytes, content_type="application/json")
-        blob.content_encoding = "gzip"
+        blob.upload_from_string(json_bytes, content_type="application/json")
         blob.cache_control = "public, max-age=300, s-maxage=300"
         blob.patch()
         blob.make_public()
-        print(f"    → gs://{BUCKET_NAME}/static_data.json 업로드 및 Gzip 설정 완료 ({len(compressed_bytes)/1024:.1f}KB)")
+        print(f"    → gs://{BUCKET_NAME}/static_data.json 업로드 완료 ({len(json_bytes)/1024:.1f}KB, GCS 투명 압축)")
         
         # 5-3. 날짜별 티타임 파일 업로드
         print("    → 날짜별 티타임 분할 파일 업로드 중...")
@@ -495,14 +493,12 @@ def export_data(db=None):
             
             date_json = json.dumps(times, ensure_ascii=False)
             date_bytes = date_json.encode('utf-8')
-            date_compressed = gzip.compress(date_bytes)
 
             with open(os.path.join(public_dir, f'static_data_{date_str}.json'), 'w', encoding='utf-8') as f:
                 f.write(date_json)
             
             date_blob = bucket.blob(f"static_data_{date_str}.json")
-            date_blob.upload_from_string(date_compressed, content_type="application/json")
-            date_blob.content_encoding = "gzip"
+            date_blob.upload_from_string(date_bytes, content_type="application/json")
             date_blob.cache_control = "public, max-age=300, s-maxage=300"
             date_blob.patch()
             date_blob.make_public()
