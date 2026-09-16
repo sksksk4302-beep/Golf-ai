@@ -814,9 +814,17 @@
             // GCS CDN 직접 접근 우선 (Cloud Run 비용 절감 + 최신 데이터 보장)
             const gcsUrl = `https://storage.googleapis.com/golf-ai-480805.firebasestorage.app/${filename}${cacheParam}`;
             try {
-                const res = await fetch(gcsUrl);
+                const res = await fetch(gcsUrl, { mode: 'cors' });
                 if (res.ok) return res;
-            } catch(e) {}
+            } catch(e) {
+                // CORS 캐시 문제일 수 있으므로 cache-bust로 1회 재시도
+                try {
+                    const bustParam = cacheParam ? cacheParam + '&_cb=' + Date.now() : '?_cb=' + Date.now();
+                    const retryUrl = `https://storage.googleapis.com/golf-ai-480805.firebasestorage.app/${filename}${bustParam}`;
+                    const res2 = await fetch(retryUrl, { mode: 'cors', cache: 'no-store' });
+                    if (res2.ok) return res2;
+                } catch(e2) {}
+            }
             
             // GCS 실패 시 Cloud Run 폴백 & 서버에 실패 로그 전송 (세션당 1회 제한으로 비용/트래픽 방지)
             if (!sessionStorage.getItem('cdn_fallback_logged_' + filename)) {
