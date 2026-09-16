@@ -2,7 +2,7 @@ name: Weather Ingestion (Daily 05:00 KST)
 
 on:
   schedule:
-    - cron: '0 20 * * *'  # KST 05:00 = UTC 20:00
+    - cron: '13 20 * * *'  # KST 05:13 = UTC 20:13 (00분 혼잡 회피)
   workflow_dispatch:
 
 jobs:
