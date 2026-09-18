@@ -1663,60 +1663,13 @@
         }
     </style>
     -->
-    <!-- Firebase SDK (익명 로그인 및 Firestore 로깅용) -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-        import { getFirestore, doc, setDoc, serverTimestamp, increment } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyDYlwChfJwltwtmu6MduHzbRF73-K3S3HY",
-            authDomain: "golf-ai-480805.firebaseapp.com",
-            projectId: "golf-ai-480805",
-            storageBucket: "golf-ai-480805.firebasestorage.app",
-            messagingSenderId: "349807690414",
-            appId: "1:349807690414:web:3383375ce505c1e092633f",
-            measurementId: "G-VJLXFM1X5Q"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app, "teetime");
-
-        // 1. 익명 로그인 실행
-        signInAnonymously(auth).catch((error) => {
-            console.error("Anonymous auth failed:", error);
-        });
-
-        // 2. 로그인 상태가 확인되면 Firestore에 접속 로그 남기기
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                const uid = user.uid;
-                window.currentUserUid = uid;
-                
-                const dateStr = getKSTDateString();
-                const docId = `${dateStr}_${uid}`;
-                
-                let os = "Unknown";
-                const ua = navigator.userAgent;
-                if (ua.indexOf("Win") !== -1) os = "Windows";
-                else if (ua.indexOf("Mac") !== -1 && !/iPhone|iPad|iPod/i.test(ua)) os = "MacOS";
-                else if (ua.indexOf("Linux") !== -1 && !/Android/i.test(ua)) os = "Linux";
-                else if (/Android/i.test(ua)) os = "Android";
-                else if (/iPhone|iPad|iPod/i.test(ua)) os = "iOS";
-                
-                const logRef = doc(db, 'access_logs', docId);
-                setDoc(logRef, {
-                    date: dateStr,
-                    uid: uid,
-                    os: os,
-                    userAgent: ua,
-                    last_active: serverTimestamp()
-                }, { merge: true }).catch(err => console.error("Log error", err));
-            }
-        });
-        
-
+    <!-- Google Analytics (GA4) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-VJLXFM1X5Q"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-VJLXFM1X5Q');
     </script>
 </body>
 

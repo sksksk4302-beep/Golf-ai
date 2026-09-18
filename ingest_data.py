@@ -179,15 +179,15 @@ def process_date(target_date, db):
         if data:
             print(f"[{target_date}] Found {len(data)} tee times (GP:{len(data_gp)}, TS:{len(data_ts)}). Syncing...")
             upserts, deletes, skipped = save_tee_times(db, data, target_date, sources_with_data)
-            return len(data_gp), len(data_ts), upserts, deletes, skipped
+            return len(data_gp), len(data_ts), upserts, deletes, skipped, data
         else:
             print(f"[{target_date}] No data found from any source. Clearing...")
             upserts, deletes, skipped = save_tee_times(db, [], target_date, sources_with_data)
-            return 0, 0, upserts, deletes, skipped
+            return 0, 0, upserts, deletes, skipped, []
             
     except Exception as e:
         print(f"Error processing {target_date}: {e}")
-        return 0, 0, 0, 0, 0
+        return 0, 0, 0, 0, 0, []
 
 def main():
     db = init_firestore()
@@ -229,14 +229,16 @@ def main():
     total_upserts = 0
     total_deletes = 0
     total_skipped = 0
+    crawled_by_date = {}
     for date in dates_to_crawl:
         try:
-            gp_count, ts_count, upserts, deletes, skipped = process_date(date, db)
+            gp_count, ts_count, upserts, deletes, skipped, date_data = process_date(date, db)
             total_gp_items += gp_count
             total_ts_items += ts_count
             total_upserts += upserts
             total_deletes += deletes
             total_skipped += skipped
+            crawled_by_date[date] = date_data
             print(f">>> [Done] {date} finished. Items: GP={gp_count}, TS={ts_count}, Changes: +{upserts} -{deletes} ={skipped}")
         except Exception as e:
             print(f">>> [Error] {date} failed: {e}")
@@ -281,12 +283,12 @@ def main():
         sys.exit(1)
         
     print("\n=====================================================")
-    print("🚀 [Step 2] 정적 데이터(Cloud Storage) Export 시작...")
+    print("🚀 [Step 2] 정적 데이터(Cloud Storage) Export 시작 (메모리 직결)...")
     print("=====================================================")
     import export_static_data
     export_success = True
     try:
-        export_static_data.main()
+        export_static_data.export_data(db, memory_tee_times=crawled_by_date)
         export_success = True
     except Exception as e:
         print(f"❌ 정적 데이터 Export 중 오류 발생: {e}")

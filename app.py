@@ -349,13 +349,22 @@ def admin_stats():
     try:
         from datetime import timezone
         KST = timezone(timedelta(hours=9))
+        now_kst = datetime.now(KST)
+        today_str = now_kst.strftime('%Y-%m-%d')
         
-        # 1. Fetch user access logs
-        docs = db.collection('access_logs').order_by('date', direction=google_firestore.Query.DESCENDING).limit(1000).stream()
+        # 1. Fetch user access logs (오늘 기준 최대 30건으로 제한하여 1000건 읽기 낭비 방지)
+        access_docs = list(db.collection('access_logs').where('date', '==', today_str).limit(30).stream())
+        if not access_docs:
+            # 오늘 기록이 아직 적을 때는 최근 활성 20건만 조회
+            access_docs = list(db.collection('access_logs').order_by('last_active', direction=google_firestore.Query.DESCENDING).limit(20).stream())
         
+        today_visitor_count = len(access_docs)
+        today_total_hits = 0
         rows_html = ""
-        for d in docs:
+        for d in access_docs:
             data = d.to_dict()
+            hits = data.get('hits', 1)
+            today_total_hits += hits
             last_active = data.get('last_active')
             last_active_str = "-"
             if last_active:
@@ -366,7 +375,6 @@ def admin_stats():
                     last_active_str = str(last_active)
             
             uid_str = data.get('uid') or data.get('ip') or 'Unknown'
-            # 익명 로그인 UID는 보통 28자입니다. 앞 6자리만 보여줘도 유저 구분에 충분합니다.
             short_uid = uid_str[:6] + ".." if len(uid_str) > 15 else uid_str
             
             os_info = data.get('os', '')
@@ -377,17 +385,32 @@ def admin_stats():
             <tr style="border-bottom: 1px solid #e1e4e8;">
                 <td style="padding: 14px 16px; font-weight: bold; color: #24292f;">{data.get('date')}</td>
                 <td style="padding: 14px 16px; font-family: monospace; color: #0969da; font-weight: 600;">{short_uid}</td>
-                <td style="padding: 14px 16px; font-weight: bold; text-align: center; color: #1f2328;">{data.get('hits', 0):,} 회</td>
+                <td style="padding: 14px 16px; font-weight: bold; text-align: center; color: #1f2328;">{hits:,} 회</td>
                 <td style="padding: 14px 16px; color: #57606a; font-size: 0.9rem;">{last_active_str}</td>
             </tr>
             """
 
-        # 2. Fetch crawler statistics
-        crawl_docs = db.collection('crawl_stats').order_by('completed_at', direction=google_firestore.Query.DESCENDING).limit(50).stream()
+        # 2. Fetch crawler statistics (1번의 쿼리로 50건만 읽어 대시보드 전체 지표 계산)
+        crawl_docs_list = list(db.collection('crawl_stats').order_by('completed_at', direction=google_firestore.Query.DESCENDING).limit(50).stream())
         
         crawl_rows_html = ""
-        for c_doc in crawl_docs:
+        today_gp_sum = 0
+        today_ts_sum = 0
+        today_crawls_count = 0
+        has_failure_today = False
+        
+        for c_doc in crawl_docs_list:
             c_data = c_doc.to_dict()
+            c_date = c_data.get('date')
+            
+            # 오늘자 수집 지표 합산 (별도 쿼리 없이 메모리에서 집계)
+            if c_date == today_str:
+                today_gp_sum += c_data.get('golfpang_total', 0)
+                today_ts_sum += c_data.get('teescan_total', 0)
+                today_crawls_count += 1
+                if c_data.get('status') != 'success':
+                    has_failure_today = True
+            
             completed_at = c_data.get('completed_at')
             completed_at_str = "-"
             if completed_at:
@@ -398,12 +421,7 @@ def admin_stats():
                     completed_at_str = str(completed_at)
                     
             status_val = c_data.get('status', 'success')
-            status_badge = ""
-            if status_val == 'success':
-                status_badge = '<span class="badge success">성공</span>'
-            else:
-                status_badge = '<span class="badge fail">오류</span>'
-                
+            status_badge = '<span class="badge success">성공</span>' if status_val == 'success' else '<span class="badge fail">오류</span>'
             tier_val = c_data.get('tier', 'Unknown')
             
             crawl_rows_html += f"""
@@ -418,29 +436,8 @@ def admin_stats():
             </tr>
             """
 
-        # 3. Calculate metrics for today
-        now_kst = datetime.now(KST)
-        today_str = now_kst.strftime('%Y-%m-%d')
-        today_crawl_docs = db.collection('crawl_stats').where('date', '==', today_str).stream()
-        
-        today_gp_sum = 0
-        today_ts_sum = 0
-        today_crawls_count = 0
-        has_failure_today = False
-        
-        for doc in today_crawl_docs:
-            data = doc.to_dict()
-            today_gp_sum += data.get('golfpang_total', 0)
-            today_ts_sum += data.get('teescan_total', 0)
-            today_crawls_count += 1
-            if data.get('status') != 'success':
-                has_failure_today = True
-
-        # 4. Get last crawler state
-        last_crawl_docs = db.collection('crawl_stats').order_by('completed_at', direction=google_firestore.Query.DESCENDING).limit(1).stream()
-        last_crawl = None
-        for doc in last_crawl_docs:
-            last_crawl = doc.to_dict()
+        # 3. Get last crawler state (첫 번째 문서 활용하여 추가 쿼리 제거)
+        last_crawl = crawl_docs_list[0].to_dict() if crawl_docs_list else None
 
         if last_crawl:
             lc_time = last_crawl.get('completed_at')
@@ -717,6 +714,29 @@ def admin_stats():
                 </div>
                 
                 <div id="tab-access" class="tab-content" style="display: none;">
+                    <!-- Today Visitor Summary Cards -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+                        <div style="background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 10px; padding: 15px;">
+                            <div style="color: #57606a; font-size: 0.85rem; font-weight: 500;">오늘 순방문자</div>
+                            <div style="font-size: 1.5rem; font-weight: 700; color: #0969da; margin-top: 5px;">{today_visitor_count:,} <span style="font-size: 0.9rem; font-weight: normal; color: #57606a;">명</span></div>
+                        </div>
+                        <div style="background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 10px; padding: 15px;">
+                            <div style="color: #57606a; font-size: 0.85rem; font-weight: 500;">오늘 총 조회수</div>
+                            <div style="font-size: 1.5rem; font-weight: 700; color: #1a7f37; margin-top: 5px;">{today_total_hits:,} <span style="font-size: 0.9rem; font-weight: normal; color: #57606a;">회</span></div>
+                        </div>
+                        <div style="background: #ddf4ff; border: 1px solid #54aeff; border-radius: 10px; padding: 15px; display: flex; flex-direction: column; justify-content: space-between;">
+                            <div>
+                                <div style="color: #0969da; font-size: 0.85rem; font-weight: 600;">📊 Google Analytics (GA4)</div>
+                                <div style="color: #24292f; font-size: 0.8rem; margin-top: 3px;">실시간 접속자 및 평균 체류시간</div>
+                            </div>
+                            <a href="https://analytics.google.com/" target="_blank" style="display: inline-block; margin-top: 8px; padding: 6px 12px; background: #0969da; color: white; border-radius: 6px; text-decoration: none; font-size: 0.8rem; font-weight: 600; text-align: center;">GA4 대시보드 바로가기 ↗</a>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                        <h4 style="margin: 0; font-size: 0.95rem; color: #24292f;">오늘의 주요 접속 내역 (최대 30건)</h4>
+                        <span style="font-size: 0.8rem; color: #57606a;">불필요한 1,000건 전수 읽기 차단으로 비용 최적화 적용됨</span>
+                    </div>
                     <div class="responsive-table">
                         <table>
                             <thead>
@@ -728,7 +748,7 @@ def admin_stats():
                                 </tr>
                             </thead>
                             <tbody>
-                                {rows_html if rows_html else '<tr><td colspan="4" style="text-align:center; padding:30px; color:#888;">접속 기록이 없습니다.</td></tr>'}
+                                {rows_html if rows_html else '<tr><td colspan="4" style="text-align:center; padding:30px; color:#888;">오늘 접속 기록이 없습니다.</td></tr>'}
                             </tbody>
                         </table>
                     </div>

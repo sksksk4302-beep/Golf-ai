@@ -165,7 +165,28 @@ def _fetch_daily_stats_from_firestore(db, dates_with_data):
             ])
     return all_daily_stats
 
-def export_data(db=None):
+def _format_memory_tee_times(items):
+    """메모리에 있는 크롤링 아이템들을 static_data tee_times 9개 필드 포맷으로 변환."""
+    formatted = []
+    for item in items:
+        try:
+            price = int(item.get("price", 0))
+        except:
+            price = 0
+        formatted.append([
+            item.get("golf") or item.get("club_name", ""),
+            item.get("date", ""),
+            item.get("time", ""),
+            item.get("hour_num") if "hour_num" in item else item.get("hour", 0),
+            price,
+            item.get("source", "Golfpang"),
+            item.get("benefit", ""),
+            item.get("url", ""),
+            item.get("source_idx", "")
+        ])
+    return formatted
+
+def export_data(db=None, memory_tee_times=None):
     if db is None:
         db = init_firestore()
     
@@ -218,7 +239,7 @@ def export_data(db=None):
     print(f"    → {len(all_clubs_raw)}개 구장")
     
     # =========================================
-    # 2. 티타임 데이터 (tee_times) — Incremental 지원
+    # 2. 티타임 데이터 (tee_times) — Incremental 지원 + 메모리 직결
     # =========================================
     print("  [2/5] tee_times 읽기...")
     
@@ -231,6 +252,16 @@ def export_data(db=None):
     all_tee_times = []
     firestore_read_dates = []
     gcs_reuse_dates = []
+    memory_dates = set(memory_tee_times.keys()) if memory_tee_times else set()
+    
+    # 메모리 직결 데이터가 있으면 먼저 추가하여 Firestore Read를 차단
+    if memory_dates:
+        print(f"    ✨ 메모리 직결 티타임 데이터 사용: {len(memory_dates)}일 ({sorted(list(memory_dates))}) → Firestore Read 스킵!")
+        for m_date in sorted(list(memory_dates)):
+            m_items = memory_tee_times.get(m_date, [])
+            formatted_m = _format_memory_tee_times(m_items)
+            all_tee_times.extend(formatted_m)
+            print(f"      ✅ [메모리 직결] {m_date}: {len(formatted_m)}건 반영 완료")
     
     if is_incremental:
         # 크롤링된 날짜 범위
@@ -239,22 +270,25 @@ def export_data(db=None):
             d = (today + timedelta(days=i)).strftime("%Y-%m-%d")
             crawled_dates.add(d)
         
-        # 오늘/내일은 항상 Firestore에서 최신 읽기 (메인 파일에 들어가므로)
+        # 오늘/내일은 항상 최신 필요
         must_read_dates = {today_str, tomorrow_str}
         
         for d in all_target_dates:
-            if d in crawled_dates or d in must_read_dates:
+            if d in memory_dates:
+                # 이미 메모리 직결로 추가되었으므로 Firestore나 GCS에서 안 읽음
+                continue
+            elif d in crawled_dates or d in must_read_dates:
                 firestore_read_dates.append(d)
             else:
                 gcs_reuse_dates.append(d)
         
-        # 중복 제거 (크롤링 범위와 must_read 겹칠 수 있음)
+        # 중복 제거
         firestore_read_dates = sorted(set(firestore_read_dates))
         
         print(f"    → Firestore 읽기 대상: {len(firestore_read_dates)}일 ({firestore_read_dates})")
         print(f"    → GCS 재사용 대상: {len(gcs_reuse_dates)}일")
         
-        # Firestore에서 변경된 날짜만 읽기
+        # Firestore에서 변경된 날짜만 읽기 (메모리에 없는 날짜만)
         if firestore_read_dates:
             fresh_tee_times = _fetch_tee_times_from_firestore(db, firestore_read_dates)
             all_tee_times.extend(fresh_tee_times)
@@ -274,11 +308,14 @@ def export_data(db=None):
                 all_tee_times.extend(fallback_tee_times)
                 print(f"    → Firestore 폴백 {len(fallback_tee_times)}건 추가")
     else:
-        # Full Export: 기존 로직 그대로
-        firestore_read_dates = all_target_dates
-        all_tee_times = _fetch_tee_times_from_firestore(db, all_target_dates)
+        # Full Export: 메모리에 없는 날짜만 Firestore에서 읽기
+        remaining_dates = [d for d in all_target_dates if d not in memory_dates]
+        firestore_read_dates = remaining_dates
+        if remaining_dates:
+            fresh = _fetch_tee_times_from_firestore(db, remaining_dates)
+            all_tee_times.extend(fresh)
     
-    print(f"    → 총 {len(all_tee_times)}개 티타임 (Firestore: {len(firestore_read_dates)}일, GCS재사용: {len(gcs_reuse_dates)}일)")
+    print(f"    → 총 {len(all_tee_times)}개 티타임 (메모리: {len(memory_dates)}일, Firestore: {len(firestore_read_dates)}일, GCS재사용: {len(gcs_reuse_dates)}일)")
     
     # available_dates 계산 (데이터가 존재하는 날짜)
     dates_with_data = set()
