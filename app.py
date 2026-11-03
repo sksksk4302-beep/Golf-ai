@@ -115,14 +115,6 @@ def get_proxy_worker_url():
 
 @app.route("/")
 def index():
-    try:
-        ip = request.headers.get("X-Forwarded-For", request.remote_addr)
-        if ip:
-            client_ip = ip.split(",")[0].strip()
-            log_access(client_ip)
-    except Exception as e:
-        print(f"Index access logging failed: {e}")
-        
     proxy_url = get_proxy_worker_url()
     return render_template("index.html", proxy_url=proxy_url)
 
@@ -198,7 +190,262 @@ def get_booking_contact():
         print(f"Error fetching booking contact for idx {idx}: {e}")
         return jsonify({"error": str(e)}), 500
 
+
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "dreamtree1@")
+
+def require_admin(f):
+    from functools import wraps
+    from flask import Response
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth = request.authorization
+        if auth and auth.password == ADMIN_PASSWORD:
+            return f(*args, **kwargs)
+        auth_header = request.headers.get("X-Admin-Password")
+        cookie_pass = request.cookies.get("admin_pass")
+        query_pass = request.args.get("admin_pass")
+        if ADMIN_PASSWORD in (auth_header, cookie_pass, query_pass):
+            return f(*args, **kwargs)
+        return Response(
+            '관리자 비밀번호를 입력해주세요.',
+            401,
+            {'WWW-Authenticate': 'Basic realm="Golf AI Admin"'}
+        )
+    return decorated
+
+
+# ==========================================
+# 사용자 인증 & 승인 & 방문 집계 API
+# ==========================================
+@app.route("/api/auth/request", methods=["POST"])
+def api_auth_request():
+    try:
+        data = request.get_json() or {}
+        uid = data.get("uid", "").strip()
+        name = data.get("name", "").strip()
+        device = data.get("device", "").strip()
+
+        if not uid or not name:
+            return jsonify({"status": "error", "message": "UID와 이름은 필수입니다."}), 400
+
+        doc_ref = db.collection('users').document(uid)
+        doc = doc_ref.get()
+
+        if doc.exists:
+            existing = doc.to_dict()
+            status = existing.get("status", "pending")
+            doc_ref.set({
+                "name": name,
+                "device": device,
+                "last_seen": google_firestore.SERVER_TIMESTAMP
+            }, merge=True)
+            return jsonify({"status": status, "uid": uid, "name": name})
+        else:
+            doc_ref.set({
+                "uid": uid,
+                "name": name,
+                "device": device,
+                "status": "pending",
+                "requested_at": google_firestore.SERVER_TIMESTAMP,
+                "approved_at": None,
+                "last_seen": google_firestore.SERVER_TIMESTAMP,
+                "visit_days": 0,
+                "last_visit_date": ""
+            })
+            return jsonify({"status": "pending", "uid": uid, "name": name})
+    except Exception as e:
+        print(f"Auth request error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/api/auth/check", methods=["GET", "POST"])
+def api_auth_check():
+    try:
+        if request.method == "POST":
+            data = request.get_json() or {}
+            uid = data.get("uid", "").strip()
+        else:
+            uid = request.args.get("uid", "").strip()
+
+        if not uid:
+            return jsonify({"status": "unknown"}), 400
+
+        doc = db.collection('users').document(uid).get()
+        if doc.exists:
+            d = doc.to_dict()
+            return jsonify({
+                "status": d.get("status", "pending"),
+                "name": d.get("name", ""),
+                "uid": uid
+            })
+        return jsonify({"status": "not_found"}), 404
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/api/ping", methods=["POST"])
+def api_user_ping():
+    try:
+        data = request.get_json() or {}
+        uid = data.get("uid", "").strip()
+        if not uid:
+            return jsonify({"status": "ignored"}), 400
+
+        user_doc_ref = db.collection('users').document(uid)
+        user_doc = user_doc_ref.get()
+        if not user_doc.exists:
+            return jsonify({"status": "not_registered"}), 404
+
+        u_data = user_doc.to_dict()
+        if u_data.get("status") != "approved":
+            return jsonify({"status": u_data.get("status", "pending")}), 403
+
+        name = u_data.get("name", "Unknown")
+        from datetime import timezone
+        KST = timezone(timedelta(hours=9))
+        now_kst = datetime.now(KST)
+        today_str = now_kst.strftime('%Y-%m-%d')
+
+        log_id = f"{today_str}_{uid}"
+        log_ref = db.collection('access_logs').document(log_id)
+        log_ref.set({
+            "date": today_str,
+            "uid": uid,
+            "name": name,
+            "last_active": google_firestore.SERVER_TIMESTAMP,
+            "hits": google_firestore.Increment(1)
+        }, merge=True)
+
+        user_update = {
+            "last_seen": google_firestore.SERVER_TIMESTAMP,
+            "last_visit_date": today_str
+        }
+        if u_data.get("last_visit_date") != today_str:
+            user_update["visit_days"] = google_firestore.Increment(1)
+        user_doc_ref.set(user_update, merge=True)
+
+        return jsonify({"status": "ok", "date": today_str})
+    except Exception as e:
+        print(f"Ping error: {e}")
+        return jsonify({"status": "error"}), 500
+
+# ==========================================
+# 구장 추가 요청 / 건의함 API (편지봉투)
+# ==========================================
+@app.route("/api/feedback", methods=["POST"])
+def api_submit_feedback():
+    try:
+        data = request.get_json() or {}
+        uid = data.get("uid", "anonymous").strip()
+        name = data.get("name", "익명").strip()
+        message = data.get("message", "").strip()
+
+        if not message:
+            return jsonify({"status": "error", "message": "내용을 입력해주세요."}), 400
+
+        doc_ref = db.collection('user_feedback').document()
+        doc_ref.set({
+            "uid": uid,
+            "name": name,
+            "message": message,
+            "created_at": google_firestore.SERVER_TIMESTAMP,
+            "status": "unread"
+        })
+        return jsonify({"status": "success", "message": "전송되었습니다."})
+    except Exception as e:
+        print(f"Feedback error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/api/admin/feedback", methods=["GET", "DELETE"])
+@require_admin
+def api_admin_feedback():
+    try:
+        if request.method == "GET":
+            docs = list(db.collection('user_feedback').order_by('created_at', direction=google_firestore.Query.DESCENDING).limit(100).stream())
+            results = []
+            from datetime import timezone
+            KST = timezone(timedelta(hours=9))
+            for doc in docs:
+                d = doc.to_dict()
+                c_at = d.get('created_at')
+                c_str = "-"
+                if c_at and hasattr(c_at, 'astimezone'):
+                    c_str = c_at.astimezone(KST).strftime('%Y-%m-%d %H:%M')
+                results.append({
+                    "id": doc.id,
+                    "uid": d.get("uid", ""),
+                    "name": d.get("name", ""),
+                    "message": d.get("message", ""),
+                    "created_at": c_str,
+                    "status": d.get("status", "unread")
+                })
+            return jsonify(results)
+        elif request.method == "DELETE":
+            f_id = request.json.get("id")
+            if f_id:
+                db.collection('user_feedback').document(f_id).delete()
+            return jsonify({"status": "success"})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/api/admin/users", methods=["GET", "PUT", "DELETE"])
+@require_admin
+def api_admin_users():
+    try:
+        if request.method == "GET":
+            docs = list(db.collection('users').order_by('requested_at', direction=google_firestore.Query.DESCENDING).limit(300).stream())
+            users = []
+            from datetime import timezone
+            KST = timezone(timedelta(hours=9))
+            for doc in docs:
+                d = doc.to_dict()
+                req_at = d.get('requested_at')
+                req_str = "-"
+                if req_at and hasattr(req_at, 'astimezone'):
+                    req_str = req_at.astimezone(KST).strftime('%m/%d %H:%M')
+
+                last_seen = d.get('last_seen')
+                seen_str = "-"
+                if last_seen and hasattr(last_seen, 'astimezone'):
+                    seen_str = last_seen.astimezone(KST).strftime('%m/%d %H:%M')
+
+                users.append({
+                    "uid": doc.id,
+                    "name": d.get("name", "이름없음"),
+                    "device": d.get("device", ""),
+                    "status": d.get("status", "pending"),
+                    "requested_at": req_str,
+                    "last_seen": seen_str,
+                    "visit_days": d.get("visit_days", 1)
+                })
+            return jsonify(users)
+
+        elif request.method == "PUT":
+            data = request.json or {}
+            uid = data.get("uid")
+            new_status = data.get("status") # 'approved' | 'rejected'
+            if not uid or new_status not in ("approved", "rejected", "pending"):
+                return jsonify({"error": "Invalid params"}), 400
+
+            doc_ref = db.collection('users').document(uid)
+            update_fields = {
+                "status": new_status
+            }
+            if new_status == "approved":
+                update_fields["approved_at"] = google_firestore.SERVER_TIMESTAMP
+
+            doc_ref.set(update_fields, merge=True)
+            return jsonify({"status": "success", "uid": uid, "new_status": new_status})
+
+        elif request.method == "DELETE":
+            uid = request.json.get("uid")
+            if uid:
+                db.collection('users').document(uid).delete()
+            return jsonify({"status": "success"})
+    except Exception as e:
+        print(f"Admin users error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 @app.route("/api/admin/clubs", methods=["GET", "POST", "PUT", "DELETE"])
+@require_admin
 def api_admin_clubs():
     try:
         if request.method == "GET":
@@ -321,6 +568,7 @@ def log_cdn_fallback():
         return jsonify({"status": "error"}), 500
 
 @app.route("/api/admin/cdn_status_check", methods=["POST"])
+@require_admin
 def api_cdn_status_check():
     """GCS CDN 실시간 진단 및 상태 리셋"""
     import urllib.request, ssl
@@ -345,6 +593,7 @@ def api_cdn_status_check():
 
 @app.route("/admin/status")
 @app.route("/admin/stats")
+@require_admin
 def admin_stats():
     try:
         from datetime import timezone
@@ -358,13 +607,16 @@ def admin_stats():
             # 오늘 기록이 아직 적을 때는 최근 활성 20건만 조회
             access_docs = list(db.collection('access_logs').order_by('last_active', direction=google_firestore.Query.DESCENDING).limit(20).stream())
         
-        today_visitor_count = len(access_docs)
+        import html as html_lib
+        today_visitor_count = 0
         today_total_hits = 0
         rows_html = ""
         for d in access_docs:
             data = d.to_dict()
             hits = data.get('hits', 1)
-            today_total_hits += hits
+            if data.get('date') == today_str:
+                today_visitor_count += 1
+                today_total_hits += hits
             last_active = data.get('last_active')
             last_active_str = "-"
             if last_active:
@@ -374,17 +626,15 @@ def admin_stats():
                 else:
                     last_active_str = str(last_active)
             
-            uid_str = data.get('uid') or data.get('ip') or 'Unknown'
-            short_uid = uid_str[:6] + ".." if len(uid_str) > 15 else uid_str
-            
-            os_info = data.get('os', '')
-            if os_info:
-                short_uid += f" <span style='color:#6e7781; font-size:0.8rem;'>({os_info})</span>"
+            user_name = html_lib.escape(str(data.get('name') or ''))
+            uid_str = html_lib.escape(str(data.get('uid') or data.get('ip') or 'Unknown'))
+            short_uid = uid_str[:8] + ".." if len(uid_str) > 12 else uid_str
+            display_user = f"{user_name} <span style='color:#6e7781; font-size:0.8rem;'>({short_uid})</span>" if user_name else short_uid
                     
             rows_html += f"""
             <tr style="border-bottom: 1px solid #e1e4e8;">
                 <td style="padding: 14px 16px; font-weight: bold; color: #24292f;">{data.get('date')}</td>
-                <td style="padding: 14px 16px; font-family: monospace; color: #0969da; font-weight: 600;">{short_uid}</td>
+                <td style="padding: 14px 16px; color: #0969da; font-weight: 600;">{display_user}</td>
                 <td style="padding: 14px 16px; font-weight: bold; text-align: center; color: #1f2328;">{hits:,} 회</td>
                 <td style="padding: 14px 16px; color: #57606a; font-size: 0.9rem;">{last_active_str}</td>
             </tr>
@@ -687,7 +937,8 @@ def admin_stats():
                 <!-- Tab Headers -->
                 <div class="tabs">
                     <button class="tab-btn active" onclick="openTab('crawls')">🔄 크롤링 현황</button>
-                    <button class="tab-btn" onclick="openTab('access')">👤 사용자 접속 통계</button>
+                    <button class="tab-btn" onclick="openTab('users')">👤 사용자 승인 & 접속 관리</button>
+                    <button class="tab-btn" onclick="openTab('feedback')">✉️ 구장요청 / 건의함 <span id="feedback-badge" class="badge fail" style="display:none;">0</span></button>
                     <button class="tab-btn" onclick="openTab('clubs')">🏌️ 구장 매핑 관리</button>
                 </div>
                 
@@ -713,42 +964,83 @@ def admin_stats():
                     </div>
                 </div>
                 
-                <div id="tab-access" class="tab-content" style="display: none;">
+                <div id="tab-users" class="tab-content" style="display: none;">
                     <!-- Today Visitor Summary Cards -->
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
                         <div style="background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 10px; padding: 15px;">
-                            <div style="color: #57606a; font-size: 0.85rem; font-weight: 500;">오늘 순방문자</div>
+                            <div style="color: #57606a; font-size: 0.85rem; font-weight: 500;">오늘 순방문자 (DAU)</div>
                             <div style="font-size: 1.5rem; font-weight: 700; color: #0969da; margin-top: 5px;">{today_visitor_count:,} <span style="font-size: 0.9rem; font-weight: normal; color: #57606a;">명</span></div>
                         </div>
                         <div style="background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 10px; padding: 15px;">
                             <div style="color: #57606a; font-size: 0.85rem; font-weight: 500;">오늘 총 조회수</div>
                             <div style="font-size: 1.5rem; font-weight: 700; color: #1a7f37; margin-top: 5px;">{today_total_hits:,} <span style="font-size: 0.9rem; font-weight: normal; color: #57606a;">회</span></div>
                         </div>
-                        <div style="background: #ddf4ff; border: 1px solid #54aeff; border-radius: 10px; padding: 15px; display: flex; flex-direction: column; justify-content: space-between;">
-                            <div>
-                                <div style="color: #0969da; font-size: 0.85rem; font-weight: 600;">📊 Google Analytics (GA4)</div>
-                                <div style="color: #24292f; font-size: 0.8rem; margin-top: 3px;">실시간 접속자 및 평균 체류시간</div>
-                            </div>
-                            <a href="https://analytics.google.com/" target="_blank" style="display: inline-block; margin-top: 8px; padding: 6px 12px; background: #0969da; color: white; border-radius: 6px; text-decoration: none; font-size: 0.8rem; font-weight: 600; text-align: center;">GA4 대시보드 바로가기 ↗</a>
+                        <div style="background: #ddf4ff; border: 1px solid #54aeff; border-radius: 10px; padding: 15px;">
+                            <div style="color: #0969da; font-size: 0.85rem; font-weight: 600;">📱 사용자 승인 정책</div>
+                            <div style="color: #24292f; font-size: 0.8rem; margin-top: 4px;">미승인 사용자는 접속 시 승인 요청 창이 표시되며, 아래 목록에서 [승인] 버튼 클릭 시 즉시 이용 가능합니다.</div>
                         </div>
                     </div>
                     
                     <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
-                        <h4 style="margin: 0; font-size: 0.95rem; color: #24292f;">오늘의 주요 접속 내역 (최대 30건)</h4>
-                        <span style="font-size: 0.8rem; color: #57606a;">불필요한 1,000건 전수 읽기 차단으로 비용 최적화 적용됨</span>
+                        <h4 style="margin: 0; font-size: 1rem; color: #24292f;">사용자 승인 목록</h4>
+                        <button onclick="loadUsers()" style="padding: 4px 10px; font-size: 0.8rem; cursor: pointer; border: 1px solid #d0d7de; border-radius: 6px; background: white;">새로고침</button>
+                    </div>
+                    <div class="responsive-table" style="margin-bottom: 30px;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>이름</th>
+                                    <th>기기 정보</th>
+                                    <th>요청 일시</th>
+                                    <th style="text-align: center;">승인 상태</th>
+                                    <th>최근 접속 (KST)</th>
+                                    <th style="text-align: center;">방문일수</th>
+                                    <th style="text-align: center;">관리 / 승인</th>
+                                </tr>
+                            </thead>
+                            <tbody id="users-tbody">
+                                <tr><td colspan="7" style="text-align:center; padding:30px;">사용자 목록 로딩 중...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div style="margin-bottom: 12px;">
+                        <h4 style="margin: 0; font-size: 0.95rem; color: #24292f;">오늘 접속 상세 내역 (최근 30건)</h4>
                     </div>
                     <div class="responsive-table">
                         <table>
                             <thead>
                                 <tr>
                                     <th>날짜</th>
-                                    <th>사용자 IP</th>
+                                    <th>사용자 (UID / IP)</th>
                                     <th style="text-align: center;">메인 조회 횟수</th>
                                     <th>마지막 활동 시간 (KST)</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {rows_html if rows_html else '<tr><td colspan="4" style="text-align:center; padding:30px; color:#888;">오늘 접속 기록이 없습니다.</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="tab-feedback" class="tab-content" style="display: none;">
+                    <div style="margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin: 0; font-size: 1.1rem; color: #24292f;">✉️ 사용자의 구장 추가 요청 및 건의사항</h3>
+                        <button onclick="loadFeedback()" style="padding: 4px 10px; font-size: 0.8rem; cursor: pointer; border: 1px solid #d0d7de; border-radius: 6px; background: white;">새로고침</button>
+                    </div>
+                    <div class="responsive-table">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th style="width: 140px;">작성자 (이름)</th>
+                                    <th>요청 및 건의 내용</th>
+                                    <th style="width: 150px;">작성 일시 (KST)</th>
+                                    <th style="width: 80px; text-align: center;">관리</th>
+                                </tr>
+                            </thead>
+                            <tbody id="feedback-tbody">
+                                <tr><td colspan="4" style="text-align:center; padding:30px;">건의사항 로딩 중...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -781,6 +1073,126 @@ def admin_stats():
             </div>
             
             <script>
+                
+                // --- Users & Feedback Management Logic ---
+                function escapeHtml(str) {{
+                    return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                }}
+                async function loadUsers() {{
+                    try {{
+                        const res = await fetch('/api/admin/users', {{ cache: 'no-store' }});
+                        const users = await res.json();
+                        const tbody = document.getElementById('users-tbody');
+                        tbody.innerHTML = '';
+                        if (!users || users.length === 0) {{
+                            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:30px;">등록된 사용자가 없습니다.</td></tr>';
+                            return;
+                        }}
+                        users.forEach(u => {{
+                            const tr = document.createElement('tr');
+                            let statusBadge = '<span class="badge warning" style="background:#fff8c5; color:#9a6700;">🟡 승인 대기</span>';
+                            let actionBtns = `<button onclick="updateUserStatus('${{u.uid}}', 'approved')" style="padding:4px 8px; cursor:pointer; background:#2da44e; color:white; border:none; border-radius:4px; font-weight:600;">승인</button> `;
+                            if (u.status === 'approved') {{
+                                statusBadge = '<span class="badge success">🟢 승인됨</span>';
+                                actionBtns = `<button onclick="updateUserStatus('${{u.uid}}', 'rejected')" style="padding:4px 8px; cursor:pointer; background:#cf222e; color:white; border:none; border-radius:4px;">차단</button> `;
+                            }} else if (u.status === 'rejected') {{
+                                statusBadge = '<span class="badge fail">🔴 차단됨</span>';
+                                actionBtns = `<button onclick="updateUserStatus('${{u.uid}}', 'approved')" style="padding:4px 8px; cursor:pointer; background:#2da44e; color:white; border:none; border-radius:4px;">재승인</button> `;
+                            }}
+                            actionBtns += `<button onclick="deleteUser('${{u.uid}}')" style="padding:4px 8px; cursor:pointer; border:1px solid #d0d7de; background:white; border-radius:4px; color:#cf222e;">삭제</button>`;
+
+                            tr.innerHTML = `
+                                <td style="font-weight:600; color:#0969da;">${{escapeHtml(u.name)}}</td>
+                                <td style="color:#57606a; font-size:0.85rem;">${{escapeHtml(u.device || '-')}}</td>
+                                <td style="color:#57606a; font-size:0.85rem;">${{u.requested_at || '-'}}</td>
+                                <td style="text-align:center;">${{statusBadge}}</td>
+                                <td style="color:#57606a; font-size:0.85rem;">${{u.last_seen || '-'}}</td>
+                                <td style="text-align:center; font-weight:600;">${{u.visit_days}}일</td>
+                                <td style="text-align:center;">${{actionBtns}}</td>
+                            `;
+                            tbody.appendChild(tr);
+                        }});
+                    }} catch(e) {{
+                        document.getElementById('users-tbody').innerHTML = '<tr><td colspan="7" style="text-align:center; color:red;">사용자 목록 로드 실패</td></tr>';
+                    }}
+                }}
+
+                async function updateUserStatus(uid, status) {{
+                    try {{
+                        const res = await fetch('/api/admin/users', {{
+                            method: 'PUT',
+                            headers: {{'Content-Type': 'application/json'}},
+                            body: JSON.stringify({{ uid, status }})
+                        }});
+                        if (res.ok) {{
+                            loadUsers();
+                        }} else {{
+                            alert('상태 변경 실패');
+                        }}
+                    }} catch(e) {{
+                        alert('오류 발생: ' + e);
+                    }}
+                }}
+
+                async function deleteUser(uid) {{
+                    if (!confirm('이 사용자를 삭제하시겠습니까? (삭제 시 다시 접속하면 새로 승인 요청해야 합니다)')) return;
+                    try {{
+                        await fetch('/api/admin/users', {{
+                            method: 'DELETE',
+                            headers: {{'Content-Type': 'application/json'}},
+                            body: JSON.stringify({{ uid }})
+                        }});
+                        loadUsers();
+                    }} catch(e) {{
+                        alert('삭제 실패: ' + e);
+                    }}
+                }}
+
+                async function loadFeedback() {{
+                    try {{
+                        const res = await fetch('/api/admin/feedback', {{ cache: 'no-store' }});
+                        const list = await res.json();
+                        const tbody = document.getElementById('feedback-tbody');
+                        const badge = document.getElementById('feedback-badge');
+                        tbody.innerHTML = '';
+                        if (!list || list.length === 0) {{
+                            tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:30px;">접수된 구장 요청/건의사항이 없습니다.</td></tr>';
+                            badge.style.display = 'none';
+                            return;
+                        }}
+                        badge.innerText = list.length;
+                        badge.style.display = 'inline-block';
+                        list.forEach(fb => {{
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `
+                                <td style="font-weight:600; color:#0969da;">${{escapeHtml(fb.name)}}</td>
+                                <td style="white-space: pre-wrap; word-break: break-all;">${{escapeHtml(fb.message)}}</td>
+                                <td style="color:#57606a; font-size:0.85rem;">${{fb.created_at}}</td>
+                                <td style="text-align:center;">
+                                    <button onclick="deleteFeedback('${{fb.id}}')" style="padding:4px 8px; cursor:pointer; color:#cf222e; border:1px solid #d0d7de; border-radius:4px; background:white;">삭제</button>
+                                </td>
+                            `;
+                            tbody.appendChild(tr);
+                        }});
+                    }} catch(e) {{
+                        document.getElementById('feedback-tbody').innerHTML = '<tr><td colspan="4" style="text-align:center; color:red;">건의사항 로드 실패</td></tr>';
+                    }}
+                }}
+
+                async function deleteFeedback(id) {{
+                    if (!confirm('이 건의사항을 삭제하시겠습니까?')) return;
+                    try {{
+                        await fetch('/api/admin/feedback', {{
+                            method: 'DELETE',
+                            headers: {{'Content-Type': 'application/json'}},
+                            body: JSON.stringify({{ id }})
+                        }});
+                        loadFeedback();
+                    }} catch(e) {{
+                        alert('삭제 실패: ' + e);
+                    }}
+                }}
+
                 function openTab(tabName) {{
                     document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
                     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -853,7 +1265,7 @@ def admin_stats():
                         if(!res.ok) throw new Error('Network error');
                     }} catch (e) {{
                         alert('알림 설정 저장에 실패했습니다.');
-                        loadClubs();
+                        loadClubs(); loadUsers(); loadFeedback();
                     }}
                 }}
                 
@@ -891,7 +1303,7 @@ def admin_stats():
                         headers: {{'Content-Type': 'application/json'}},
                         body: JSON.stringify(data)
                     }});
-                    loadClubs();
+                    loadClubs(); loadUsers(); loadFeedback();
                 }}
                 
                 async function deleteClub(name) {{
@@ -901,7 +1313,7 @@ def admin_stats():
                             headers: {{'Content-Type': 'application/json'}},
                             body: JSON.stringify({{name: name}})
                         }});
-                        loadClubs();
+                        loadClubs(); loadUsers(); loadFeedback();
                     }}
                 }}
                 
@@ -942,7 +1354,7 @@ def admin_stats():
                 
                 // Initialize
                 window.onload = function() {{
-                    loadClubs();
+                    loadClubs(); loadUsers(); loadFeedback();
                 }};
             </script>
         </body>

@@ -58,6 +58,13 @@ jobs:
       run: |
         python ingest_weather.py
 
+    - name: Run Daily History Archive & BigQuery Finalize
+      env:
+        PROJECT_ID: "golf-ai-480805"
+      run: |
+        python archive_history.py
+        python cleanup_old_history.py
+
     - name: Export Static Data (update CDN)
       env:
         PROJECT_ID: "golf-ai-480805"

@@ -1,10 +1,21 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /access_logs/{document=**} {
-      allow create, update: if request.auth != null;
-      allow read, delete: if false;
+    // 민감 정보 컬렉션: 클라이언트 직접 접근 차단 (서버 API를 통해서만 관리)
+    match /users/{document=**} {
+      allow read, write: if false;
     }
+    match /access_logs/{document=**} {
+      allow read, write: if false;
+    }
+    match /user_feedback/{document=**} {
+      allow read, write: if false;
+    }
+    match /stats_daily/{document=**} {
+      allow read, write: if false;
+    }
+
+    // 기본 읽기 허용 (golf_clubs 등 정적 조회용)
     match /{document=**} {
       allow read: if true;
       allow write: if false;

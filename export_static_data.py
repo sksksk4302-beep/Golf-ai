@@ -554,6 +554,13 @@ def export_data(db=None, memory_tee_times=None):
         print(f"    ❌ Cloud Storage 업로드 실패: {e}")
     
 
+    # 5-4. 최저가 트래커 (archive/tracker.json) 관측 최저가 병합
+    try:
+        from archive_store import merge_tracker
+        merge_tracker(all_tee_times)
+    except Exception as tracker_err:
+        print(f"    ⚠️ archive_store.merge_tracker 오류 (비치명적): {tracker_err}")
+
     print(f"[export_static_data] 완료!")
     return static_data
 

@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="refresh" content="0; url=https://conpang.web.app/">
+    <title>골프 AI 서비스 주소 이전 안내</title>
+    <script>
+        // 기존 서비스워커 및 캐시 완전 삭제 후 새 도메인으로 이동
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for(let registration of registrations) {
+                    registration.unregister();
+                }
+            });
+        }
+        if ('caches' in window) {
+            caches.keys().then(function(names) {
+                for (let name of names) caches.delete(name);
+            });
+        }
+        window.location.replace("https://conpang.web.app" + window.location.search);
+    </script>
+</head>
+<body style="font-family: sans-serif; text-align: center; padding: 50px;">
+    <h2>골프 AI 서비스 주소가 새 주소로 이전되었습니다.</h2>
+    <p>잠시 후 새 주소(<strong>https://conpang.web.app</strong>)로 자동 이동합니다.</p>
+    <p><a href="https://conpang.web.app">바로 이동하기</a></p>
+</body>
+</html>

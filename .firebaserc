@@ -1,5 +1,17 @@
 {
   "projects": {
     "default": "golf-ai-480805"
+  },
+  "targets": {
+    "golf-ai-480805": {
+      "hosting": {
+        "main": [
+          "conpang"
+        ],
+        "legacy": [
+          "golf-ai-480805"
+        ]
+      }
+    }
   }
 }

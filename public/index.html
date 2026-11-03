@@ -515,9 +515,73 @@
             }
         }
     </style>
+    <!-- Firebase SDK (v10 compat) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 </head>
 
 <body>
+
+    <!-- 1. 승인 요청 / 승인 대기 모달 -->
+    <div class="modal-overlay" id="authModal" style="z-index: 99999; background: rgba(0,0,0,0.8);">
+        <div class="modal-content" style="max-width: 380px; text-align: center; padding: 25px; height: auto;">
+            <div id="authRequestView">
+                <div style="font-size: 2.2rem; margin-bottom: 10px;">⛳</div>
+                <h3 style="margin-bottom: 8px; font-size: 1.2rem; color: #1f2328;">사용자 승인 요청</h3>
+                <p style="color: #57606a; font-size: 0.88rem; line-height: 1.4; margin-bottom: 20px;">
+                    골프 AI 서비스 이용을 위해<br><strong>성함(이름)</strong>을 입력해 주세요.
+                </p>
+                <input type="text" id="authUserNameInput" placeholder="이름 입력 (예: 홍길동)" 
+                       style="width: 100%; padding: 12px; font-size: 1rem; border: 1.5px solid #d0d7de; border-radius: 8px; margin-bottom: 15px; box-sizing: border-box; text-align: center;">
+                <button onclick="submitAuthRequest()" class="search-btn" style="width: 100%; border-radius: 8px; padding: 12px; font-size: 1rem; font-weight: 600;">
+                    승인 요청하기
+                </button>
+            </div>
+            <div id="authPendingView" style="display: none;">
+                <div style="font-size: 2.2rem; margin-bottom: 10px;">⏳</div>
+                <h3 style="margin-bottom: 8px; font-size: 1.2rem; color: #1f2328;">승인 대기 중</h3>
+                <p style="color: #57606a; font-size: 0.88rem; line-height: 1.4; margin-bottom: 20px;" id="authPendingDesc">
+                    관리자 확인 및 승인 후<br>정상 이용이 가능합니다.
+                </p>
+                <button onclick="checkAuthApproval()" class="search-btn" style="width: 100%; border-radius: 8px; padding: 12px; font-size: 1rem; font-weight: 600; background: #0969da;">
+                    승인 여부 확인
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. 구장 추가 요청 / 건의함 모달 -->
+    <div class="modal-overlay" id="feedbackModal">
+        <div class="modal-content" style="max-width: 420px; padding: 24px; height: auto;">
+            <header class="modal-header" style="margin-bottom: 15px;">
+                <h2 style="font-size: 1.15rem; color: #24292f;"><i class="fa-regular fa-envelope" style="color:var(--primary); margin-right:6px;"></i>구장 추가 및 건의</h2>
+                <button class="close-btn" onclick="closeFeedbackModal()">&times;</button>
+            </header>
+            <p style="font-size: 0.88rem; color: #0969da; background: #ddf4ff; padding: 10px 12px; border-radius: 8px; line-height: 1.4; margin-bottom: 15px; font-weight: 500;">
+                📢 추가하고 싶으신 구장을 골팡에서 보시는 구장명으로 알려주세요
+            </p>
+            <textarea id="feedbackTextInput" rows="4" placeholder="골팡 구장명 또는 건의사항을 자유롭게 작성해 주세요."
+                      style="width: 100%; padding: 12px; font-size: 0.95rem; border: 1.5px solid #d0d7de; border-radius: 8px; box-sizing: border-box; resize: none; margin-bottom: 15px; font-family: inherit;"></textarea>
+            <div style="display: flex; gap: 8px;">
+                <button onclick="closeFeedbackModal()" style="flex: 1; padding: 11px; border: 1px solid #d0d7de; background: white; border-radius: 8px; font-weight: 600; cursor: pointer;">취소</button>
+                <button onclick="submitFeedback()" class="search-btn" style="flex: 2; border-radius: 8px; padding: 11px; font-weight: 600; font-size: 0.95rem;">전송하기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. 저장 필터 목록 모달 (2개 이상일 때) -->
+    <div class="modal-overlay" id="presetModal">
+        <div class="modal-content" style="max-width: 400px; padding: 22px; height: auto;">
+            <header class="modal-header" style="margin-bottom: 15px;">
+                <h2 style="font-size: 1.15rem; color: #24292f;"><i class="fa-solid fa-star" style="color:#e3b341; margin-right:6px;"></i>저장된 필터 목록</h2>
+                <button class="close-btn" onclick="closePresetModal()">&times;</button>
+            </header>
+            <div id="presetListContainer" style="display: flex; flex-direction: column; gap: 10px; max-height: 350px; overflow-y: auto;">
+                <!-- JS 주입 -->
+            </div>
+        </div>
+    </div>
+
 
     <!-- Onboarding / Settings Modal -->
     <div id="onboarding" class="modal-overlay">
@@ -611,10 +675,17 @@
 
     <!-- Main App -->
     <header class="main-header">
-        <div class="header-left">
+        <div class="header-left" onclick="resetToHome()" style="cursor: pointer;" title="클릭 시 선호구장 기본값으로 초기화">
             <h1>Golf AI</h1>
         </div>
-        <button class="icon-btn" onclick="openSettings()"><i class="fa-solid fa-gear"></i></button>
+        <div class="header-actions" style="display: flex; align-items: center; gap: 8px;">
+            <button class="icon-btn" onclick="openFeedbackModal()" title="구장 추가 및 건의"><i class="fa-regular fa-envelope"></i></button>
+            <button class="icon-btn" id="filterPresetBtn" onclick="handlePresetBtnClick()" title="저장 필터" style="position: relative;">
+                <i class="fa-regular fa-star" id="presetStarIcon"></i>
+                <span id="presetCountBadge" style="display:none; position: absolute; top: -3px; right: -3px; background: #e3b341; color: #fff; border-radius: 50%; font-size: 0.65rem; font-weight: bold; width: 16px; height: 16px; line-height: 16px; text-align: center;">0</span>
+            </button>
+            <button class="icon-btn" onclick="openSettings()" title="설정"><i class="fa-solid fa-gear"></i></button>
+        </div>
     </header>
 
     <div class="filter-container">
@@ -630,6 +701,9 @@
             </div>
             <button class="search-btn" onclick="loadData()">
                 <i class="fa-solid fa-magnifying-glass"></i>
+            </button>
+            <button class="icon-btn" onclick="saveCurrentFilterAsPreset()" title="현재 필터 조건 저장" style="width: 44px; height: 44px; border: 1.5px solid var(--primary); color: var(--primary); border-radius: 12px; background: white;">
+                <i class="fa-regular fa-star" id="saveStarIcon" style="font-size: 1.1rem;"></i>
             </button>
         </div>
 
@@ -678,7 +752,493 @@
         }
 
 
-        // --- Static Data (정적 구조) ---
+        
+        // ==========================================
+        // 1. Firebase 인증 & 영구 UID & 승인 처리
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyDYlwChfJwltwtmu6MduHzbRF73-K3S3HY",
+            authDomain: "golf-ai-480805.firebaseapp.com",
+            projectId: "golf-ai-480805",
+            appId: "1:349807690414:web:3383375ce505c1e092633f"
+        };
+
+        let currentUserUID = null;
+        let currentUserName = null;
+        let isUserApproved = false;
+        let flatPickerInstance = null;
+
+        // 쿠키 헬퍼 (10년 영구 만료)
+        function setCookie(name, val) {
+            const d = new Date();
+            d.setTime(d.getTime() + (3650 * 24 * 60 * 60 * 1000));
+            document.cookie = `${name}=${encodeURIComponent(val)};expires=${d.toUTCString()};path=/;SameSite=Lax`;
+        }
+        function getCookie(name) {
+            const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+            return match ? decodeURIComponent(match[2]) : null;
+        }
+
+        // 영구 UID 3중 저장 (IndexedDB + LocalStorage + 10년 쿠키)
+        async function getPermanentUID() {
+            let uid = null;
+            try { uid = await getIDB('golf_ai_uid'); } catch(e) {}
+            if (!uid) uid = localStorage.getItem('golf_ai_uid');
+            if (!uid) uid = getCookie('golf_ai_uid');
+            return uid;
+        }
+
+        async function setPermanentUID(uid) {
+            if (!uid) return;
+            currentUserUID = uid;
+            try { await setIDB('golf_ai_uid', uid); } catch(e) {}
+            try { localStorage.setItem('golf_ai_uid', uid); } catch(e) {}
+            try { setCookie('golf_ai_uid', uid); } catch(e) {}
+        }
+
+        async function initAuthSystem() {
+            try {
+                if (!window.firebase || !firebase.apps.length) {
+                    firebase.initializeApp(firebaseConfig);
+                }
+                const auth = firebase.auth();
+                let savedUid = await getPermanentUID();
+
+                auth.onAuthStateChanged(async (user) => {
+                    if (user) {
+                        const effectiveUid = savedUid || user.uid;
+                        currentUserUID = effectiveUid;
+                        await setPermanentUID(effectiveUid);
+                        await checkUserStatus(effectiveUid);
+                    } else {
+                        // 익명 로그인 자동 실행
+                        try {
+                            const cred = await auth.signInAnonymously();
+                            const effectiveUid = savedUid || cred.user.uid;
+                            currentUserUID = effectiveUid;
+                            await setPermanentUID(effectiveUid);
+                            await checkUserStatus(effectiveUid);
+                        } catch(signInErr) {
+                            console.error("익명 로그인 실패:", signInErr);
+                            // 오프라인이거나 에러 시 저장된 UID로 폴백 체크
+                            if (savedUid) {
+                                currentUserUID = savedUid;
+                                await checkUserStatus(savedUid);
+                            }
+                        }
+                    }
+                });
+            } catch(e) {
+                console.error("Auth 시스템 초기화 오류:", e);
+            }
+        }
+
+        async function checkUserStatus(uid) {
+            if (!uid) return;
+            try {
+                const res = await fetch(`/api/auth/check?uid=${encodeURIComponent(uid)}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    currentUserName = data.name;
+                    if (data.status === 'approved') {
+                        isUserApproved = true;
+                        document.getElementById('authModal').classList.remove('open');
+                        checkAndPingDaily(uid);
+                    } else if (data.status === 'rejected') {
+                        isUserApproved = false;
+                        showAuthPendingView("이용이 제한된 기기/사용자입니다.");
+                    } else {
+                        // pending
+                        isUserApproved = false;
+                        showAuthPendingView();
+                    }
+                } else if (res.status === 404) {
+                    // 미등록 신규 유저 -> 이름 입력 승인 요청 화면 표시
+                    isUserApproved = false;
+                    showAuthRequestView();
+                }
+            } catch(e) {
+                console.warn("사용자 상태 확인 실패:", e);
+            }
+        }
+
+        function showAuthRequestView() {
+            const modal = document.getElementById('authModal');
+            document.getElementById('authRequestView').style.display = 'block';
+            document.getElementById('authPendingView').style.display = 'none';
+            modal.classList.add('open');
+        }
+
+        function showAuthPendingView(customMsg) {
+            const modal = document.getElementById('authModal');
+            document.getElementById('authRequestView').style.display = 'none';
+            document.getElementById('authPendingView').style.display = 'block';
+            if (customMsg) {
+                document.getElementById('authPendingDesc').innerText = customMsg;
+            }
+            modal.classList.add('open');
+        }
+
+        async function submitAuthRequest() {
+            const nameInput = document.getElementById('authUserNameInput');
+            const name = nameInput.value.trim();
+            if (!name) {
+                alert("이름을 입력해 주세요.");
+                nameInput.focus();
+                return;
+            }
+            if (!currentUserUID) {
+                alert("기기 인증 정보를 불러오는 중입니다. 잠시 후 다시 시도해 주세요.");
+                return;
+            }
+
+            const device = navigator.userAgent.includes('iPhone') ? 'iPhone' : 
+                           navigator.userAgent.includes('Android') ? 'Android' : 'PC/기타';
+
+            try {
+                const res = await fetch('/api/auth/request', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ uid: currentUserUID, name, device })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    currentUserName = name;
+                    showAuthPendingView("승인 요청이 완료되었습니다.\n관리자 승인 후 정상 이용이 가능합니다.");
+                } else {
+                    alert(data.message || "승인 요청 실패");
+                }
+            } catch(e) {
+                alert("요청 중 오류가 발생했습니다: " + e);
+            }
+        }
+
+        async function checkAuthApproval() {
+            if (!currentUserUID) return;
+            await checkUserStatus(currentUserUID);
+            if (isUserApproved) {
+                alert("승인되었습니다! 환영합니다.");
+            } else {
+                alert("아직 승인 대기 중입니다. 관리자 확인 후 승인됩니다.");
+            }
+        }
+
+        async function checkAndPingDaily(uid) {
+            const todayStr = getKSTDateString();
+            const lastPing = localStorage.getItem('last_ping_date');
+            if (lastPing !== todayStr) {
+                try {
+                    await fetch('/api/ping', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ uid })
+                    });
+                    localStorage.setItem('last_ping_date', todayStr);
+                } catch(e) {}
+            }
+        }
+
+        // ==========================================
+        // 2. 구장 추가 및 건의함 모달 (편지봉투)
+        // ==========================================
+        function openFeedbackModal() {
+            document.getElementById('feedbackTextInput').value = '';
+            document.getElementById('feedbackModal').classList.add('open');
+        }
+        function closeFeedbackModal() {
+            document.getElementById('feedbackModal').classList.remove('open');
+        }
+        async function submitFeedback() {
+            const input = document.getElementById('feedbackTextInput');
+            const message = input.value.trim();
+            if (!message) {
+                alert("내용을 입력해 주세요.");
+                input.focus();
+                return;
+            }
+            try {
+                const res = await fetch('/api/feedback', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        uid: currentUserUID || 'unknown',
+                        name: currentUserName || '익명',
+                        message: message
+                    })
+                });
+                if (res.ok) {
+                    alert("소중한 의견이 관리자에게 전달되었습니다. 감사합니다!");
+                    closeFeedbackModal();
+                } else {
+                    alert("전송에 실패했습니다. 다시 시도해 주세요.");
+                }
+            } catch(e) {
+                alert("전송 오류: " + e);
+            }
+        }
+
+        // ==========================================
+        // 3. 저장 필터 프리셋 (단일 날짜, 만료 삭제, 별 아이콘)
+        // ==========================================
+        function getSavedPresets() {
+            try {
+                const raw = localStorage.getItem('savedFilters');
+                const list = raw ? JSON.parse(raw) : [];
+                return cleanExpiredPresets(list);
+            } catch(e) {
+                return [];
+            }
+        }
+
+        function cleanExpiredPresets(list) {
+            const todayStr = getKSTDateString();
+            const currentHour = parseInt(getKSTTimeStr().split(':')[0], 10);
+            const valid = list.filter(p => {
+                if (p.date < todayStr) return false;
+                if (p.date === todayStr && p.times && p.times.length > 0) {
+                    const maxHour = Math.max(...p.times.map(t => parseInt(t, 10)));
+                    if (maxHour < currentHour) return false;
+                }
+                return true;
+            });
+            if (valid.length !== list.length) {
+                localStorage.setItem('savedFilters', JSON.stringify(valid));
+            }
+            return valid;
+        }
+
+        function updatePresetStarUI() {
+            const presets = getSavedPresets();
+            const count = presets.length;
+            const starIcon = document.getElementById('presetStarIcon');
+            const badge = document.getElementById('presetCountBadge');
+            const saveStarIcon = document.getElementById('saveStarIcon');
+
+            if (count === 0) {
+                starIcon.className = 'fa-regular fa-star';
+                starIcon.style.color = '';
+                badge.style.display = 'none';
+            } else if (count === 1) {
+                starIcon.className = 'fa-solid fa-star';
+                starIcon.style.color = '#e3b341';
+                badge.style.display = 'none';
+            } else {
+                starIcon.className = 'fa-solid fa-star';
+                starIcon.style.color = '#e3b341';
+                badge.innerText = count;
+                badge.style.display = 'block';
+            }
+
+            if (saveStarIcon) {
+                const isCurrentSaved = selectedDates.length === 1 && presets.some(p =>
+                    p.date === selectedDates[0] &&
+                    JSON.stringify([...(p.times || [])].sort()) === JSON.stringify(Array.from(selectedTimes).sort()) &&
+                    JSON.stringify([...(p.clubs || [])].sort()) === JSON.stringify(Array.from(selectedClubs).sort())
+                );
+                if (isCurrentSaved) {
+                    saveStarIcon.className = 'fa-solid fa-star';
+                    saveStarIcon.style.color = '#e3b341';
+                } else {
+                    saveStarIcon.className = 'fa-regular fa-star';
+                    saveStarIcon.style.color = '';
+                }
+            }
+        }
+
+        function saveCurrentFilterAsPreset() {
+            if (selectedDates.length > 1) {
+                alert("날짜는 복수지정 불가합니다");
+                return;
+            }
+            if (selectedDates.length === 0) {
+                alert("저장할 날짜를 먼저 선택해 주세요.");
+                return;
+            }
+
+            const targetDate = selectedDates[0];
+            let presets = getSavedPresets();
+
+            if (presets.length >= 5) {
+                alert("저장 필터는 최대 5개까지만 등록 가능합니다. 기존 필터를 삭제 후 추가해 주세요.");
+                return;
+            }
+
+            // 중복 체크
+            const exists = presets.some(p => p.date === targetDate && 
+                                             JSON.stringify(p.times.sort()) === JSON.stringify(Array.from(selectedTimes).sort()) &&
+                                             JSON.stringify(p.clubs.sort()) === JSON.stringify(Array.from(selectedClubs).sort()));
+            if (exists) {
+                alert("이미 동일한 조건의 필터가 저장되어 있습니다.");
+                return;
+            }
+
+            const newPreset = {
+                id: Date.now(),
+                date: targetDate,
+                times: Array.from(selectedTimes),
+                clubs: Array.from(selectedClubs),
+                createdAt: new Date().toISOString()
+            };
+
+            presets.push(newPreset);
+            localStorage.setItem('savedFilters', JSON.stringify(presets));
+            updatePresetStarUI();
+            alert(`[${targetDate}] 필터 조건이 저장되었습니다.`);
+        }
+
+        function handlePresetBtnClick() {
+            const presets = getSavedPresets();
+            updatePresetStarUI();
+
+            if (presets.length === 0) {
+                alert("저장된 필터가 없습니다.\n검색창 옆의 별(☆) 아이콘을 눌러 원하는 날짜 조건을 저장해 보세요.");
+            } else if (presets.length === 1) {
+                // 1개일 때: 즉시 조회
+                applyPreset(presets[0]);
+            } else {
+                // 2개 이상일 때: 팝업 목록 오픈
+                renderPresetModalList(presets);
+                document.getElementById('presetModal').classList.add('open');
+            }
+        }
+
+        function closePresetModal() {
+            document.getElementById('presetModal').classList.remove('open');
+        }
+
+        function renderPresetModalList(presets) {
+            const container = document.getElementById('presetListContainer');
+            container.innerHTML = '';
+            presets.forEach((p, idx) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.style.cssText = "display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border: 1px solid #e1e4e8; border-radius: 10px; background: #f6f8fa; cursor: pointer; transition: all 0.2s;";
+                itemDiv.onmouseover = () => itemDiv.style.background = '#eef2f6';
+                itemDiv.onmouseout = () => itemDiv.style.background = '#f6f8fa';
+
+                // 날짜 포맷 (M월 D일 요일)
+                const dObj = new Date(p.date + "T00:00:00");
+                const weekDayStr = ['일','월','화','수','목','금','토'][dObj.getDay()];
+                const dateLabel = `${dObj.getMonth()+1}월 ${dObj.getDate()}일(${weekDayStr})`;
+
+                // 시간 포맷 (숫자 오름차순 정렬 후 표시)
+                let timeLabel = "전체 시간";
+                const sortedTimes = (p.times || []).slice().sort((a, b) => parseInt(a, 10) - parseInt(b, 10));
+                if (sortedTimes.length === 1) {
+                    timeLabel = `${parseInt(sortedTimes[0], 10)}시대`;
+                } else if (sortedTimes.length > 1) {
+                    timeLabel = `${parseInt(sortedTimes[0], 10)}시대 외 ${sortedTimes.length - 1}개`;
+                }
+
+                itemDiv.innerHTML = `
+                    <div style="flex: 1;" onclick="applyPresetByIndex(${idx})">
+                        <div style="font-weight: 700; color: #1f2328; font-size: 0.95rem;">${dateLabel} · <span style="color:#0969da;">${timeLabel}</span></div>
+                        <div style="font-size: 0.8rem; color: #6e7781; margin-top: 3px;">구장 ${p.clubs.length}개 선택됨</div>
+                    </div>
+                    <button onclick="event.stopPropagation(); deletePreset(${p.id});" style="background: none; border: none; color: #cf222e; cursor: pointer; padding: 6px 8px; font-size: 1rem;" title="삭제">
+                        <i class="fa-regular fa-trash-can"></i>
+                    </button>
+                `;
+                container.appendChild(itemDiv);
+            });
+        }
+
+        function applyPresetByIndex(idx) {
+            const presets = getSavedPresets();
+            if (presets[idx]) {
+                closePresetModal();
+                applyPreset(presets[idx]);
+            }
+        }
+
+        function applyPreset(p) {
+            selectedDates = [p.date];
+            selectedTimes = new Set(p.times || []);
+            if (p.clubs && p.clubs.length > 0) {
+                selectedClubs = new Set(p.clubs);
+            }
+
+            // UI 갱신
+            updateDateBtn();
+            if (flatPickerInstance) {
+                flatPickerInstance.setDate([p.date]);
+            }
+            const btnText = selectedTimes.size > 0 ? `${selectedTimes.size}개 시간대` : "전체 시간";
+            document.getElementById('timeBtnText').innerText = btnText;
+            renderTimeGrid();
+            saveFilterState();
+
+            // 즉시 조회
+            loadData();
+        }
+
+        function deletePreset(id) {
+            let presets = getSavedPresets();
+            presets = presets.filter(p => p.id !== id);
+            localStorage.setItem('savedFilters', JSON.stringify(presets));
+            updatePresetStarUI();
+            if (presets.length <= 1) {
+                closePresetModal();
+            } else {
+                renderPresetModalList(presets);
+            }
+        }
+
+        // ==========================================
+        // 4. 로고 클릭 초기화 (Golf AI)
+        // ==========================================
+        function resetToHome() {
+            // 1. 선호구장은 localStorage 저장된 기본값으로 복원
+            const saved = localStorage.getItem('favoriteClubs');
+            if (saved) {
+                try { selectedClubs = new Set(JSON.parse(saved)); } catch(e) {}
+            }
+            // 2. 날짜는 첫 가능일자 1개
+            if (availableDates.length > 0) {
+                selectedDates = [availableDates[0]];
+            } else {
+                selectedDates = [];
+            }
+            // 3. 시간대는 전체 시간
+            selectedTimes = new Set();
+
+            // 4. UI 갱신
+            updateDateBtn();
+            if (flatPickerInstance) {
+                flatPickerInstance.setDate(selectedDates);
+            }
+            document.getElementById('timeBtnText').innerText = "전체 시간";
+            renderTimeGrid();
+            saveFilterState();
+
+            // 5. 즉시 조회
+            loadData();
+        }
+
+        // ==========================================
+        // 5. 버전 폴링 및 최신 데이터 갱신 버그 수정
+        // ==========================================
+        function startVersionPolling() {
+            setInterval(async () => {
+                if (document.hidden) return; // 탭 비활성 시 스킵
+                try {
+                    const cacheWindow = Math.floor(Date.now() / 300000);
+                    const vRes = await fetchWithFallback('version.json', '?t=' + cacheWindow);
+                    if (vRes.ok) {
+                        const vData = await vRes.json();
+                        if (dataVersion && vData.generated_at && vData.generated_at !== dataVersion) {
+                            console.log(`🔄 신규 데이터 버전 감지: ${dataVersion} -> ${vData.generated_at}`);
+                            dataVersion = vData.generated_at;
+                            loadedDates.clear(); // 기존 날짜 캐시 무효화 (D+2 이후 오래된 데이터 버그 수정)
+                            await fetchStaticData();
+                            fetchAvailableDates();
+                            loadData();
+                        }
+                    }
+                } catch(e) {}
+            }, 300000); // 5분마다 체크
+        }
+
+// --- Static Data (정적 구조) ---
         let staticData = null; // /api/static_data에서 1회 로드
         let allTeeTimes = []; // 전체 티타임 데이터
         let allDailyStats = []; // 전체 히스토리 데이터
@@ -688,6 +1248,7 @@
         function saveFilterState() {
             sessionStorage.setItem('selectedDates', JSON.stringify(selectedDates));
             sessionStorage.setItem('selectedTimes', JSON.stringify([...selectedTimes]));
+            updatePresetStarUI();
         }
 
         function restoreFilterState() {
@@ -727,14 +1288,17 @@
                 localStorage.setItem('teeTimeLinkPopupSeen', 'true');
             }
 
-            renderTimeGrid(); // Render time chips (Mobile & Desktop)
+                        renderTimeGrid();
+            await initAuthSystem();
+            updatePresetStarUI();
+            startVersionPolling();
             
             // 정적 데이터 1회 로드 → clubs, available_dates, tee_times, weather 모두 포함
             await fetchStaticData();
             fetchClubs();
             fetchAvailableDates();
 
-            flatpickr("#datePickerBtn", {
+            flatPickerInstance = flatpickr("#datePickerBtn", {
                 mode: "multiple",
                 dateFormat: "Y-m-d",
                 minDate: "today",
@@ -770,10 +1334,14 @@
         });
 
         function updateDateBtn() {
-            const text = selectedDates.length > 0
-                ? `${selectedDates[0]} 외 ${selectedDates.length - 1}일`
-                : "날짜 선택";
+            let text = "날짜 선택";
+            if (selectedDates.length === 1) {
+                text = selectedDates[0];
+            } else if (selectedDates.length > 1) {
+                text = `${selectedDates[0]} 외 ${selectedDates.length - 1}일`;
+            }
             document.getElementById('dateBtnText').innerText = text;
+            updatePresetStarUI();
         }
 
         // --- IndexedDB Caching (No 5MB quota limits) ---

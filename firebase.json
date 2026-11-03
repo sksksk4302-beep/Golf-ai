@@ -1,30 +1,63 @@
 {
-  "hosting": {
-    "public": "public",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**",
-      "static_data*.json",
-      "version.json"
-    ],
-    "rewrites": [
-      {
-        "source": "/admin/**",
-        "run": {
-          "serviceId": "golf-ai-web",
-          "region": "asia-northeast3"
+  "hosting": [
+    {
+      "target": "main",
+      "public": "public",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**",
+        "static_data*.json",
+        "version.json"
+      ],
+      "rewrites": [
+        {
+          "source": "/api/**",
+          "run": {
+            "serviceId": "golf-ai-web",
+            "region": "asia-northeast3"
+          }
         }
-      },
-      {
-        "source": "/api/**",
-        "run": {
-          "serviceId": "golf-ai-web",
-          "region": "asia-northeast3"
+      ]
+    },
+    {
+      "target": "legacy",
+      "public": "public_legacy",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "redirects": [
+        {
+          "source": "/",
+          "destination": "https://conpang.web.app/",
+          "type": 301
+        },
+        {
+          "source": "/index.html",
+          "destination": "https://conpang.web.app/",
+          "type": 301
         }
-      }
-    ]
-  },
+      ],
+      "rewrites": [
+        {
+          "source": "/admin/**",
+          "run": {
+            "serviceId": "golf-ai-web",
+            "region": "asia-northeast3"
+          }
+        },
+        {
+          "source": "/api/**",
+          "run": {
+            "serviceId": "golf-ai-web",
+            "region": "asia-northeast3"
+          }
+        }
+      ]
+    }
+  ],
   "firestore": [
     {
       "database": "teetime",

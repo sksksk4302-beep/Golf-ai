@@ -8,6 +8,20 @@ CLUB_COORDS = {}
 CLUB_REGION = {}
 REGION_CLUBS = {}
 
+def extract_region(address: str) -> str:
+    parts = address.split()
+    if len(parts) >= 2:
+        prov = parts[0]
+        city = parts[1]
+        if '경기' in prov: prov = '경기도'
+        elif '충북' in prov or '충청북' in prov: prov = '충청북도'
+        elif '충남' in prov or '충청남' in prov: prov = '충청남도'
+        elif '강원' in prov: prov = '강원도'
+        if city == '여주군': city = '여주시'
+        if '진천' in city: prov = '충청북도'
+        return f"{prov} {city}"
+    return address
+
 try:
     # Try multiple paths for robustness
     paths = [
@@ -25,21 +39,6 @@ try:
     if json_path:
         with open(json_path, "r", encoding="utf-8") as f:
             clubs = json.load(f)
-            
-            def extract_region(address: str) -> str:
-                parts = address.split()
-                if len(parts) >= 2:
-                    prov = parts[0]
-                    city = parts[1]
-                    if '경기' in prov: prov = '경기도'
-                    elif '충북' in prov or '충청북' in prov: prov = '충청북도'
-                    elif '충남' in prov or '충청남' in prov: prov = '충청남도'
-                    elif '강원' in prov: prov = '강원도'
-                    if city == '여주군': city = '여주시'
-                    if '진천' in city: prov = '충청북도'
-                    return f"{prov} {city}"
-                return address
-
             for club in clubs:
                 if "name" in club and "lat" in club and "lng" in club:
                     name = club["name"]
@@ -136,3 +135,69 @@ def parse_weather_data(raw_data: Dict[str, Any]) -> List[Dict[str, Any]]:
         
     return parsed_days
 
+def fetch_past_weather_for_clubs(target_date_str: str) -> Dict[str, Dict[str, Any]]:
+    """
+    어제 날짜(target_date_str)에 대한 지역별 실제 날씨(최저, 최고, 강수량)를 조회하여
+    club_name -> {temp_min, temp_max, precip_mm} 매핑으로 반환.
+    """
+    club_weather_map = {}
+    try:
+        coords = get_region_coords()
+        regions = list(coords.keys())
+        if not regions:
+            return club_weather_map
+        lats = [coords[r][0] for r in regions]
+        lngs = [coords[r][1] for r in regions]
+
+        url = "https://api.open-meteo.com/v1/forecast"
+        params = {
+            "latitude": ",".join(str(lat) for lat in lats),
+            "longitude": ",".join(str(lng) for lng in lngs),
+            "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum",
+            "timezone": "Asia/Tokyo",
+            "start_date": target_date_str,
+            "end_date": target_date_str
+        }
+        res = requests.get(url, params=params, timeout=10)
+        region_weather = {}
+        if res.status_code == 200:
+            data = res.json()
+            if isinstance(data, dict):
+                data = [data]
+            for i, item in enumerate(data):
+                if i >= len(regions):
+                    break
+                reg = regions[i]
+                d = item.get("daily", {})
+                t_max = (d.get("temperature_2m_max") or [None])[0]
+                t_min = (d.get("temperature_2m_min") or [None])[0]
+                precip = (d.get("precipitation_sum") or [None])[0]
+                region_weather[reg] = {
+                    "temp_min": t_min,
+                    "temp_max": t_max,
+                    "precip_mm": precip
+                }
+
+        # 1. 정적 구장 매핑 우선 반영
+        for c_name, reg in CLUB_REGION.items():
+            if reg in region_weather:
+                club_weather_map[c_name] = region_weather[reg]
+
+        # 2. Firestore에 신규 추가된 구장도 반영
+        try:
+            from club_utils import get_golf_clubs
+            from archive_store import init_firestore
+            db = init_firestore()
+            clubs = get_golf_clubs(db)
+            for club in clubs:
+                c_name = club.get("name")
+                if c_name and c_name not in club_weather_map:
+                    reg = get_club_region(c_name) or extract_region(club.get("address", ""))
+                    if reg and reg in region_weather:
+                        club_weather_map[c_name] = region_weather[reg]
+        except Exception:
+            pass
+    except Exception as e:
+        print(f"[weather_utils] fetch_past_weather_for_clubs 실패: {e}")
+
+    return club_weather_map
