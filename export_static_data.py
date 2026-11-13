@@ -74,7 +74,8 @@ def _fetch_tee_times_from_firestore(db, target_dates):
                 data.get("source", ""),
                 data.get("benefit", ""),
                 data.get("url", ""),
-                data.get("source_idx", "")
+                data.get("source_idx", ""),
+                data.get("course", "")
             ])
     return tee_times
 
@@ -182,7 +183,8 @@ def _format_memory_tee_times(items):
             item.get("source", "Golfpang"),
             item.get("benefit", ""),
             item.get("url", ""),
-            item.get("source_idx", "")
+            item.get("source_idx", ""),
+            item.get("course", "")
         ])
     return formatted
 
@@ -478,7 +480,6 @@ def export_data(db=None, memory_tee_times=None):
     
     json_str = json.dumps(static_data, ensure_ascii=False)
     json_bytes = json_str.encode('utf-8')
-    compressed_bytes = gzip.compress(json_bytes)
     
     # 5-0. 로컬 public 디렉터리에 상시 백업 저장 (Firebase Hosting / 로컬 서빙용)
     public_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'public')

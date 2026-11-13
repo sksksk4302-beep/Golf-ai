@@ -57,16 +57,25 @@ def save_tee_times(db, tee_times, target_date, sources_with_data=None):
     # 2. Process scraped data
     for item in tee_times:
         club_safe = item['golf'].replace(" ", "").replace("/", "_")
-        doc_id = f"{item['date'].replace('-', '')}_{club_safe}_{item['time'].replace(':', '')}"
+        course_safe = item.get('course', '').replace(" ", "").replace("/", "_")
+        time_safe = item['time'].replace(":", "")
+        source_safe = item.get('source', 'gp')[:2].lower()
+        
+        # doc_id: 동일 구장/시간대라도 코스(course)나 출처(source)가 다른 경우 덮어쓰기 방지
+        if course_safe:
+            doc_id = f"{item['date'].replace('-', '')}_{club_safe}_{course_safe}_{time_safe}_{source_safe}"
+        else:
+            doc_id = f"{item['date'].replace('-', '')}_{club_safe}_{time_safe}_{source_safe}"
         doc_ref = db.collection('tee_times').document(doc_id)
         
         new_price = item['price']
         new_benefit = item.get('benefit', '')
+        course_name = item.get('course', '')
         
         # Check if identical record already exists
         if doc_id in existing_docs:
             old_data = existing_docs[doc_id]
-            if old_data.get('price') == new_price and old_data.get('benefit', '') == new_benefit:
+            if old_data.get('price') == new_price and old_data.get('benefit', '') == new_benefit and old_data.get('course', '') == course_name:
                 # No change needed, skip write to save cost
                 skip_count += 1
                 del existing_docs[doc_id]
@@ -82,6 +91,7 @@ def save_tee_times(db, tee_times, target_date, sources_with_data=None):
             "hour": item['hour_num'],
             "price": new_price,
             "benefit": new_benefit,
+            "course": course_name,
             "source": item.get('source', 'Golfpang'),
             "url": item.get('url', ''),
             "source_idx": item.get('source_idx', ''),
@@ -118,11 +128,12 @@ def save_tee_times(db, tee_times, target_date, sources_with_data=None):
 
 def cleanup_past_teetimes(db):
     """
-    Deletes tee_times documents with dates older than today.
+    Deletes tee_times documents with dates older than today (KST).
     This prevents stale data from accumulating and increasing Firestore I/O costs.
     """
-    today_str = datetime.date.today().strftime("%Y-%m-%d")
-    print(f"Cleaning up tee_times older than {today_str}...")
+    KST = datetime.timezone(datetime.timedelta(hours=9))
+    today_str = datetime.datetime.now(KST).strftime("%Y-%m-%d")
+    print(f"Cleaning up tee_times older than {today_str} (KST)...")
 
     # Find documents for dates before Today
     stale_docs = db.collection('tee_times') \

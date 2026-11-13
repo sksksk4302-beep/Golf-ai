@@ -1,4 +1,4 @@
-const CACHE_NAME = 'golf-ai-v3';
+const CACHE_NAME = 'golf-ai-v5';
 const ASSETS = [
   '/static/manifest.json',
   'https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css',
@@ -32,6 +32,11 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const req = event.request;
+
+  // API 요청은 서비스워커 캐시에서 완전히 제외 (항상 최신 서버 응답)
+  if (req.url.includes('/api/')) {
+    return;
+  }
 
   // HTML 네비게이션 요청은 Network-First (최신 배포 즉시 반영)
   if (req.mode === 'navigate' || req.destination === 'document' || req.url.endsWith('/')) {

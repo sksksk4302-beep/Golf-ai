@@ -7,6 +7,12 @@
         "firebase.json",
         "**/.*",
         "**/node_modules/**",
+        "**/*.py",
+        "**/*.env*",
+        "**/*.yaml",
+        "**/*.yml",
+        "**/*.sh",
+        "**/service-account*.json",
         "static_data*.json",
         "version.json"
       ],
@@ -26,19 +32,13 @@
       "ignore": [
         "firebase.json",
         "**/.*",
-        "**/node_modules/**"
-      ],
-      "redirects": [
-        {
-          "source": "/",
-          "destination": "https://conpang.web.app/",
-          "type": 301
-        },
-        {
-          "source": "/index.html",
-          "destination": "https://conpang.web.app/",
-          "type": 301
-        }
+        "**/node_modules/**",
+        "**/*.py",
+        "**/*.env*",
+        "**/*.yaml",
+        "**/*.yml",
+        "**/*.sh",
+        "**/service-account*.json"
       ],
       "rewrites": [
         {

@@ -84,14 +84,16 @@ steps:
       - '-c'
       - |
         npm install -g firebase-tools
+        firebase target:apply hosting legacy $PROJECT_ID --project $PROJECT_ID
         firebase hosting:sites:create conpang --project $PROJECT_ID || true
-        if ! firebase target:apply hosting main conpang --project $PROJECT_ID; then
+        firebase target:apply hosting main conpang --project $PROJECT_ID
+        if ! firebase deploy --project $PROJECT_ID --only hosting,firestore:rules; then
+          echo "conpang unavailable, falling back to teeeeup..."
           firebase hosting:sites:create teeeeup --project $PROJECT_ID || true
           firebase target:apply hosting main teeeeup --project $PROJECT_ID
           sed -i 's/conpang\.web\.app/teeeeup.web.app/g' firebase.json public_legacy/index.html
+          firebase deploy --project $PROJECT_ID --only hosting,firestore:rules
         fi
-        firebase target:apply hosting legacy $PROJECT_ID --project $PROJECT_ID
-        firebase deploy --project $PROJECT_ID --only hosting,firestore:rules
 
 images:
   - 'asia-northeast3-docker.pkg.dev/$PROJECT_ID/golf-repo/golf-app'

@@ -1,24 +1,11 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 민감 정보 컬렉션: 클라이언트 직접 접근 차단 (서버 API를 통해서만 관리)
-    match /users/{document=**} {
-      allow read, write: if false;
-    }
-    match /access_logs/{document=**} {
-      allow read, write: if false;
-    }
-    match /user_feedback/{document=**} {
-      allow read, write: if false;
-    }
-    match /stats_daily/{document=**} {
-      allow read, write: if false;
-    }
-
-    // 기본 읽기 허용 (golf_clubs 등 정적 조회용)
+    // 보안 강화: 클라이언트 SDK의 직접적인 Firestore 접근을 전면 차단합니다.
+    // 모든 데이터 조회 및 조작은 백엔드 API (Cloud Run Admin SDK) 및 GCS 정적 데이터를 통해서만 수행됩니다.
+    // 이를 통해 카카오 토큰(config/kakao), 프록시 주소(config/proxy), 시스템 로그 등의 유출을 차단합니다.
     match /{document=**} {
-      allow read: if true;
-      allow write: if false;
+      allow read, write: if false;
     }
   }
 }

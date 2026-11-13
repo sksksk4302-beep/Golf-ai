@@ -2,13 +2,13 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="refresh" content="0; url=https://conpang.web.app/">
-    <title>골프 AI 서비스 주소 이전 안내</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 Not Found</title>
     <script>
-        // 기존 서비스워커 및 캐시 완전 삭제 후 새 도메인으로 이동
+        // 기존 구형 서비스워커 및 캐시 완전 삭제
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                for(let registration of registrations) {
+                for (let registration of registrations) {
                     registration.unregister();
                 }
             });
@@ -18,12 +18,10 @@
                 for (let name of names) caches.delete(name);
             });
         }
-        window.location.replace("https://conpang.web.app" + window.location.search);
     </script>
 </head>
-<body style="font-family: sans-serif; text-align: center; padding: 50px;">
-    <h2>골프 AI 서비스 주소가 새 주소로 이전되었습니다.</h2>
-    <p>잠시 후 새 주소(<strong>https://conpang.web.app</strong>)로 자동 이동합니다.</p>
-    <p><a href="https://conpang.web.app">바로 이동하기</a></p>
+<body style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; text-align: center; padding: 80px 20px; color: #57606a;">
+    <h2 style="color: #24292f; margin-bottom: 10px;">페이지를 찾을 수 없습니다 (404)</h2>
+    <p style="font-size: 0.95rem;">요청하신 주소는 더 이상 사용되지 않거나 종료된 페이지입니다.</p>
 </body>
 </html>

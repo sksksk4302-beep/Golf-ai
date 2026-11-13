@@ -689,22 +689,24 @@
     </header>
 
     <div class="filter-container">
-        <div class="filter-row">
-            <div class="filter-btn" id="datePickerBtn">
+        <div class="filter-row" style="gap: 8px; align-items: stretch;">
+            <div class="filter-btn" id="datePickerBtn" style="flex: 1.45; min-width: 0; padding: 11px 10px; white-space: nowrap; font-size: 0.92rem;">
                 <i class="fa-regular fa-calendar"></i>
-                <span id="dateBtnText">날짜 선택</span>
+                <span id="dateBtnText" style="overflow: hidden; text-overflow: ellipsis;">날짜 선택</span>
             </div>
             <!-- Mobile Time Btn -->
-            <div class="filter-btn mobile-only" onclick="openTimeSettings()">
+            <div class="filter-btn mobile-only" onclick="openTimeSettings()" style="flex: 0.85; min-width: 0; padding: 11px 8px; white-space: nowrap; font-size: 0.9rem; gap: 5px;">
                 <i class="fa-regular fa-clock"></i>
                 <span id="timeBtnText">전체 시간</span>
             </div>
-            <button class="search-btn" onclick="loadData()">
-                <i class="fa-solid fa-magnifying-glass"></i>
-            </button>
-            <button class="icon-btn" onclick="saveCurrentFilterAsPreset()" title="현재 필터 조건 저장" style="width: 44px; height: 44px; border: 1.5px solid var(--primary); color: var(--primary); border-radius: 12px; background: white;">
-                <i class="fa-regular fa-star" id="saveStarIcon" style="font-size: 1.1rem;"></i>
-            </button>
+            <div style="display: flex; gap: 6px; flex-shrink: 0;">
+                <button class="search-btn" onclick="loadData()" title="조회" style="width: 44px; height: 44px; border-radius: 12px; font-size: 1rem;">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </button>
+                <button class="icon-btn" id="savePresetBtn" onclick="saveCurrentFilterAsPreset()" title="현재 필터 조건 저장" style="width: 44px; height: 44px; border: 1px solid #e1e4e8; color: #666; border-radius: 12px; background: #f8f9fa; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">
+                    <i class="fa-regular fa-star" id="saveStarIcon" style="font-size: 1rem;"></i>
+                </button>
+            </div>
         </div>
 
         <!-- Desktop Time Filter (Inline) -->
@@ -835,24 +837,33 @@
 
         async function checkUserStatus(uid) {
             if (!uid) return;
+            // 로컬에 이미 승인 완료 기록이 있으면 모달을 절대 띄우지 않고 통과
+            const cachedApprovedUid = localStorage.getItem('golf_ai_approved') || getCookie('golf_ai_approved');
+            if (cachedApprovedUid === uid) {
+                isUserApproved = true;
+                document.getElementById('authModal').classList.remove('open');
+            }
             try {
-                const res = await fetch(`/api/auth/check?uid=${encodeURIComponent(uid)}`);
+                const res = await fetch(`/api/auth/check?uid=${encodeURIComponent(uid)}&_t=${Date.now()}`, { cache: 'no-store' });
                 if (res.ok) {
                     const data = await res.json();
                     currentUserName = data.name;
                     if (data.status === 'approved') {
                         isUserApproved = true;
+                        try { localStorage.setItem('golf_ai_approved', uid); } catch(e) {}
+                        try { setCookie('golf_ai_approved', uid); } catch(e) {}
                         document.getElementById('authModal').classList.remove('open');
                         checkAndPingDaily(uid);
                     } else if (data.status === 'rejected') {
                         isUserApproved = false;
+                        try { localStorage.removeItem('golf_ai_approved'); } catch(e) {}
                         showAuthPendingView("이용이 제한된 기기/사용자입니다.");
                     } else {
                         // pending
                         isUserApproved = false;
                         showAuthPendingView();
                     }
-                } else if (res.status === 404) {
+                } else if (res.status === 404 && !isUserApproved) {
                     // 미등록 신규 유저 -> 이름 입력 승인 요청 화면 표시
                     isUserApproved = false;
                     showAuthRequestView();
@@ -904,7 +915,15 @@
                 const data = await res.json();
                 if (res.ok) {
                     currentUserName = name;
-                    showAuthPendingView("승인 요청이 완료되었습니다.\n관리자 승인 후 정상 이용이 가능합니다.");
+                    if (data.status === 'approved') {
+                        isUserApproved = true;
+                        try { localStorage.setItem('golf_ai_approved', currentUserUID); } catch(e) {}
+                        try { setCookie('golf_ai_approved', currentUserUID); } catch(e) {}
+                        document.getElementById('authModal').classList.remove('open');
+                        checkAndPingDaily(currentUserUID);
+                    } else {
+                        showAuthPendingView("승인 요청이 완료되었습니다.\n관리자 승인 후 정상 이용이 가능합니다.");
+                    }
                 } else {
                     alert(data.message || "승인 요청 실패");
                 }
@@ -992,15 +1011,8 @@
 
         function cleanExpiredPresets(list) {
             const todayStr = getKSTDateString();
-            const currentHour = parseInt(getKSTTimeStr().split(':')[0], 10);
-            const valid = list.filter(p => {
-                if (p.date < todayStr) return false;
-                if (p.date === todayStr && p.times && p.times.length > 0) {
-                    const maxHour = Math.max(...p.times.map(t => parseInt(t, 10)));
-                    if (maxHour < currentHour) return false;
-                }
-                return true;
-            });
+            // 어제 이전의 지난 날짜만 정리 (오늘 날짜 프리셋은 당일 자정까지 유지)
+            const valid = list.filter(p => p.date >= todayStr);
             if (valid.length !== list.length) {
                 localStorage.setItem('savedFilters', JSON.stringify(valid));
             }
@@ -1030,6 +1042,7 @@
             }
 
             if (saveStarIcon) {
+                const savePresetBtn = document.getElementById('savePresetBtn');
                 const isCurrentSaved = selectedDates.length === 1 && presets.some(p =>
                     p.date === selectedDates[0] &&
                     JSON.stringify([...(p.times || [])].sort()) === JSON.stringify(Array.from(selectedTimes).sort()) &&
@@ -1038,9 +1051,17 @@
                 if (isCurrentSaved) {
                     saveStarIcon.className = 'fa-solid fa-star';
                     saveStarIcon.style.color = '#e3b341';
+                    if (savePresetBtn) {
+                        savePresetBtn.style.background = '#fffbea';
+                        savePresetBtn.style.borderColor = '#e3b341';
+                    }
                 } else {
                     saveStarIcon.className = 'fa-regular fa-star';
-                    saveStarIcon.style.color = '';
+                    saveStarIcon.style.color = '#666';
+                    if (savePresetBtn) {
+                        savePresetBtn.style.background = '#f8f9fa';
+                        savePresetBtn.style.borderColor = '#e1e4e8';
+                    }
                 }
             }
         }
@@ -1063,10 +1084,10 @@
                 return;
             }
 
-            // 중복 체크
+            // 중복 체크 (원본 배열 변형 방지)
             const exists = presets.some(p => p.date === targetDate && 
-                                             JSON.stringify(p.times.sort()) === JSON.stringify(Array.from(selectedTimes).sort()) &&
-                                             JSON.stringify(p.clubs.sort()) === JSON.stringify(Array.from(selectedClubs).sort()));
+                                             JSON.stringify([...(p.times || [])].sort()) === JSON.stringify(Array.from(selectedTimes).sort()) &&
+                                             JSON.stringify([...(p.clubs || [])].sort()) === JSON.stringify(Array.from(selectedClubs).sort()));
             if (exists) {
                 alert("이미 동일한 조건의 필터가 저장되어 있습니다.");
                 return;
@@ -1187,6 +1208,7 @@
         // 4. 로고 클릭 초기화 (Golf AI)
         // ==========================================
         function resetToHome() {
+            alert("선호구장 전체 조회합니다.");
             // 1. 선호구장은 localStorage 저장된 기본값으로 복원
             const saved = localStorage.getItem('favoriteClubs');
             if (saved) {
@@ -1465,10 +1487,10 @@
                     }
                 }
                 
-                // 전역 변수에 데이터 분배 (Deminification)
+                // 전역 변수에 데이터 분배 (Deminification - course 필드 포함)
                 allTeeTimes = (staticData.tee_times || []).map(item => {
                     if (Array.isArray(item)) {
-                        return { club_name: item[0], date: item[1], time: item[2], hour: item[3], price: item[4], source: item[5], benefit: item[6], url: item[7], source_idx: item[8] };
+                        return { club_name: item[0], date: item[1], time: item[2], hour: item[3], price: item[4], source: item[5], benefit: item[6], url: item[7], source_idx: item[8], course: item[9] || '' };
                     }
                     return item; // 혹시 딕셔너리면 그대로
                 });
@@ -1574,8 +1596,8 @@
             let promises = [];
             for (const d of dates) {
                 if (!loadedDates.has(d)) {
-                    promises.push(fetchTeeTimesForDate(d));
                     loadedDates.add(d); // 중복 호출 방지
+                    promises.push(fetchTeeTimesForDate(d));
                 }
             }
             await Promise.all(promises);
@@ -1588,12 +1610,16 @@
                     const data = await res.json();
                     const deminified = data.map(item => ({
                         club_name: item[0], date: item[1], time: item[2], hour: item[3], 
-                        price: item[4], source: item[5], benefit: item[6], url: item[7], source_idx: item[8]
+                        price: item[4], source: item[5], benefit: item[6], url: item[7], source_idx: item[8],
+                        course: item[9] || ''
                     }));
                     allTeeTimes = allTeeTimes.concat(deminified);
+                } else {
+                    loadedDates.delete(dateStr); // 실패 시 재시도 가능하도록 해제
                 }
             } catch (e) {
                 console.warn(`Failed to fetch tee times for ${dateStr}`, e);
+                loadedDates.delete(dateStr); // 실패 시 재시도 가능하도록 해제
             }
         }
 
@@ -1875,6 +1901,7 @@
                     timeSorted.forEach((item, idx) => {
                         const itemSourceClass = item.source.toLowerCase().includes('teescan') ? 'src-red' : 'src-blue';
                         const item9Html = is9Hole(item) ? '<span class="badge-9hole" title="9홀 라운드 의심 (이른 아침 새벽 시간대의 평균 가격 절반 이하 상품)">9</span>' : '';
+                        const itemCourseHtml = item.course ? `<span style="font-size:0.8rem; color:#4b5563; font-weight:normal; margin-left:5px;">${item.course}</span>` : '';
                         
                         if (item.source.toLowerCase().includes('teescan')) {
                             desktopDetailsHtml += `
@@ -1882,7 +1909,7 @@
                                     <span class="d-time" style="font-size:0.9rem;">${item.time}</span>
                                     <div style="display:flex; gap:4px; align-items:center;">
                                         <span class="d-source ${itemSourceClass}" style="font-size:0.7rem;">${item.source}</span>
-                                        <span class="d-price" style="font-size:0.9rem;">${item.price.toLocaleString()}${item9Html}</span>
+                                        <span class="d-price" style="font-size:0.9rem;">${item.price.toLocaleString()}${itemCourseHtml}${item9Html}</span>
                                     </div>
                                 </a>
                             `;
@@ -1892,7 +1919,7 @@
                                     <span class="d-time" style="font-size:0.9rem;">${item.time}</span>
                                     <div style="display:flex; gap:4px; align-items:center;">
                                         <span class="d-source ${itemSourceClass}" style="font-size:0.7rem;">${item.source}</span>
-                                        <span class="d-price" style="font-size:0.9rem;">${item.price.toLocaleString()}${item9Html}</span>
+                                        <span class="d-price" style="font-size:0.9rem;">${item.price.toLocaleString()}${itemCourseHtml}${item9Html}</span>
                                     </div>
                                 </div>
                             `;
@@ -1921,6 +1948,7 @@
                     const benefitHtml = benefitText ? `<span style="font-size:0.65rem; color:#e74c3c; margin-left:4px; font-weight:normal;">${benefitText}</span>` : '';
 
                     const best9Html = is9Hole(best) ? '<span class="badge-9hole" title="9홀 라운드 의심 (이른 아침 새벽 시간대의 평균 가격 절반 이하 상품)">9</span>' : '';
+                    const bestCourseHtml = best.course ? `<span style="font-size:0.95rem; color:#4b5563; font-weight:normal; margin-left:6px;">${best.course}</span>` : '';
 
                     card.innerHTML = `
                         <div class="card-content">
@@ -1932,7 +1960,7 @@
                                 <span class="count-badge">${groupItems.length}</span>
                             </div>
                             <div class="card-mid" style="margin-bottom:8px;">
-                                <span class="best-price" style="font-size:1.3rem;">₩${best.price.toLocaleString()}~</span>${best9Html}${benefitHtml}
+                                <span class="best-price" style="font-size:1.3rem;">₩${best.price.toLocaleString()}~</span>${bestCourseHtml}${best9Html}${benefitHtml}
                             </div>
                             <div class="card-btm">
                                 <div style="display:flex; align-items:center; gap:6px;">
@@ -2018,10 +2046,11 @@
                 }
                 
                 const item9Html = is9Hole(item) ? '<span class="badge-9hole" title="9홀 라운드 의심 (이른 아침 새벽 시간대의 평균 가격 절반 이하 상품)">9</span>' : '';
+                const itemCourseHtml = item.course ? `<span style="font-size:0.85rem; color:#4b5563; font-weight:normal; margin-left:6px;">${item.course}</span>` : '';
                 row.innerHTML = `
                     <span class="d-time">${item.time}</span>
                     <span class="d-source ${item.source.toLowerCase().includes('teescan') ? 'src-red' : 'src-blue'}">${item.source}</span>
-                    <span class="d-price">₩${item.price.toLocaleString()}${item9Html}</span>
+                    <span class="d-price">₩${item.price.toLocaleString()}${itemCourseHtml}${item9Html}</span>
                 `;
                 list.appendChild(row);
             });
@@ -2169,7 +2198,7 @@
             }
         }
 
-        function getDayName(d) { return ['일', '월', '화', '수', '목', '금', '토'][new Date(d).getDay()]; }
+        function getDayName(d) { return ['일', '월', '화', '수', '목', '금', '토'][new Date(d + 'T00:00:00').getDay()]; }
     </script>
     <!-- Chatbot Removed
     <link rel="stylesheet"

@@ -220,7 +220,6 @@ def get_teescan_times(s: std_requests.Session, seq: str, date_str: str) -> List[
             
             if r.status_code != 200:
                 print(f"[Teescan] seq={seq_str} status={r.status_code} text={r.text[:200]}", flush=True)
-                print(f"[Teescan] seq={seq_str} status={r.status_code} text={r.text[:200]}", flush=True)
                 if attempt < max_retries:
                     _time.sleep(1.0)
                     continue
@@ -297,14 +296,16 @@ def crawl_teescan(date_str: str, favorite: List[str]):
                 
                 ttxt  = str(it.get("teetime_time", "00:00"))
                 h     = int(ttxt.split(":")[0]) if ":" in ttxt else int(ttxt[:2] or 0)
-                # 티스캐너 API에서 benefit 필드 추출
+                # 티스캐너 API에서 benefit 및 course 필드 추출
                 benefit_text = str(it.get("benefit", "") or "").strip()
+                course_name = str(it.get("course_name") or it.get("course_nm") or it.get("course") or it.get("cos_name") or "").strip()
                 teescan_url = f"https://m.teescanner.com/booking/detail?tab=teetime&golfclub_seq={t_seq}&roundDay={date_str}&isJoin=N&entry_path=RT&step=1"
                 res.append({
                     "golf": t_name, "date": date_str,
                     "hour": f"{h:02d}시대", "hour_num": h,
                     "price": price, "benefit": benefit_text,
                     "time": ttxt,
+                    "course": course_name,
                     "url": teescan_url, "source": "teescan",
                 })
         except Exception as e:
@@ -397,6 +398,7 @@ def crawl_golfpang(date_str: str, favorite: List[str], sectors: List[int] = None
 
                         date_txt = tds[1].get_text(" ", strip=True)
                         time_txt = tds[2].get_text(" ", strip=True)
+                        course_txt = tds[3].get_text(" ", strip=True) if len(tds) > 3 else ""
                         club_txt = tds[4].get_text(" ", strip=True)
 
                         if not _same_mmdd(date_str, date_txt):
@@ -431,7 +433,8 @@ def crawl_golfpang(date_str: str, favorite: List[str], sectors: List[int] = None
                         if hour_num < 0:
                             continue
 
-                        key = (matched["name"], date_str, hour_num, price)
+                        # 시간(시/분) 및 코스, 가격 기준 중복 제거 (동일 시간 다른 코스 보존)
+                        key = (matched["name"], date_str, time_txt, course_txt, price)
                         if key in seen:
                             continue
                         seen.add(key)
@@ -444,6 +447,7 @@ def crawl_golfpang(date_str: str, favorite: List[str], sectors: List[int] = None
                             "price": price,
                             "benefit": "",
                             "time": time_txt,
+                            "course": course_txt,
                             "url": GOLFPANG_BASE + "/",
                             "source": "golfpang",
                             "source_idx": tr.get("id", "").replace("tr_", ""),
@@ -551,7 +555,11 @@ def crawl_golfpang_specific_club(date_str: str, club_id: str, sector: int) -> Li
 
                     date_txt = tds[1].get_text(" ", strip=True)
                     time_txt = tds[2].get_text(" ", strip=True)
+                    course_txt = tds[3].get_text(" ", strip=True) if len(tds) > 3 else ""
                     # club_txt = tds[4].get_text(" ", strip=True) # Should match our club
+                    
+                    if not _same_mmdd(date_str, date_txt):
+                        continue
                     
                     price_txt = ""
                     price_span = tr.select_one("span.price")
@@ -568,7 +576,7 @@ def crawl_golfpang_specific_club(date_str: str, club_id: str, sector: int) -> Li
                     if hour_num < 0:
                         continue
                         
-                    key = (club_name, date_str, hour_num, price)
+                    key = (club_name, date_str, time_txt, course_txt, price)
                     if key in seen:
                         continue
                     seen.add(key)
@@ -581,6 +589,7 @@ def crawl_golfpang_specific_club(date_str: str, club_id: str, sector: int) -> Li
                         "price": price,
                         "benefit": "",
                         "time": time_txt,
+                        "course": course_txt,
                         "url": GOLFPANG_BASE + "/",
                         "source": "golfpang",
                         "source_idx": tr.get("id", "").replace("tr_", ""),

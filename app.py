@@ -62,7 +62,9 @@ def log_access(ip):
         # Clean up old keys from cooldown dict if it gets too large
         if len(_ip_log_cooldown) > 5000:
             cutoff = now - timedelta(seconds=120)
-            _ip_log_cooldown.clear()
+            for k in list(_ip_log_cooldown.keys()):
+                if _ip_log_cooldown[k] < cutoff:
+                    del _ip_log_cooldown[k]
         
         date_str = now.strftime('%Y-%m-%d')
         doc_id = f"{date_str}_{ip.replace('.', '_')}"
@@ -191,7 +193,12 @@ def get_booking_contact():
         return jsonify({"error": str(e)}), 500
 
 
-ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "dreamtree1@")
+import hmac
+
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD")
+if not ADMIN_PASSWORD:
+    ADMIN_PASSWORD = "dreamtree1@"
+    print("⚠️ WARNING: ADMIN_PASSWORD environment variable is not set! Using default password. Please set it in production.")
 
 def require_admin(f):
     from functools import wraps
@@ -199,12 +206,13 @@ def require_admin(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         auth = request.authorization
-        if auth and auth.password == ADMIN_PASSWORD:
+        if auth and auth.password and hmac.compare_digest(auth.password, ADMIN_PASSWORD):
             return f(*args, **kwargs)
         auth_header = request.headers.get("X-Admin-Password")
+        if auth_header and hmac.compare_digest(auth_header, ADMIN_PASSWORD):
+            return f(*args, **kwargs)
         cookie_pass = request.cookies.get("admin_pass")
-        query_pass = request.args.get("admin_pass")
-        if ADMIN_PASSWORD in (auth_header, cookie_pass, query_pass):
+        if cookie_pass and hmac.compare_digest(cookie_pass, ADMIN_PASSWORD):
             return f(*args, **kwargs)
         return Response(
             '관리자 비밀번호를 입력해주세요.',
@@ -241,18 +249,38 @@ def api_auth_request():
             }, merge=True)
             return jsonify({"status": status, "uid": uid, "name": name})
         else:
+            # 보안 강화: 브라우저 고유 UID 기반으로 1:1 승인 관리
+            # 동일 이름이 존재하더라도 자동 승인하지 않고 관리자 명시적 승인(pending) 대기
+            initial_status = "pending"
             doc_ref.set({
                 "uid": uid,
                 "name": name,
                 "device": device,
-                "status": "pending",
+                "status": initial_status,
                 "requested_at": google_firestore.SERVER_TIMESTAMP,
                 "approved_at": None,
                 "last_seen": google_firestore.SERVER_TIMESTAMP,
                 "visit_days": 0,
                 "last_visit_date": ""
             })
-            return jsonify({"status": "pending", "uid": uid, "name": name})
+
+            # 개선 기능: 신규 사용자 승인 요청 시 관리자 카카오톡 알림 발송
+            try:
+                from send_kakao_alert import refresh_kakao_token, send_kakao_message
+                token = refresh_kakao_token(db)
+                if token:
+                    msg = (
+                        f"👤 [나와바리 골프 사용자 승인 요청]\n"
+                        f"• 이름: {name}\n"
+                        f"• 기기: {device or '미확인'}\n"
+                        f"• UID: {uid[:8]}...\n"
+                        f"관리자 페이지에서 승인해 주세요."
+                    )
+                    send_kakao_message(token, msg)
+            except Exception as alert_err:
+                print(f"Kakao user auth alert error: {alert_err}")
+
+            return jsonify({"status": initial_status, "uid": uid, "name": name})
     except Exception as e:
         print(f"Auth request error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
@@ -349,6 +377,21 @@ def api_submit_feedback():
             "created_at": google_firestore.SERVER_TIMESTAMP,
             "status": "unread"
         })
+
+        # 개선 기능: 사용자 건의/구장요청 메시지 등록 시 관리자 카카오톡 알림 발송
+        try:
+            from send_kakao_alert import refresh_kakao_token, send_kakao_message
+            token = refresh_kakao_token(db)
+            if token:
+                msg = (
+                    f"💬 [나와바리 골프 의견/구장요청]\n"
+                    f"• 작성자: {name}\n"
+                    f"• 내용:\n{message[:200]}"
+                )
+                send_kakao_message(token, msg)
+        except Exception as alert_err:
+            print(f"Kakao feedback alert error: {alert_err}")
+
         return jsonify({"status": "success", "message": "전송되었습니다."})
     except Exception as e:
         print(f"Feedback error: {e}")
@@ -495,8 +538,8 @@ def api_admin_clubs():
             
         elif request.method == "PUT":
             # Update existing club
-            data = request.json
-            old_name = data.get('old_name', '').strip()
+            data = request.json or {}
+            old_name = data.pop('old_name', '').strip()
             name = data.get('name', '').strip()
             if not old_name or not name:
                 return jsonify({"error": "Name is required"}), 400
@@ -529,6 +572,11 @@ def log_cdn_fallback():
     try:
         data = request.get_json() or {}
         filename = data.get("filename", "unknown")
+
+        # 보안 강화: 허용된 정적 데이터 파일명만 허용 (임의 문자열/피싱 주입 방지)
+        import re
+        if not filename or not re.match(r'^(static_data(_\d{4}-\d{2}-\d{2})?(_fallback)?\.json|version\.json)$', filename):
+            return jsonify({"status": "invalid_filename"}), 400
         
         doc_ref = db.collection('system_logs').document('cdn_status')
         status_doc = doc_ref.get()
@@ -936,10 +984,10 @@ def admin_stats():
                 
                 <!-- Tab Headers -->
                 <div class="tabs">
-                    <button class="tab-btn active" onclick="openTab('crawls')">🔄 크롤링 현황</button>
-                    <button class="tab-btn" onclick="openTab('users')">👤 사용자 승인 & 접속 관리</button>
-                    <button class="tab-btn" onclick="openTab('feedback')">✉️ 구장요청 / 건의함 <span id="feedback-badge" class="badge fail" style="display:none;">0</span></button>
-                    <button class="tab-btn" onclick="openTab('clubs')">🏌️ 구장 매핑 관리</button>
+                    <button class="tab-btn active" onclick="openTab(event, 'crawls')">🔄 크롤링 현황</button>
+                    <button class="tab-btn" onclick="openTab(event, 'users')">👤 사용자 승인 & 접속 관리</button>
+                    <button class="tab-btn" onclick="openTab(event, 'feedback')">✉️ 구장요청 / 건의함 <span id="feedback-badge" class="badge fail" style="display:none;">0</span></button>
+                    <button class="tab-btn" onclick="openTab(event, 'clubs')">🏌️ 구장 매핑 관리</button>
                 </div>
                 
                 <!-- Tab Contents -->
@@ -1065,7 +1113,7 @@ def admin_stats():
                                 </tr>
                             </thead>
                             <tbody id="clubs-tbody">
-                                <tr><td colspan="6" style="text-align:center; padding:30px;">로딩 중...</td></tr>
+                                <tr><td colspan="7" style="text-align:center; padding:30px;">로딩 중...</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -1193,11 +1241,23 @@ def admin_stats():
                     }}
                 }}
 
-                function openTab(tabName) {{
+                function escapeHtml(str) {{
+                    if (!str) return '';
+                    return String(str)
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#039;');
+                }}
+
+                function openTab(evt, tabName) {{
                     document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
                     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
                     document.getElementById('tab-' + tabName).style.display = 'block';
-                    event.currentTarget.classList.add('active');
+                    if (evt && evt.currentTarget) {{
+                        evt.currentTarget.classList.add('active');
+                    }}
                 }}
                 
                 // --- Clubs Management Logic ---
@@ -1208,7 +1268,7 @@ def admin_stats():
                         clubsData = await res.json();
                         renderClubs();
                     }} catch (e) {{
-                        document.getElementById('clubs-tbody').innerHTML = '<tr><td colspan="6" style="text-align:center;color:red;">데이터 로딩 실패</td></tr>';
+                        document.getElementById('clubs-tbody').innerHTML = '<tr><td colspan="7" style="text-align:center;color:red;">데이터 로딩 실패</td></tr>';
                     }}
                 }}
                 
@@ -1216,27 +1276,27 @@ def admin_stats():
                     const tbody = document.getElementById('clubs-tbody');
                     tbody.innerHTML = '';
                     if (clubsData.length === 0) {{
-                        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">구장 데이터가 없습니다.</td></tr>';
+                        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;">구장 데이터가 없습니다.</td></tr>';
                         return;
                     }}
                     clubsData.forEach((club, index) => {{
                         const tr = document.createElement('tr');
-                        const tsBadge = club.status.ts ? '<span style="color:green;font-weight:bold;">✅ TS</span>' : '<span style="color:red;font-weight:bold;">❌ TS</span>';
-                        const gpBadge = club.status.gp ? '<span style="color:green;font-weight:bold;">✅ GP</span>' : '<span style="color:red;font-weight:bold;">❌ GP</span>';
+                        const tsBadge = club.status && club.status.ts ? '<span style="color:green;font-weight:bold;">✅ TS</span>' : '<span style="color:red;font-weight:bold;">❌ TS</span>';
+                        const gpBadge = club.status && club.status.gp ? '<span style="color:green;font-weight:bold;">✅ GP</span>' : '<span style="color:red;font-weight:bold;">❌ GP</span>';
                         const statusHtml = `${{tsBadge}} / ${{gpBadge}}`;
                         const checkedStr = club.alert_enabled ? 'checked' : '';
                         const alertHtml = `<input type="checkbox" onchange="toggleAlert(${{index}})" ${{checkedStr}} style="cursor:pointer; width:18px; height:18px;">`;
                         
                         tr.innerHTML = `
-                            <td>${{club.name}}</td>
-                            <td><span style="font-size:0.8rem;color:#666;">${{club.address || ''}}</span></td>
-                            <td style="text-align:center;">${{club.seq ? `<a href="https://www.teescanner.com/booking/detail?golfclub_seq=${{club.seq}}" target="_blank" style="color:#0969da; text-decoration:underline;">${{club.seq}}</a>` : '-'}}</td>
-                            <td style="text-align:center;">${{club.Golpang_code || '-'}}</td>
+                            <td>${{escapeHtml(club.name)}}</td>
+                            <td><span style="font-size:0.8rem;color:#666;">${{escapeHtml(club.address || '')}}</span></td>
+                            <td style="text-align:center;">${{club.seq ? `<a href="https://www.teescanner.com/booking/detail?golfclub_seq=${{encodeURIComponent(club.seq)}}" target="_blank" style="color:#0969da; text-decoration:underline;">${{escapeHtml(club.seq)}}</a>` : '-'}}</td>
+                            <td style="text-align:center;">${{escapeHtml(club.Golpang_code || '-')}}</td>
                             <td style="text-align:center;">${{statusHtml}}</td>
                             <td style="text-align:center;">${{alertHtml}}</td>
                             <td style="text-align:center;">
                                 <button onclick="editClub(${{index}})" style="padding:4px 8px;cursor:pointer;">수정</button>
-                                <button onclick="deleteClub('${{club.name}}')" style="padding:4px 8px;cursor:pointer;color:red;">삭제</button>
+                                <button onclick="deleteClubByIndex(${{index}})" style="padding:4px 8px;cursor:pointer;color:red;">삭제</button>
                             </td>
                         `;
                         tbody.appendChild(tr);
@@ -1306,6 +1366,23 @@ def admin_stats():
                     loadClubs(); loadUsers(); loadFeedback();
                 }}
                 
+                async function deleteClubByIndex(index) {{
+                    const club = clubsData[index];
+                    if (!club) return;
+                    if (confirm(`정말 '${{club.name}}' 구장을 삭제하시겠습니까?`)) {{
+                        try {{
+                            const res = await fetch('/api/admin/clubs', {{
+                                method: 'DELETE',
+                                headers: {{'Content-Type': 'application/json'}},
+                                body: JSON.stringify({{name: club.name}})
+                            }});
+                            loadClubs(); loadUsers(); loadFeedback();
+                        }} catch (e) {{
+                            alert('삭제 실패: ' + e);
+                        }}
+                    }}
+                }}
+
                 async function deleteClub(name) {{
                     if(confirm(`정말 '${{name}}' 구장을 삭제하시겠습니까?`)) {{
                         await fetch('/api/admin/clubs', {{

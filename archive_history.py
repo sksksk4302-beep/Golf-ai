@@ -95,6 +95,7 @@ def archive_history():
     # =========================================
     batch = db.batch()
     batch_count = 0
+    total_snapshot_count = 0
     snapshot_time = datetime.datetime.now(KST)
 
     for club, dates in aggregated.items():
@@ -122,6 +123,7 @@ def archive_history():
 
                 batch.set(doc_ref, data, merge=True)
                 batch_count += 1
+                total_snapshot_count += 1
 
                 if batch_count >= 400:
                     batch.commit()
@@ -131,7 +133,7 @@ def archive_history():
     if batch_count > 0:
         batch.commit()
 
-    print(f"  → price_history 스냅샷 완료 ({batch_count}건)")
+    print(f"  → price_history 스냅샷 완료 ({total_snapshot_count}건)")
 
     # =========================================
     # 4. 어제 날짜 daily_stats 집계 (단기 7일 전 diff용)
