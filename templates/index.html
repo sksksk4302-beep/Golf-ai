@@ -1901,15 +1901,16 @@
                     timeSorted.forEach((item, idx) => {
                         const itemSourceClass = item.source.toLowerCase().includes('teescan') ? 'src-red' : 'src-blue';
                         const item9Html = is9Hole(item) ? '<span class="badge-9hole" title="9홀 라운드 의심 (이른 아침 새벽 시간대의 평균 가격 절반 이하 상품)">9</span>' : '';
-                        const itemCourseHtml = item.course ? `<span style="font-size:0.8rem; color:#4b5563; font-weight:normal; margin-left:5px;">${item.course}</span>` : '';
+                        const itemCourseHtml = item.course ? `<span style="font-size:0.8rem; color:#4b5563; font-weight:normal; margin-right:2px;">${item.course}</span>` : '';
                         
                         if (item.source.toLowerCase().includes('teescan')) {
                             desktopDetailsHtml += `
                                 <a href="${item.url || 'https://m.teescanner.com/'}" class="detail-item" style="padding: 6px 0; border-bottom: 1px dashed #eee; text-decoration: none; color: inherit; display: flex; justify-content: space-between;" onclick="event.preventDefault(); event.stopPropagation(); handleTeescanClick(null, '${item.url || 'https://m.teescanner.com/'}');">
                                     <span class="d-time" style="font-size:0.9rem;">${item.time}</span>
-                                    <div style="display:flex; gap:4px; align-items:center;">
+                                    <div style="display:flex; gap:6px; align-items:center;">
+                                        ${itemCourseHtml}
                                         <span class="d-source ${itemSourceClass}" style="font-size:0.7rem;">${item.source}</span>
-                                        <span class="d-price" style="font-size:0.9rem;">${item.price.toLocaleString()}${itemCourseHtml}${item9Html}</span>
+                                        <span class="d-price" style="font-size:0.9rem;">₩${item.price.toLocaleString()}${item9Html}</span>
                                     </div>
                                 </a>
                             `;
@@ -1917,9 +1918,10 @@
                             desktopDetailsHtml += `
                                 <div class="detail-item" style="padding: 6px 0; border-bottom: 1px dashed #eee;" onclick="event.stopPropagation(); handleBookingClick('${escapeStr(best.club_name)}', '${escapeStr(item.date)}', '${escapeStr(item.time)}', ${item.price}, '${escapeStr(item.source)}', '${escapeStr(item.source_idx)}', '${escapeStr(item.url)}')">
                                     <span class="d-time" style="font-size:0.9rem;">${item.time}</span>
-                                    <div style="display:flex; gap:4px; align-items:center;">
+                                    <div style="display:flex; gap:6px; align-items:center;">
+                                        ${itemCourseHtml}
                                         <span class="d-source ${itemSourceClass}" style="font-size:0.7rem;">${item.source}</span>
-                                        <span class="d-price" style="font-size:0.9rem;">${item.price.toLocaleString()}${itemCourseHtml}${item9Html}</span>
+                                        <span class="d-price" style="font-size:0.9rem;">₩${item.price.toLocaleString()}${item9Html}</span>
                                     </div>
                                 </div>
                             `;
@@ -1948,7 +1950,7 @@
                     const benefitHtml = benefitText ? `<span style="font-size:0.65rem; color:#e74c3c; margin-left:4px; font-weight:normal;">${benefitText}</span>` : '';
 
                     const best9Html = is9Hole(best) ? '<span class="badge-9hole" title="9홀 라운드 의심 (이른 아침 새벽 시간대의 평균 가격 절반 이하 상품)">9</span>' : '';
-                    const bestCourseHtml = best.course ? `<span style="font-size:0.95rem; color:#4b5563; font-weight:normal; margin-left:6px;">${best.course}</span>` : '';
+                    const bestCourseHtml = best.course ? `<span class="best-course" style="font-size:0.95rem; color:#4b5563; font-weight:normal;">${best.course}</span>` : '';
 
                     card.innerHTML = `
                         <div class="card-content">
@@ -1960,7 +1962,10 @@
                                 <span class="count-badge">${groupItems.length}</span>
                             </div>
                             <div class="card-mid" style="margin-bottom:8px;">
-                                <span class="best-price" style="font-size:1.3rem;">₩${best.price.toLocaleString()}~</span>${bestCourseHtml}${best9Html}${benefitHtml}
+                                <div style="display:flex; align-items:baseline; gap:4px;">
+                                    <span class="best-price" style="font-size:1.3rem;">₩${best.price.toLocaleString()}~</span>${best9Html}${benefitHtml}
+                                </div>
+                                ${bestCourseHtml}
                             </div>
                             <div class="card-btm">
                                 <div style="display:flex; align-items:center; gap:6px;">
@@ -2046,11 +2051,14 @@
                 }
                 
                 const item9Html = is9Hole(item) ? '<span class="badge-9hole" title="9홀 라운드 의심 (이른 아침 새벽 시간대의 평균 가격 절반 이하 상품)">9</span>' : '';
-                const itemCourseHtml = item.course ? `<span style="font-size:0.85rem; color:#4b5563; font-weight:normal; margin-left:6px;">${item.course}</span>` : '';
+                const itemCourseHtml = item.course ? `<span style="font-size:0.85rem; color:#4b5563; font-weight:normal; margin-right:4px;">${item.course}</span>` : '';
                 row.innerHTML = `
                     <span class="d-time">${item.time}</span>
-                    <span class="d-source ${item.source.toLowerCase().includes('teescan') ? 'src-red' : 'src-blue'}">${item.source}</span>
-                    <span class="d-price">₩${item.price.toLocaleString()}${itemCourseHtml}${item9Html}</span>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        ${itemCourseHtml}
+                        <span class="d-source ${item.source.toLowerCase().includes('teescan') ? 'src-red' : 'src-blue'}">${item.source}</span>
+                        <span class="d-price">₩${item.price.toLocaleString()}${item9Html}</span>
+                    </div>
                 `;
                 list.appendChild(row);
             });
