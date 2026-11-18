@@ -91,34 +91,43 @@ def _download_gcs_json(blob):
         # Gzip 압축되지 않은 일반 텍스트인 경우
         return json.loads(raw_bytes.decode('utf-8'))
 
-def _fetch_tee_times_from_gcs(storage_client, dates, today_str, tomorrow_str):
+def _fetch_tee_times_from_gcs(storage_client, dates, today_str, tomorrow_str, existing_main_data=None):
     """GCS에서 기존 날짜별 파일을 다운로드하여 티타임 데이터를 재사용한다."""
     tee_times = []
     bucket = storage_client.bucket(BUCKET_NAME)
     gcs_failed_dates = []
     
-    # 오늘/내일은 메인 static_data.json에만 포함되어 있으므로 별도 처리
+    # 오늘/내일은 메인 static_data.json에 우선 포함되어 있으므로 별도 확인 후, 없으면 날짜별 파일(자정 직후 D+1 전환 등)에서 조회
     main_dates = [d for d in dates if d in (today_str, tomorrow_str)]
     file_dates = [d for d in dates if d not in (today_str, tomorrow_str)]
     
     # 메인 파일에서 오늘/내일 데이터 추출
     if main_dates:
         try:
-            main_blob = bucket.blob("static_data.json")
-            main_data = _download_gcs_json(main_blob)
+            main_data = existing_main_data
+            if main_data is None:
+                main_blob = bucket.blob("static_data.json")
+                main_data = _download_gcs_json(main_blob)
             if main_data:
                 main_tee_times = main_data.get("tee_times", [])
+                found_by_date = defaultdict(list)
                 for tt in main_tee_times:
-                    if tt[1] in main_dates:
-                        tee_times.append(tt)
-                print(f"      ✅ GCS 메인파일에서 오늘/내일 재사용: {len([t for t in tee_times])}건")
+                    if len(tt) > 1 and tt[1] in main_dates:
+                        found_by_date[tt[1]].append(tt)
+                for md in main_dates:
+                    if found_by_date[md]:
+                        tee_times.extend(found_by_date[md])
+                        print(f"      ✅ GCS 메인파일에서 {md} 재사용: {len(found_by_date[md])}건")
+                    else:
+                        # 자정 직후 등 메인파일에 아직 편입되지 않은 경우 날짜별 파일에서 재시도
+                        file_dates.append(md)
             else:
-                gcs_failed_dates.extend(main_dates)
+                file_dates.extend(main_dates)
         except Exception as e:
             print(f"      ❌ GCS 메인파일 다운로드 실패: {e}")
-            gcs_failed_dates.extend(main_dates)
+            file_dates.extend(main_dates)
     
-    # 날짜별 파일에서 D+2~D+14 데이터
+    # 날짜별 파일에서 데이터 조회
     for date_str in file_dates:
         blob = bucket.blob(f"static_data_{date_str}.json")
         try:
@@ -213,15 +222,11 @@ def export_data(db=None, memory_tee_times=None):
         print(f"  📦 Full Export 모드: 전체 D+0~D+14 Firestore에서 읽기")
     
     # =========================================
-    # 1. 골프장 목록 (golf_clubs)
+    # 1. 골프장 목록 (golf_clubs) — 인메모리 캐시 우선 재사용
     # =========================================
     print("  [1/5] golf_clubs 읽기...")
-    clubs_ref = db.collection('golf_clubs').stream()
-    all_clubs_raw = []
-    for doc in clubs_ref:
-        club_data = doc.to_dict()
-        club_data['id'] = doc.id
-        all_clubs_raw.append(club_data)
+    from club_utils import get_golf_clubs
+    all_clubs_raw = get_golf_clubs(db)
     
     # 지역별 그룹핑 (index.html의 fetchClubs 로직과 동일)
     grouped_clubs = defaultdict(list)
@@ -255,7 +260,16 @@ def export_data(db=None, memory_tee_times=None):
     firestore_read_dates = []
     gcs_reuse_dates = []
     memory_dates = set(memory_tee_times.keys()) if memory_tee_times else set()
+    existing_data = None  # GCS 기존 static_data.json (1회만 다운로드하여 공유)
     
+    if is_incremental:
+        try:
+            bucket = storage_client.bucket(BUCKET_NAME)
+            main_blob = bucket.blob("static_data.json")
+            existing_data = _download_gcs_json(main_blob)
+        except Exception as e:
+            print(f"    ⚠️ GCS 기존 static_data.json 읽기 실패: {e}")
+
     # 메모리 직결 데이터가 있으면 먼저 추가하여 Firestore Read를 차단
     if memory_dates:
         print(f"    ✨ 메모리 직결 티타임 데이터 사용: {len(memory_dates)}일 ({sorted(list(memory_dates))}) → Firestore Read 스킵!")
@@ -272,16 +286,14 @@ def export_data(db=None, memory_tee_times=None):
             d = (today + timedelta(days=i)).strftime("%Y-%m-%d")
             crawled_dates.add(d)
         
-        # 오늘/내일은 항상 최신 필요
-        must_read_dates = {today_str, tomorrow_str}
-        
         for d in all_target_dates:
             if d in memory_dates:
                 # 이미 메모리 직결로 추가되었으므로 Firestore나 GCS에서 안 읽음
                 continue
-            elif d in crawled_dates or d in must_read_dates:
+            elif d in crawled_dates:
                 firestore_read_dates.append(d)
             else:
+                # Warm/Cold 실행 시 오늘/내일도 GCS 캐시를 우선 재사용 (누락 시 자동 폴백)
                 gcs_reuse_dates.append(d)
         
         # 중복 제거
@@ -299,7 +311,7 @@ def export_data(db=None, memory_tee_times=None):
         # GCS에서 나머지 날짜 재사용
         if gcs_reuse_dates:
             reused_tee_times, failed_dates = _fetch_tee_times_from_gcs(
-                storage_client, gcs_reuse_dates, today_str, tomorrow_str)
+                storage_client, gcs_reuse_dates, today_str, tomorrow_str, existing_main_data=existing_data)
             all_tee_times.extend(reused_tee_times)
             print(f"    → GCS에서 {len(reused_tee_times)}건 재사용 완료")
             
@@ -308,6 +320,7 @@ def export_data(db=None, memory_tee_times=None):
                 print(f"    → GCS 누락 날짜 Firestore 폴백: {failed_dates}")
                 fallback_tee_times = _fetch_tee_times_from_firestore(db, failed_dates)
                 all_tee_times.extend(fallback_tee_times)
+                firestore_read_dates = sorted(set(firestore_read_dates) | set(failed_dates))
                 print(f"    → Firestore 폴백 {len(fallback_tee_times)}건 추가")
     else:
         # Full Export: 메모리에 없는 날짜만 Firestore에서 읽기
@@ -326,66 +339,65 @@ def export_data(db=None, memory_tee_times=None):
             dates_with_data.add(tt[1])
     available_dates = sorted(list(dates_with_data))
     
+    force_refresh = os.environ.get("FORCE_WEATHER_AND_STATS_REFRESH", "").lower() == "true"
+
     # =========================================
     # 3. 히스토리 데이터 (daily_stats) — diff 계산용
-    #    Incremental 모드: 변경된 날짜의 히스토리만 Firestore에서 읽기
+    #    Incremental 모드: GCS 캐시에 이미 존재하는 7일 전 히스토리는 재사용하고 누락분만 Firestore 조회
     # =========================================
     print("  [3/5] daily_stats 읽기 (7일 전 데이터)...")
     
-    existing_data = None  # GCS 기존 데이터 (incremental용)
-    
-    if is_incremental:
-        # 기존 GCS 데이터를 한번만 읽기
-        try:
-            bucket = storage_client.bucket(BUCKET_NAME)
-            main_blob = bucket.blob("static_data.json")
-            existing_data = _download_gcs_json(main_blob)
-        except Exception as e:
-            print(f"    ⚠️ GCS 기존 데이터 읽기 실패: {e}")
+    if is_incremental and existing_data and not force_refresh:
+        existing_stats = existing_data.get("daily_stats", [])
+        cached_h_dates = {s[1] for s in existing_stats if len(s) > 1}
         
-        # 변경된 날짜에 대한 히스토리만 Firestore에서 읽기
-        changed_dates = set(firestore_read_dates) & dates_with_data
-        fresh_stats = _fetch_daily_stats_from_firestore(db, changed_dates)
+        needed_h_dates = set()
+        missing_target_dates = set()
+        for d_str in dates_with_data:
+            try:
+                d_obj = datetime.datetime.strptime(d_str, "%Y-%m-%d").date()
+                h_date = (d_obj - timedelta(days=7)).strftime("%Y-%m-%d")
+                needed_h_dates.add(h_date)
+                if h_date not in cached_h_dates:
+                    missing_target_dates.add(d_str)
+            except Exception:
+                pass
         
-        # 나머지 날짜의 히스토리는 기존 GCS에서 재사용
-        if existing_data:
-            existing_stats = existing_data.get("daily_stats", [])
-            
-            # 기존 히스토리 중 변경되지 않은 날짜에 해당하는 것만 가져오기
-            existing_history_dates = set()
-            for d_str in (dates_with_data - changed_dates):
-                try:
-                    d_obj = datetime.datetime.strptime(d_str, "%Y-%m-%d").date()
-                    h_date = (d_obj - timedelta(days=7)).strftime("%Y-%m-%d")
-                    existing_history_dates.add(h_date)
-                except:
-                    pass
-            
-            reused_stats = [s for s in existing_stats if s[1] in existing_history_dates]
-            all_daily_stats = fresh_stats + reused_stats
-            print(f"    → Firestore 신규: {len(fresh_stats)}건, GCS 재사용: {len(reused_stats)}건")
-        else:
-            print(f"    ⚠️ GCS 히스토리 재사용 불가, 전체 Firestore 읽기로 폴백")
-            all_daily_stats = _fetch_daily_stats_from_firestore(db, dates_with_data)
+        reused_stats = [s for s in existing_stats if len(s) > 1 and s[1] in needed_h_dates]
+        fresh_stats = _fetch_daily_stats_from_firestore(db, missing_target_dates) if missing_target_dates else []
+        all_daily_stats = fresh_stats + reused_stats
+        print(f"    → Firestore 신규: {len(fresh_stats)}건 (누락 {len(missing_target_dates)}일), GCS 재사용: {len(reused_stats)}건")
     else:
+        if is_incremental and not force_refresh:
+            print(f"    ⚠️ GCS 히스토리 재사용 불가, 전체 Firestore 읽기로 폴백")
         all_daily_stats = _fetch_daily_stats_from_firestore(db, dates_with_data)
     
     print(f"    → {len(all_daily_stats)}개 히스토리 레코드")
     
     # =========================================
     # 4. 날씨 데이터 (weather_forecast)
-    #    Incremental 모드: 변경된 날짜의 날씨만 Firestore에서 읽기 + 기존 재사용
+    #    Incremental 모드: GCS 캐시에 이미 존재하는 날짜의 날씨는 재사용하고 누락분만 Firestore 조회
     # =========================================
     print("  [4/5] weather_forecast 읽기...")
     club_names = set(tt[0] for tt in all_tee_times) # club_name is index 0
     
     weather_data = {}
     
-    if is_incremental:
-        # 변경된 날짜의 날씨만 Firestore에서 읽기
-        changed_weather_dates = set(firestore_read_dates) & dates_with_data
+    if is_incremental and existing_data and not force_refresh:
+        existing_weather = existing_data.get("weather", {})
+        cached_w_dates_norm = {k.split("_")[0] for k in existing_weather.keys() if "_" in k}
+        needed_dates_norm = {d.replace("-", "") for d in dates_with_data}
+        
+        # 기존 GCS의 날씨 데이터 재사용
+        for key, val in existing_weather.items():
+            date_part = key.split("_")[0]
+            if date_part in needed_dates_norm:
+                weather_data[key] = val
+                
+        # GCS에 없던 신규 날짜만 Firestore에서 읽기
+        missing_weather_dates = [d for d in sorted(dates_with_data) if d.replace("-", "") not in cached_w_dates_norm]
         weather_doc_refs = []
-        for d_str in sorted(changed_weather_dates):
+        for d_str in missing_weather_dates:
             d_norm = d_str.replace("-", "")
             for club in club_names:
                 doc_id = f"{d_norm}_{club}"
@@ -406,24 +418,9 @@ def export_data(db=None, memory_tee_times=None):
                             "precip_prob_max": w.get("precip_prob_max"),
                             "weather_code_daily": w.get("weather_code_daily"),
                         }
-        
-        # 기존 GCS의 날씨 데이터 재사용
-        if existing_data:
-            existing_weather = existing_data.get("weather", {})
-            unchanged_dates_norm = set()
-            for d_str in (dates_with_data - changed_weather_dates):
-                unchanged_dates_norm.add(d_str.replace("-", ""))
-            
-            for key, val in existing_weather.items():
-                date_part = key.split("_")[0]
-                if date_part in unchanged_dates_norm:
-                    weather_data[key] = val
-            
-            print(f"    → Firestore 신규: {len(changed_weather_dates)}일, GCS 재사용: {len(unchanged_dates_norm)}일")
-        else:
-            print(f"    ⚠️ GCS 날씨 재사용 불가")
+        print(f"    → Firestore 신규: {len(missing_weather_dates)}일, GCS 재사용: {len(dates_with_data) - len(missing_weather_dates)}일")
     else:
-        # Full export: 기존 로직
+        # Full export 또는 새벽 날씨 강제 갱신 모드
         weather_doc_refs = []
         for d_str in sorted(dates_with_data):
             d_norm = d_str.replace("-", "")
@@ -454,13 +451,24 @@ def export_data(db=None, memory_tee_times=None):
     # =========================================
     print("  [5/5] JSON 빌드 및 Cloud Storage 업로드...")
     
-    # 5-1. 날짜별 티타임 분할
+    # 5-1. 날짜별 티타임 분할 및 구장별 수집 상태(club_status) 집계
     tee_times_by_date = {}
+    club_status = {}
     for tt in all_tee_times:
         date_str = tt[1] # date is index 1
         if date_str not in tee_times_by_date:
             tee_times_by_date[date_str] = []
         tee_times_by_date[date_str].append(tt)
+        
+        c_name = tt[0]
+        src = str(tt[5]).lower() if len(tt) > 5 else ""
+        if c_name:
+            if c_name not in club_status:
+                club_status[c_name] = {"ts": False, "gp": False}
+            if "teescan" in src:
+                club_status[c_name]["ts"] = True
+            elif "golfpang" in src:
+                club_status[c_name]["gp"] = True
     
     # 5-2. 오늘/내일 데이터 식별
     initial_tee_times = []
@@ -471,6 +479,7 @@ def export_data(db=None, memory_tee_times=None):
     
     static_data = {
         "clubs": dict(grouped_clubs),
+        "club_status": club_status,
         "tee_times": initial_tee_times, # 오늘/내일 데이터만 기본 포함
         "daily_stats": all_daily_stats,
         "weather": weather_data,
@@ -521,6 +530,7 @@ def export_data(db=None, memory_tee_times=None):
             upload_target_dates = set()
             for i in range(crawl_start_day, crawl_end_day + 1):
                 upload_target_dates.add((today + timedelta(days=i)).strftime("%Y-%m-%d"))
+            upload_target_dates.update(firestore_read_dates)
         
         for date_str, times in tee_times_by_date.items():
             if date_str == today_str or date_str == tomorrow_str:

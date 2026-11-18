@@ -61,12 +61,15 @@ jobs:
     - name: Run Daily History Archive & BigQuery Finalize
       env:
         PROJECT_ID: "golf-ai-480805"
+        SKIP_WEATHER_IN_ARCHIVE: "true"
       run: |
         python archive_history.py
-        python cleanup_old_history.py
 
     - name: Export Static Data (update CDN)
       env:
         PROJECT_ID: "golf-ai-480805"
+        CRAWL_START_DAY: "0"
+        CRAWL_END_DAY: "-1"
+        FORCE_WEATHER_AND_STATS_REFRESH: "true"
       run: |
         python export_static_data.py

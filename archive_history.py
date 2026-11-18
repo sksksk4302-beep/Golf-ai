@@ -66,16 +66,34 @@ def archive_history():
     print(f"  → Incremental archive 대상: {len(crawled_dates_sorted)}일 ({crawled_dates_sorted})")
 
     # =========================================
-    # 2. 변경된 날짜의 tee_times만 읽기
+    # 2. 변경된 날짜의 tee_times 읽기 (GCS 정적 파일 우선 재사용 + 누락분만 Firestore 폴백)
     # =========================================
-    print("Fetching tee times for changed dates only...")
+    print("Fetching tee times for changed dates (GCS first to save Firestore reads)...")
     aggregated = defaultdict(lambda: defaultdict(lambda: defaultdict(list)))
     count = 0
 
-    DATE_CHUNK = 10
     dates_list = list(crawled_dates_sorted)
-    for i in range(0, len(dates_list), DATE_CHUNK):
-        date_chunk = dates_list[i:i+DATE_CHUNK]
+    fallback_dates = dates_list
+    try:
+        from export_static_data import init_storage, _fetch_tee_times_from_gcs
+        storage_client = init_storage()
+        tomorrow_str = (today + timedelta(days=1)).strftime("%Y-%m-%d")
+        gcs_items, failed_dates = _fetch_tee_times_from_gcs(storage_client, dates_list, today_str, tomorrow_str)
+        for item in gcs_items:
+            if len(item) >= 5:
+                club, date, _, hour, price = item[0], item[1], item[2], item[3], item[4]
+                if club and date and hour is not None and price:
+                    aggregated[club][date][int(hour)].append(int(price))
+                    count += 1
+        fallback_dates = failed_dates
+        print(f"  → GCS에서 {count}건 티타임 로드 완료 (Firestore 폴백 필요 날짜: {len(fallback_dates)}일)")
+    except Exception as e:
+        print(f"  ⚠️ GCS 티타임 로드 실패, Firestore 읽기로 폴백: {e}")
+        fallback_dates = dates_list
+
+    DATE_CHUNK = 10
+    for i in range(0, len(fallback_dates), DATE_CHUNK):
+        date_chunk = fallback_dates[i:i+DATE_CHUNK]
         docs = db.collection('tee_times').where('date', 'in', date_chunk).stream()
         for doc in docs:
             d = doc.to_dict()
@@ -269,9 +287,12 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Backfill note: {e}")
 
-    print("Running weather ingestion as part of daily archive...")
-    from ingest_weather import ingest_weather
-    try:
-        ingest_weather()
-    except Exception as e:
-        print(f"Error during weather ingestion: {e}")
+    if os.environ.get("SKIP_WEATHER_IN_ARCHIVE", "").lower() != "true":
+        print("Running weather ingestion as part of daily archive...")
+        from ingest_weather import ingest_weather
+        try:
+            ingest_weather()
+        except Exception as e:
+            print(f"Error during weather ingestion: {e}")
+    else:
+        print("Skipping weather ingestion in archive_history (already executed by workflow).")

@@ -487,38 +487,84 @@ def api_admin_users():
         print(f"Admin users error: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
 
+_admin_club_stats_cache = {"data": None, "timestamp": None}
+
+def _get_admin_club_stats():
+    """GCS 정적 데이터(static_data.json)에서 구장별 수집 상태를 조회하여 Firestore 5만 건 전수 스캔을 방지."""
+    from datetime import timezone
+    import urllib.request, ssl, gzip
+    KST = timezone(timedelta(hours=9))
+    now = datetime.now(KST)
+    if _admin_club_stats_cache["data"] is not None and _admin_club_stats_cache["timestamp"]:
+        if (now - _admin_club_stats_cache["timestamp"]).total_seconds() < 300:
+            return _admin_club_stats_cache["data"]
+
+    static_data = None
+    try:
+        ctx = ssl._create_unverified_context()
+        req = urllib.request.Request(
+            f"https://storage.googleapis.com/golf-ai-480805.firebasestorage.app/static_data.json?_t={int(now.timestamp() // 300)}"
+        )
+        with urllib.request.urlopen(req, context=ctx, timeout=5) as res:
+            raw = res.read()
+            try:
+                raw = gzip.decompress(raw)
+            except Exception:
+                pass
+            static_data = json.loads(raw.decode("utf-8"))
+    except Exception as e:
+        print(f"GCS static_data load in admin clubs fallback to local: {e}")
+        try:
+            local_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "public", "static_data.json")
+            if os.path.exists(local_path):
+                with open(local_path, "r", encoding="utf-8") as f:
+                    static_data = json.load(f)
+        except Exception:
+            pass
+
+    club_stats = {}
+    if static_data:
+        if "club_status" in static_data and isinstance(static_data["club_status"], dict):
+            club_stats = static_data["club_status"]
+        else:
+            for tt in static_data.get("tee_times", []):
+                if isinstance(tt, list) and len(tt) > 5:
+                    c_name, src = tt[0], str(tt[5]).lower()
+                elif isinstance(tt, dict):
+                    c_name, src = tt.get("club_name"), str(tt.get("source", "")).lower()
+                else:
+                    continue
+                if not c_name:
+                    continue
+                if c_name not in club_stats:
+                    club_stats[c_name] = {"ts": False, "gp": False}
+                if "teescan" in src:
+                    club_stats[c_name]["ts"] = True
+                elif "golfpang" in src:
+                    club_stats[c_name]["gp"] = True
+
+    _admin_club_stats_cache["data"] = club_stats
+    _admin_club_stats_cache["timestamp"] = now
+    return club_stats
+
 @app.route("/api/admin/clubs", methods=["GET", "POST", "PUT", "DELETE"])
 @require_admin
 def api_admin_clubs():
     try:
         if request.method == "GET":
-            # Fetch all clubs from Firestore
-            clubs = get_golf_clubs(db, force_refresh=True)
+            # 인메모리 캐시 우선 사용 (추가/수정/삭제 시에만 force_refresh=True로 갱신됨)
+            clubs = get_golf_clubs(db, force_refresh=False)
+            club_stats = _get_admin_club_stats()
             
-            # Aggregate stats from today's tee_times
-            from datetime import timezone, timedelta, datetime
-            KST = timezone(timedelta(hours=9))
-            today_str = datetime.now(KST).strftime('%Y-%m-%d')
-            
-            # Simple stats gathering
-            tee_times_ref = db.collection('tee_times').where('date', '>=', today_str).stream()
-            club_stats = {}
-            for doc in tee_times_ref:
-                data = doc.to_dict()
-                c_name = data.get('club_name')
-                src = data.get('source')
-                if not c_name or not src: continue
-                if c_name not in club_stats:
-                    club_stats[c_name] = {'ts': False, 'gp': False}
-                if src == 'teescan': club_stats[c_name]['ts'] = True
-                if src == 'golfpang': club_stats[c_name]['gp'] = True
-                
-            # Merge stats into clubs
+            # Merge stats into clubs (원본 캐시 변형 방지를 위해 복사본 반환)
+            result = []
             for c in clubs:
-                c_name = c.get('name')
-                c['status'] = club_stats.get(c_name, {'ts': False, 'gp': False})
+                c_copy = dict(c)
+                c_name = c_copy.get('name')
+                c_copy['status'] = club_stats.get(c_name, {'ts': False, 'gp': False})
+                result.append(c_copy)
                 
-            return jsonify(clubs)
+            return jsonify(result)
             
         elif request.method == "POST":
             # Add new club
@@ -1251,12 +1297,22 @@ def admin_stats():
                         .replace(/'/g, '&#039;');
                 }}
 
+                let usersLoaded = false;
+                let clubsLoaded = false;
+
                 function openTab(evt, tabName) {{
                     document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
                     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
                     document.getElementById('tab-' + tabName).style.display = 'block';
                     if (evt && evt.currentTarget) {{
                         evt.currentTarget.classList.add('active');
+                    }}
+                    if (tabName === 'users' && !usersLoaded) {{
+                        usersLoaded = true;
+                        loadUsers();
+                    }} else if (tabName === 'clubs' && !clubsLoaded) {{
+                        clubsLoaded = true;
+                        loadClubs();
                     }}
                 }}
                 
@@ -1325,7 +1381,7 @@ def admin_stats():
                         if(!res.ok) throw new Error('Network error');
                     }} catch (e) {{
                         alert('알림 설정 저장에 실패했습니다.');
-                        loadClubs(); loadUsers(); loadFeedback();
+                        loadClubs();
                     }}
                 }}
                 
@@ -1363,7 +1419,7 @@ def admin_stats():
                         headers: {{'Content-Type': 'application/json'}},
                         body: JSON.stringify(data)
                     }});
-                    loadClubs(); loadUsers(); loadFeedback();
+                    loadClubs();
                 }}
                 
                 async function deleteClubByIndex(index) {{
@@ -1376,7 +1432,7 @@ def admin_stats():
                                 headers: {{'Content-Type': 'application/json'}},
                                 body: JSON.stringify({{name: club.name}})
                             }});
-                            loadClubs(); loadUsers(); loadFeedback();
+                            loadClubs();
                         }} catch (e) {{
                             alert('삭제 실패: ' + e);
                         }}
@@ -1390,7 +1446,7 @@ def admin_stats():
                             headers: {{'Content-Type': 'application/json'}},
                             body: JSON.stringify({{name: name}})
                         }});
-                        loadClubs(); loadUsers(); loadFeedback();
+                        loadClubs();
                     }}
                 }}
                 
@@ -1429,9 +1485,9 @@ def admin_stats():
                     }}
                 }}
                 
-                // Initialize
+                // Initialize (활성 탭 및 배지 카운트만 우선 로드, 사용자/구장 목록은 탭 클릭 시 지연 로드)
                 window.onload = function() {{
-                    loadClubs(); loadUsers(); loadFeedback();
+                    loadFeedback();
                 }};
             </script>
         </body>
